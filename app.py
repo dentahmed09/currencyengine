@@ -232,18 +232,23 @@ with tab_dashboard:
                 else:
                     st.info(f"لا توجد بيانات لـ {currency}")
 
-# ──── تبويب نتائج الأزواج ─────────────────────────────────
+# ──── تبويب نتائج الأزواج (مع إضافة زر لعرض الشارت) ─────────────────────
 with tab_results:
     if db_daily.empty or len(db_daily) < 2:
         st.info("أدخل بيانات يومين على الأقل لعرض النتائج")
     else:
         st.header("نتائج الأزواج – تحليل 5 نقاط")
         
+        # تهيئة session state لتخزين حالة الشارتات
+        if 'show_chart' not in st.session_state:
+            st.session_state.show_chart = {}
+        
         latest = db_daily.iloc[-1]
         prev = db_daily.iloc[-2]
         delta = {c: latest[c] - prev[c] for c in currencies}
         
         results = []
+        
         for pair in pairs:
             base, quote = pair[:3], pair[3:]
             health_today = latest[base] - latest[quote]
@@ -290,6 +295,8 @@ with tab_results:
         
         df_results = pd.DataFrame(results).sort_values("Total", ascending=False).reset_index(drop=True)
         
+        st.subheader("تحليل الـ 5 نقاط لكل زوج")
+        
         for idx, row in df_results.iterrows():
             pair = row["الزوج"]
             total = row["Total"]
@@ -300,16 +307,17 @@ with tab_results:
             values = [row["score_h"], row["score_b"], row["score_q"], row["score_comp"], row["score_diff"]]
             
             fig = go.Figure()
-            fig.add_trace(go.Bar(x=values, y=categories, orientation='h',
-                                 marker_color=['gold' if v > 0 else 'red' if v < 0 else 'gray' for v in values],
-                                 text=values, textposition='auto'))
+            fig.add_trace(go.Bar(
+                x=values, y=categories, orientation='h',
+                marker_color=['gold' if v > 0 else 'red' if v < 0 else 'gray' for v in values],
+                text=values, textposition='auto', width=0.6
+            ))
             fig.update_layout(
-                title=f"{pair} → {signal} | Total Score: {total} | قوة الإشارة: {strength:.0f}%",
-                xaxis=dict(range=[-1.2, 1.2]),
-                height=280,
-                template="plotly_white"
+                title=f"{pair}  →  {signal}   |   Total Score: {total}   |   قوة الإشارة: {strength:.0f}%",
+                xaxis=dict(range=[-1.2, 1.2], dtick=1, zeroline=True, zerolinecolor='black', zerolinewidth=3),
+                yaxis=dict(title=""), height=280, template="plotly_white", margin=dict(l=80, r=20, t=60, b=40)
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"results_chart_{pair}")
             
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Health Delta", f"{row['H']:+.2f}")
@@ -317,12 +325,87 @@ with tab_results:
             col3.metric("Quote Delta", f"{row['Q']:+.2f}")
             col4.metric("Total Score", f"{total} / 5")
             
+            # زر عرض الشارت للزوج
+            if st.button(f"📈 عرض شارت {pair}", key=f"btn_chart_{pair}"):
+                # تبديل حالة الشارت
+                st.session_state.show_chart[pair] = not st.session_state.show_chart.get(pair, False)
+            
+            # عرض الشارت إذا كان الزر مفعلاً
+            if st.session_state.show_chart.get(pair, False):
+                st.markdown(f"#### 📊 شارت الزوج {pair}")
+                
+                base, quote = pair[:3], pair[3:]
+                plot_df = db_daily.set_index('Date')
+                
+                if base not in plot_df.columns or quote not in plot_df.columns:
+                    st.warning(f"⚠️ البيانات غير كاملة للزوج {pair}")
+                else:
+                    plot_df['Strength'] = plot_df[base] - plot_df[quote]
+                    plot_df['Δ ' + base] = plot_df[base].diff()
+                    plot_df['Δ ' + quote] = plot_df[quote].diff()
+                    plot_df = plot_df.dropna(subset=['Δ ' + base, 'Δ ' + quote])
+                    
+                    if plot_df.empty:
+                        st.warning("⚠️ بيانات غير كافية لرسم الشارت")
+                    else:
+                        fig_pair = go.Figure()
+                        
+                        fig_pair.add_trace(go.Scatter(
+                            x=plot_df.index, y=plot_df['Strength'],
+                            name=f"✨ قوة {pair}",
+                            line=dict(color='#f1c40f', width=3.5),
+                            mode='lines+markers',
+                            fill='tozeroy',
+                            fillcolor='rgba(241, 196, 15, 0.1)'
+                        ))
+                        
+                        fig_pair.add_trace(go.Scatter(
+                            x=plot_df.index, y=plot_df['Δ ' + base],
+                            name=f"📈 تغير {base}",
+                            line=dict(color='#10b981', width=2.5, dash='dash'),
+                            yaxis='y2'
+                        ))
+                        
+                        fig_pair.add_trace(go.Scatter(
+                            x=plot_df.index, y=plot_df['Δ ' + quote],
+                            name=f"📉 تغير {quote}",
+                            line=dict(color='#ef4444', width=2.5, dash='dash'),
+                            yaxis='y2'
+                        ))
+                        
+                        fig_pair.add_hline(y=0, line_dash="solid", line_color="#6b7280", line_width=1.5)
+                        
+                        fig_pair.update_layout(
+                            title=dict(text=f"<b>{pair}</b> – قوة الزوج والتغييرات اليومية",
+                                      font=dict(size=18, color='#f1c40f'), x=0.5),
+                            height=500,
+                            yaxis=dict(title=dict(text=f"<b>قوة الزوج</b><br>({base} - {quote})", font=dict(size=12))),
+                            yaxis2=dict(title=dict(text="<b>التغيير اليومي</b>", font=dict(size=12)),
+                                       overlaying='y', side='right', showgrid=False),
+                            template="plotly_dark",
+                            hovermode="x unified",
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                            plot_bgcolor='rgba(15, 23, 42, 0.8)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            margin=dict(t=80, b=50, l=60, r=80)
+                        )
+                        
+                        st.plotly_chart(fig_pair, use_container_width=True)
+                        
+                        # عرض آخر القيم
+                        last = plot_df.iloc[-1]
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("قوة الزوج", f"{last['Strength']:.2f}")
+                        c2.metric(f"Δ {base}", f"{last['Δ ' + base]:+.2f}")
+                        c3.metric(f"Δ {quote}", f"{last['Δ ' + quote]:+.2f}")
+            
             st.markdown("---")
         
         st.subheader("ملخص الإشارات")
         summary_df = df_results[["الزوج", "Total", "الإشارة", "القوة %"]].copy()
-        st.dataframe(summary_df.style.format({"Total": "{:+d}", "القوة %": "{:.0f}%"}), 
-                     hide_index=True, use_container_width=True, height=600)
+        summary_df = summary_df.style.format({"Total": "{:+d}", "القوة %": "{:.0f}%"})
+        st.dataframe(summary_df, hide_index=True, use_container_width=True, height=600)
+
 
 # ──── Sidebar ────────────────────────────────────────────────────────────
 with st.sidebar:
