@@ -139,7 +139,7 @@ with tab_dashboard:
     if db_daily.empty:
         st.info("أدخل بيانات يومية أولاً")
     else:
-        st.header("🌙 داش بورد يومي – آخر تحديث")
+        st.header("🌙 داش بورد يومي – آخر تحديث (دارك مود)")
         
         latest = db_daily.iloc[-1]
         prev = db_daily.iloc[-2] if len(db_daily) >= 2 else None
@@ -147,91 +147,210 @@ with tab_dashboard:
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("### 🥧 ترتيب العملات حسب القوة")
+            st.markdown("""
+            <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
+                        border-radius: 15px; padding: 20px; margin: 10px 0; 
+                        border: 1px solid #334155;'>
+                <h3 style='color: #f1c40f; text-align: center; margin-bottom: 20px;'>🥧 ترتيب العملات حسب القوة</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
             strength_df = latest[currencies].to_frame('القوة').sort_values('القوة', ascending=False).reset_index(names='العملة')
+            colors = ['#f39c12', '#e67e22', '#e74c3c', '#3498db', '#2ecc71', '#1abc9c', '#9b59b6', '#34495e']
             
             fig_pie = go.Figure(data=[go.Pie(
                 labels=strength_df['العملة'],
                 values=strength_df['القوة'].abs(),
                 textinfo='label+percent',
+                textposition='inside',
                 hole=0.35,
-                marker=dict(colors=['#f39c12', '#e67e22', '#e74c3c', '#3498db', '#2ecc71', '#1abc9c', '#9b59b6', '#34495e']),
+                marker=dict(colors=colors, line=dict(color='#1e2a3a', width=3)),
+                hovertemplate='<b>%{label}</b><br>القوة: %{customdata:.2f}<br><extra></extra>',
+                customdata=strength_df['القوة'],
+                textfont=dict(size=12, color='white')
             )])
-            fig_pie.update_layout(title="توزيع قوة العملات", height=500, template="plotly_dark")
-            st.plotly_chart(fig_pie, use_container_width=True)
             
-            with st.expander("عرض الترتيب التفصيلي"):
-                st.dataframe(strength_df.style.format({'القوة': '{:.2f}'}), hide_index=True, use_container_width=True)
+            strongest = strength_df.iloc[0]['العملة']
+            strongest_value = strength_df.iloc[0]['القوة']
+            
+            fig_pie.add_annotation(
+                text=f"<b>{strongest}</b><br>{strongest_value:.1f}",
+                x=0.5, y=0.5, font=dict(size=16, color='#f1c40f'), showarrow=False,
+                bgcolor='rgba(15, 23, 42, 0.8)', bordercolor='#f1c40f', borderwidth=2
+            )
+            
+            fig_pie.update_layout(
+                title=dict(text="🏆 توزيع قوة العملات", font=dict(size=18, color='#f1c40f'), x=0.5),
+                height=550, showlegend=True, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05,
+                           font=dict(size=11, color='#e2e8f0'), bgcolor='rgba(15, 23, 42, 0.7)')
+            )
+            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
+            
+            with st.expander("📊 عرض تفاصيل الترتيب"):
+                st.dataframe(strength_df.style.format({'القوة': '{:.2f}'}).bar(subset=['القوة'], color='#f39c12')
+                            .set_properties(**{'background-color': '#1e2a3a', 'color': '#e2e8f0'}),
+                            hide_index=True, use_container_width=True)
         
         with col2:
-            st.markdown("### 📊 التغيرات اليومية")
+            st.markdown("""
+            <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
+                        border-radius: 15px; padding: 20px; margin: 10px 0; 
+                        border: 1px solid #334155;'>
+                <h3 style='color: #f1c40f; text-align: center; margin-bottom: 20px;'>📊 التغيرات اليومية</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
             if prev is not None:
                 deltas = {c: latest[c] - prev[c] for c in currencies}
                 sorted_currencies = sorted(currencies, key=lambda x: deltas[x])
                 sorted_deltas = [deltas[c] for c in sorted_currencies]
+                bar_colors = ['#ef4444' if x < 0 else '#10b981' if x > 0 else '#6b7280' for x in sorted_deltas]
                 
                 fig_bar = go.Figure()
-                fig_bar.add_trace(go.Bar(
-                    x=sorted_currencies,
-                    y=sorted_deltas,
-                    marker_color=['#ef4444' if x < 0 else '#10b981' if x > 0 else '#6b7280' for x in sorted_deltas],
-                    text=[f"{x:+.2f}" for x in sorted_deltas],
-                    textposition='outside'
-                ))
-                fig_bar.update_layout(title="التغيرات اليومية", height=500, template="plotly_dark")
+                fig_bar.add_trace(go.Bar(x=sorted_currencies, y=sorted_deltas,
+                    marker=dict(color=bar_colors), text=[f"{x:+.2f}" for x in sorted_deltas], textposition='outside'))
+                fig_bar.add_hline(y=0, line_dash="solid", line_color="#f1c40f", line_width=2.5)
+                
+                max_delta = max(abs(min(sorted_deltas)), abs(max(sorted_deltas))) if sorted_deltas else 10
+                y_range = max_delta * 1.3 if max_delta > 0 else 10
+                
+                fig_bar.update_layout(
+                    title=dict(text="<b>التغيرات اليومية لكل عملة</b>", font=dict(size=16, color='#f1c40f'), x=0.5),
+                    xaxis=dict(title=dict(text="<b>العملة</b>", font=dict(size=13, color='#e2e8f0')), tickangle=45),
+                    yaxis=dict(title=dict(text="<b>قيمة التغير</b>", font=dict(size=13, color='#e2e8f0')), range=[-y_range, y_range]),
+                    height=550, template="plotly_dark", plot_bgcolor='rgba(15, 23, 42, 0.8)',
+                    paper_bgcolor='rgba(0,0,0,0)'
+                )
                 st.plotly_chart(fig_bar, use_container_width=True)
+                
+                with st.expander("📊 عرض تفاصيل التغيرات"):
+                    changes_df = pd.DataFrame({'العملة': sorted_currencies, 'التغير اليومي': sorted_deltas})
+                    st.dataframe(changes_df.style.format({'التغير اليومي': '{:+.2f}'})
+                                .set_properties(**{'background-color': '#1e2a3a', 'color': '#e2e8f0'}),
+                                hide_index=True, use_container_width=True)
             else:
-                st.info("لا يوجد يوم سابق لحساب التغيرات")
-
-        # شارتات تطور العملات
+                st.info("ℹ️ لا يوجد يوم سابق لحساب التغيرات")
+        
+        # الشارتات الـ 8
         st.markdown("---")
-        st.subheader("📈 تطور قوة العملات (يومي - أسبوعي - شهري)")
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
+                    border-radius: 15px; padding: 20px; margin: 20px 0; 
+                    border: 1px solid #334155;'>
+            <h3 style='color: #f1c40f; text-align: center;'>📈 تحليل تطور قوة العملات (يومي - أسبوعي - شهري)</h3>
+        </div>
+        """, unsafe_allow_html=True)
         
         for i in range(0, len(currencies), 2):
-            for j in range(2):
-                if i + j >= len(currencies):
-                    break
-                currency = currencies[i + j]
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                currency = currencies[i]
                 st.markdown(f"### 💱 {currency}")
-                
                 chart_data = pd.DataFrame()
                 
                 if not db_daily.empty:
-                    daily = db_daily[['Date', currency]].copy().rename(columns={currency: 'يومي'})
-                    chart_data = daily
+                    daily_data = db_daily[['Date', currency]].copy().rename(columns={currency: 'يومي'})
+                    chart_data = pd.concat([chart_data, daily_data], ignore_index=True)
                 if not db_weekly.empty:
-                    weekly = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'أسبوعي'})
-                    chart_data = chart_data.merge(weekly, on='Date', how='outer') if not chart_data.empty else weekly
+                    weekly_data = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'أسبوعي'})
+                    if not chart_data.empty:
+                        chart_data = chart_data.merge(weekly_data[['Date', 'أسبوعي']], on='Date', how='outer')
+                    else:
+                        chart_data = weekly_data
                 if not db_monthly.empty:
-                    monthly = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'شهري'})
-                    chart_data = chart_data.merge(monthly, on='Date', how='outer') if not chart_data.empty else monthly
+                    monthly_data = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'شهري'})
+                    if not chart_data.empty:
+                        chart_data = chart_data.merge(monthly_data[['Date', 'شهري']], on='Date', how='outer')
+                    else:
+                        chart_data = monthly_data
                 
                 if not chart_data.empty:
                     chart_data = chart_data.sort_values('Date').reset_index(drop=True)
                     fig = go.Figure()
                     
-                    if 'يومي' in chart_data.columns:
-                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['يومي'], name='يومي', 
-                                               line=dict(color='#3498db', width=2.5)))
-                    if 'أسبوعي' in chart_data.columns:
-                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['أسبوعي'], name='أسبوعي', 
-                                               line=dict(color='#f1c40f', width=2.5, dash='dash')))
-                    if 'شهري' in chart_data.columns:
-                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['شهري'], name='شهري', 
-                                               line=dict(color='white', width=2.5, dash='dot')))
+                    if 'يومي' in chart_data.columns and not chart_data['يومي'].isna().all():
+                        daily_plot = chart_data[chart_data['يومي'].notna()]
+                        fig.add_trace(go.Scatter(x=daily_plot['Date'], y=daily_plot['يومي'], mode='lines+markers',
+                                                  name='يومي', line=dict(color='#3498db', width=2.5)))
+                    if 'أسبوعي' in chart_data.columns and not chart_data['أسبوعي'].isna().all():
+                        weekly_plot = chart_data[chart_data['أسبوعي'].notna()]
+                        fig.add_trace(go.Scatter(x=weekly_plot['Date'], y=weekly_plot['أسبوعي'], mode='lines+markers',
+                                                  name='أسبوعي', line=dict(color='#f1c40f', width=2.5, dash='dash')))
+                    if 'شهري' in chart_data.columns and not chart_data['شهري'].isna().all():
+                        monthly_plot = chart_data[chart_data['شهري'].notna()]
+                        fig.add_trace(go.Scatter(x=monthly_plot['Date'], y=monthly_plot['شهري'], mode='lines+markers',
+                                                  name='شهري', line=dict(color='white', width=2.5, dash='dot')))
                     
                     fig.update_layout(
-                        title=f"{currency} - تطور القوة",
-                        xaxis_title="التاريخ",
-                        yaxis_title="قوة العملة",
-                        height=400,
-                        template="plotly_dark",
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+                        title=dict(text=f"<b>{currency}</b> - تطور القوة", font=dict(size=14, color='#f1c40f'), x=0.5),
+                        xaxis=dict(title=dict(text="<b>التاريخ</b>", font=dict(size=10, color='#e2e8f0')), tickangle=45),
+                        yaxis=dict(title=dict(text="<b>قوة العملة</b>", font=dict(size=10, color='#e2e8f0')),
+                                  zeroline=True, zerolinecolor='#f1c40f'),
+                        height=400, template="plotly_dark", hovermode='x unified',
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                        plot_bgcolor='rgba(15, 23, 42, 0.8)', paper_bgcolor='rgba(0,0,0,0)'
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5)
+                    st.plotly_chart(fig, use_container_width=True, key=f"dashboard_chart_{currency}")
                 else:
-                    st.info(f"لا توجد بيانات لـ {currency}")
-
+                    st.info(f"لا توجد بيانات للعملة {currency}")
+            
+            if i + 1 < len(currencies):
+                with col2:
+                    currency = currencies[i + 1]
+                    st.markdown(f"### 💱 {currency}")
+                    chart_data = pd.DataFrame()
+                    
+                    if not db_daily.empty:
+                        daily_data = db_daily[['Date', currency]].copy().rename(columns={currency: 'يومي'})
+                        chart_data = pd.concat([chart_data, daily_data], ignore_index=True)
+                    if not db_weekly.empty:
+                        weekly_data = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'أسبوعي'})
+                        if not chart_data.empty:
+                            chart_data = chart_data.merge(weekly_data[['Date', 'أسبوعي']], on='Date', how='outer')
+                        else:
+                            chart_data = weekly_data
+                    if not db_monthly.empty:
+                        monthly_data = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'شهري'})
+                        if not chart_data.empty:
+                            chart_data = chart_data.merge(monthly_data[['Date', 'شهري']], on='Date', how='outer')
+                        else:
+                            chart_data = monthly_data
+                    
+                    if not chart_data.empty:
+                        chart_data = chart_data.sort_values('Date').reset_index(drop=True)
+                        fig = go.Figure()
+                        
+                        if 'يومي' in chart_data.columns and not chart_data['يومي'].isna().all():
+                            daily_plot = chart_data[chart_data['يومي'].notna()]
+                            fig.add_trace(go.Scatter(x=daily_plot['Date'], y=daily_plot['يومي'], mode='lines+markers',
+                                                      name='يومي', line=dict(color='#3498db', width=2.5)))
+                        if 'أسبوعي' in chart_data.columns and not chart_data['أسبوعي'].isna().all():
+                            weekly_plot = chart_data[chart_data['أسبوعي'].notna()]
+                            fig.add_trace(go.Scatter(x=weekly_plot['Date'], y=weekly_plot['أسبوعي'], mode='lines+markers',
+                                                      name='أسبوعي', line=dict(color='#f1c40f', width=2.5, dash='dash')))
+                        if 'شهري' in chart_data.columns and not chart_data['شهري'].isna().all():
+                            monthly_plot = chart_data[chart_data['شهري'].notna()]
+                            fig.add_trace(go.Scatter(x=monthly_plot['Date'], y=monthly_plot['شهري'], mode='lines+markers',
+                                                      name='شهري', line=dict(color='white', width=2.5, dash='dot')))
+                        
+                        fig.update_layout(
+                            title=dict(text=f"<b>{currency}</b> - تطور القوة", font=dict(size=14, color='#f1c40f'), x=0.5),
+                            xaxis=dict(title=dict(text="<b>التاريخ</b>", font=dict(size=10, color='#e2e8f0')), tickangle=45),
+                            yaxis=dict(title=dict(text="<b>قوة العملة</b>", font=dict(size=10, color='#e2e8f0')),
+                                      zeroline=True, zerolinecolor='#f1c40f'),
+                            height=400, template="plotly_dark", hovermode='x unified',
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                            plot_bgcolor='rgba(15, 23, 42, 0.8)', paper_bgcolor='rgba(0,0,0,0)'
+                        )
+                        fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5)
+                        st.plotly_chart(fig, use_container_width=True, key=f"dashboard_chart_{currency}")
+                    else:
+                        st.info(f"لا توجد بيانات للعملة {currency}")
+            
+            st.markdown("---")
 # ──── تبويب نتائج الأزواج (مع إضافة زر لعرض الشارت) ─────────────────────
 with tab_results:
     if db_daily.empty or len(db_daily) < 2:
