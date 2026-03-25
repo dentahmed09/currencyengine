@@ -18,11 +18,12 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(credentials)
 
-# ==================== غيّر الأسماء دي حسب Google Sheet بتاعك ====================
-SHEET_NAME = "Currency Daily Data"   # اسم الـ Google Sheet بالظبط
-DAILY_WS   = "daily"                 # اسم تبويب اليومي
-WEEKLY_WS  = "weekly"                # اسم تبويب الأسبوعي
-MONTHLY_WS = "monthly"               # اسم تبويب الشهري
+# ==================== Sheet ID (من اللينك بتاعك) ====================
+SHEET_ID = "1q_q9QGYHm0w7Z5nnO1Uq4NKLW1SoQCf5stbAMKoT3FE"
+
+DAILY_WS   = "daily"
+WEEKLY_WS  = "weekly"
+MONTHLY_WS = "monthly"
 
 currencies = ["USD", "CAD", "EUR", "GBP", "CHF", "AUD", "NZD", "JPY"]
 
@@ -38,7 +39,7 @@ pairs = [
 # ====================== Load & Save Functions ======================
 def load_data(worksheet_name: str, date_col: str = "Date"):
     client = get_gspread_client()
-    sheet = client.open(SHEET_NAME)
+    sheet = client.open_by_key(SHEET_ID)      # استخدام ID بدل الاسم
     ws = sheet.worksheet(worksheet_name)
     data = ws.get_all_records()
     
@@ -52,7 +53,7 @@ def load_data(worksheet_name: str, date_col: str = "Date"):
 
 def save_data(df: pd.DataFrame, worksheet_name: str):
     client = get_gspread_client()
-    sheet = client.open(SHEET_NAME)
+    sheet = client.open_by_key(SHEET_ID)
     ws = sheet.worksheet(worksheet_name)
     ws.clear()
     ws.update([df.columns.tolist()] + df.values.tolist())
@@ -182,7 +183,7 @@ with tab_dashboard:
             else:
                 st.info("لا يوجد يوم سابق لحساب التغيرات")
 
-        # باقي الشارتات (الـ 8 عملات) - محتفظين بالكود الأصلي
+        # شارتات تطور العملات
         st.markdown("---")
         st.subheader("📈 تطور قوة العملات (يومي - أسبوعي - شهري)")
         
@@ -210,11 +211,14 @@ with tab_dashboard:
                     fig = go.Figure()
                     
                     if 'يومي' in chart_data.columns:
-                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['يومي'], name='يومي', line=dict(color='#3498db', width=2.5)))
+                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['يومي'], name='يومي', 
+                                               line=dict(color='#3498db', width=2.5)))
                     if 'أسبوعي' in chart_data.columns:
-                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['أسبوعي'], name='أسبوعي', line=dict(color='#f1c40f', width=2.5, dash='dash')))
+                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['أسبوعي'], name='أسبوعي', 
+                                               line=dict(color='#f1c40f', width=2.5, dash='dash')))
                     if 'شهري' in chart_data.columns:
-                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['شهري'], name='شهري', line=dict(color='white', width=2.5, dash='dot')))
+                        fig.add_trace(go.Scatter(x=chart_data['Date'], y=chart_data['شهري'], name='شهري', 
+                                               line=dict(color='white', width=2.5, dash='dot')))
                     
                     fig.update_layout(
                         title=f"{currency} - تطور القوة",
@@ -323,7 +327,7 @@ with tab_results:
 # ──── Sidebar ────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("**التخزين**")
-    st.caption(f"Google Sheet: **{SHEET_NAME}**")
+    st.caption(f"Google Sheet ID: **{SHEET_ID}**")
     st.caption(f"يومي: {DAILY_WS} | أسبوعي: {WEEKLY_WS} | شهري: {MONTHLY_WS}")
     
     if st.button("🗑️ مسح كل البيانات"):
