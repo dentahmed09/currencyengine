@@ -73,8 +73,23 @@ tab_input, tab_dashboard, tab_results = st.tabs([
 
 # ──── تبويب الإدخال ────────────────────────────────────────────────────
 with tab_input:
-    st.header("إدخال البيانات")
+    st.header("📥 إدخال البيانات")
+    
+    # زر التحديث الرئيسي (مهم جدًا)
+    col_refresh, col_info = st.columns([1, 3])
+    with col_refresh:
+        if st.button("🔄 تحديث البيانات من Google Sheet", 
+                     type="primary", 
+                     use_container_width=True):
+            st.cache_resource.clear()
+            st.success("✅ تم تحديث البيانات بنجاح من Google Sheet")
+            st.rerun()
+    
+    st.info("💡 لو أضفت أو عدلت بيانات مباشرة في Google Sheet، اضغط الزر أعلاه")
+    
+    st.markdown("---")
 
+    # الأعمدة الثلاثة للإدخال
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -133,7 +148,6 @@ with tab_input:
                 save_data(final, MONTHLY_WS)
                 st.success("✅ تم حفظ البيانات الشهرية")
                 st.rerun()
-
 # ──── تبويب داش بورد يومي ─────────────────────────────────
 with tab_dashboard:
     if db_daily.empty:
