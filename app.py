@@ -405,19 +405,3 @@ with tab_results:
         summary_df = df_results[["الزوج", "Total", "الإشارة", "القوة %"]].copy()
         summary_df = summary_df.style.format({"Total": "{:+d}", "القوة %": "{:.0f}%"})
         st.dataframe(summary_df, hide_index=True, use_container_width=True, height=600)
-
-
-# ──── Sidebar ────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("**التخزين**")
-    st.caption(f"Google Sheet ID: **{SHEET_ID}**")
-    st.caption(f"يومي: {DAILY_WS} | أسبوعي: {WEEKLY_WS} | شهري: {MONTHLY_WS}")
-    
-    if st.button("🗑️ مسح كل البيانات"):
-        if st.checkbox("متأكد؟ سيتم حذف كل البيانات من Google Sheets"):
-            empty_df = pd.DataFrame(columns=["Date"] + currencies)
-            save_data(empty_df, DAILY_WS)
-            save_data(pd.DataFrame(columns=["Week_Start"] + currencies), WEEKLY_WS)
-            save_data(pd.DataFrame(columns=["Month_Start"] + currencies), MONTHLY_WS)
-            st.success("تم مسح كل البيانات")
-            st.rerun()
