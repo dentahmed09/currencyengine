@@ -2,10 +2,11 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
+import os
 import gspread
 from google.oauth2.service_account import Credentials
 
-st.set_page_config(page_title="Currency Strength Engine v2", layout="wide")
+st.set_page_config(page_title="Institutional Currency Strength Engine", layout="wide", page_icon="🏦")
 
 # ====================== Google Sheets Configuration ======================
 @st.cache_resource(show_spinner=False)
@@ -18,7 +19,246 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(credentials)
 
-# ==================== Sheet ID (من اللينك بتاعك) ====================
+# ──── Custom CSS for Professional Design ──────────────────────────────────
+def inject_custom_css():
+    st.markdown("""
+    <style>
+        /* Main container styling */
+        .main-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            padding: 1.5rem 2rem;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(241, 196, 15, 0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .main-header h1 {
+            color: #f1c40f;
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .main-header p {
+            color: #94a3b8;
+            margin: 0.5rem 0 0 0;
+            font-size: 0.9rem;
+        }
+        
+        /* Currency Cards */
+        .currency-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 15px;
+            padding: 1rem;
+            text-align: center;
+            border: 1px solid #334155;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .currency-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            border-color: #f1c40f;
+        }
+        
+        .currency-symbol {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .currency-strength {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        
+        .positive {
+            color: #10b981;
+        }
+        
+        .negative {
+            color: #ef4444;
+        }
+        
+        .neutral {
+            color: #f1c40f;
+        }
+        
+        .currency-change {
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        
+        .currency-metrics {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+        
+        /* Analytics Box */
+        .analytics-box {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 15px;
+            padding: 1.2rem;
+            border: 1px solid #334155;
+            margin-bottom: 1rem;
+        }
+        
+        .analytics-title {
+            color: #f1c40f;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #f1c40f;
+            display: inline-block;
+        }
+        
+        /* Pair Cards */
+        .pair-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 15px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .pair-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .pair-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .pair-name {
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+        
+        .pair-signal {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        
+        .signal-buy {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+        
+        .signal-sell {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+        
+        .signal-neutral {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+            border: 1px solid #f1c40f;
+        }
+        
+        .pair-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
+            margin: 1rem 0;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-bottom: 0.3rem;
+        }
+        
+        .stat-value {
+            font-size: 1rem;
+            font-weight: bold;
+        }
+        
+        .score-bar {
+            background: #334155;
+            border-radius: 10px;
+            height: 6px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        
+        .score-fill {
+            background: linear-gradient(90deg, #f1c40f, #e67e22);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+        
+        /* Tab styling */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 2rem;
+            background-color: #0f172a;
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+        }
+        
+        /* Form styling */
+        .stForm {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 15px;
+            padding: 1.5rem;
+            border: 1px solid #334155;
+        }
+        
+        /* Button styling */
+        .stButton button {
+            background: linear-gradient(135deg, #f1c40f, #e67e22);
+            color: #0f172a;
+            font-weight: bold;
+            border: none;
+            transition: all 0.2s;
+        }
+        
+        .stButton button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(241, 196, 15, 0.3);
+        }
+        
+        /* Metric styling */
+        [data-testid="stMetric"] {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 12px;
+            padding: 0.8rem;
+            border: 1px solid #334155;
+        }
+        
+        hr {
+            border-color: #334155;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+## ==================== Sheet ID (من اللينك بتاعك) ====================
 SHEET_ID = "1q_q9QGYHm0w7Z5nnO1Uq4NKLW1SoQCf5stbAMKoT3FE"
 
 DAILY_WS   = "daily"
@@ -58,6 +298,132 @@ def save_data(df: pd.DataFrame, worksheet_name: str):
     ws.clear()
     ws.update([df.columns.tolist()] + df.values.tolist())
 
+# ──── Display Currency Cards Function ──────────────────────────────────
+def display_currency_cards(latest, prev=None):
+    st.markdown("---")
+    st.markdown('<p style="color: #f1c40f; font-size: 1.2rem; font-weight: bold;">💱 INSTITUTIONAL CURRENCY PULSES</p>', unsafe_allow_html=True)
+    
+    cols = st.columns(4)
+    for idx, currency in enumerate(currencies):
+        col_idx = idx % 4
+        with cols[col_idx]:
+            strength = latest[currency]
+            strength_class = "positive" if strength > 0 else "negative" if strength < 0 else "neutral"
+            strength_sign = "+" if strength > 0 else ""
+            
+            # Calculate daily change if prev exists
+            change = None
+            if prev is not None:
+                change = latest[currency] - prev[currency]
+                change_class = "positive" if change > 0 else "negative" if change < 0 else "neutral"
+                change_sign = "+" if change > 0 else ""
+                change_text = f'<span class="{change_class}">{change_sign}{change:.1f}</span>'
+            else:
+                change_text = "—"
+            
+            # Get weekly and monthly values
+            weekly_val = None
+            monthly_val = None
+            if not db_weekly.empty:
+                if currency in db_weekly.columns:
+                    weekly_val = db_weekly.iloc[-1][currency]
+            if not db_monthly.empty:
+                if currency in db_monthly.columns:
+                    monthly_val = db_monthly.iloc[-1][currency]
+            
+            weekly_text = f"{weekly_val:.0f}" if weekly_val is not None else "—"
+            monthly_text = f"{monthly_val:.0f}" if monthly_val is not None else "—"
+            
+            st.markdown(f"""
+            <div class="currency-card">
+                <div class="currency-symbol">{currency}</div>
+                <div class="currency-strength {strength_class}">{strength_sign}{strength:.1f}</div>
+                <div class="currency-change">
+                    {change_text}
+                </div>
+                <div class="currency-metrics">
+                    <span>📊 {weekly_text}</span>
+                    <span>📅 {monthly_text}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+
+def display_quick_analytics(latest, prev=None):
+    st.markdown('<p style="color: #f1c40f; font-size: 1.2rem; font-weight: bold;">📊 QUICK ANALYTICS</p>', unsafe_allow_html=True)
+    
+    # Calculate rankings
+    strength_df = pd.DataFrame({
+        'Currency': currencies,
+        'Strength': [latest[c] for c in currencies]
+    }).sort_values('Strength', ascending=False)
+    
+    top_3 = strength_df.head(3)
+    bottom_3 = strength_df.tail(3)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="analytics-box">
+            <div class="analytics-title">🏆 TOP ASSETS</div>
+        """, unsafe_allow_html=True)
+        for _, row in top_3.iterrows():
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; margin: 0.5rem 0;">
+                <span style="font-weight: bold;">{row['Currency']}</span>
+                <span class="positive">+{row['Strength']:.1f}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="analytics-box">
+            <div class="analytics-title">📉 WEAK ASSETS</div>
+        """, unsafe_allow_html=True)
+        for _, row in bottom_3.iterrows():
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; margin: 0.5rem 0;">
+                <span style="font-weight: bold;">{row['Currency']}</span>
+                <span class="negative">{row['Strength']:.1f}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col3:
+        avg_strength = strength_df['Strength'].mean()
+        std_strength = strength_df['Strength'].std()
+        st.markdown(f"""
+        <div class="analytics-box">
+            <div class="analytics-title">📈 MARKET METRICS</div>
+            <div style="margin: 0.5rem 0;">
+                <div>Average Strength</div>
+                <div class="{'positive' if avg_strength > 0 else 'negative'}" style="font-size: 1.2rem; font-weight: bold;">
+                    {avg_strength:+.1f}
+                </div>
+            </div>
+            <div style="margin: 0.5rem 0;">
+                <div>Market Dispersion</div>
+                <div style="font-size: 1.2rem; font-weight: bold; color: #f1c40f;">
+                    {std_strength:.1f}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Inject custom CSS
+inject_custom_css()
+
+# ──── Main Header ────────────────────────────────────────────────────
+st.markdown("""
+<div class="main-header">
+    <h1>🏦 Institutional Currency Strength Engine</h1>
+    <p>Multi-Timeframe Analysis | Institutional Flow | Smart Signals | High-Probability Setups</p>
+</div>
+""", unsafe_allow_html=True)
+
 # ====================== تحميل البيانات ======================
 db_daily   = load_data(DAILY_WS, "Date")
 db_weekly  = load_data(WEEKLY_WS, "Week_Start")
@@ -73,81 +439,65 @@ tab_input, tab_dashboard, tab_results = st.tabs([
 
 # ──── تبويب الإدخال ────────────────────────────────────────────────────
 with tab_input:
-    st.header("📥 إدخال البيانات")
-    
-    # زر التحديث الرئيسي (مهم جدًا)
-    col_refresh, col_info = st.columns([1, 3])
-    with col_refresh:
-        if st.button("🔄 تحديث البيانات من Google Sheet", 
-                     type="primary", 
-                     use_container_width=True):
-            st.cache_resource.clear()
-            st.success("✅ تم تحديث البيانات بنجاح من Google Sheet")
-            st.rerun()
-    
-    st.info("💡 لو أضفت أو عدلت بيانات مباشرة في Google Sheet، اضغط الزر أعلاه")
-    
-    st.markdown("---")
+    st.header("📥 Data Entry")
+    st.markdown('<p style="color: #94a3b8;">Input multi-timeframe currency strength scores</p>', unsafe_allow_html=True)
 
-    # الأعمدة الثلاثة للإدخال
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.subheader("يومي")
+        st.markdown('<div class="analytics-box" style="padding: 1rem;">', unsafe_allow_html=True)
+        st.subheader("📅 Daily")
         with st.form("daily_form", clear_on_submit=True):
-            d_date = st.date_input("التاريخ", datetime.now().date(), key="d_date")
+            d_date = st.date_input("Date", datetime.now().date(), key="d_date")
             d_scores = {c: st.number_input(f"{c}", -100., 100., 0., 0.1, format="%.2f", key=f"d_{c}") for c in currencies}
-            
-            if st.form_submit_button("حفظ يومي"):
-                curr = load_data(DAILY_WS, "Date")
+            if st.form_submit_button("💾 Save Daily", use_container_width=True):
+                curr = load_csv(DAILY_FILE)
                 new = pd.DataFrame([{"Date": d_date, **d_scores}])
                 new['Date'] = pd.to_datetime(new['Date']).dt.date
-                
                 if not curr.empty:
                     curr = curr[curr['Date'] != d_date]
-                
                 final = pd.concat([curr, new]).sort_values('Date')
-                save_data(final, DAILY_WS)
-                st.success("✅ تم حفظ البيانات اليومية")
+                save_csv(final, DAILY_FILE)
+                st.success("✅ Daily data saved successfully!")
                 st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        st.subheader("أسبوعي")
+        st.markdown('<div class="analytics-box" style="padding: 1rem;">', unsafe_allow_html=True)
+        st.subheader("📆 Weekly")
         with st.form("weekly_form", clear_on_submit=True):
-            w_date = st.date_input("بداية الأسبوع", datetime.now().date(), key="w_date")
+            w_date = st.date_input("Week Start", datetime.now().date(), key="w_date")
             w_scores = {c: st.number_input(f"{c}", -100., 100., 0., 0.1, format="%.2f", key=f"w_{c}") for c in currencies}
-            
-            if st.form_submit_button("حفظ أسبوعي"):
-                curr = load_data(WEEKLY_WS, "Week_Start")
+            if st.form_submit_button("💾 Save Weekly", use_container_width=True):
+                curr = load_csv(WEEKLY_FILE, "Week_Start")
                 new = pd.DataFrame([{"Week_Start": w_date, **w_scores}])
                 new['Week_Start'] = pd.to_datetime(new['Week_Start']).dt.date
-                
                 if not curr.empty:
                     curr = curr[curr['Week_Start'] != w_date]
-                
                 final = pd.concat([curr, new]).sort_values('Week_Start')
-                save_data(final, WEEKLY_WS)
-                st.success("✅ تم حفظ البيانات الأسبوعية")
+                save_csv(final, WEEKLY_FILE)
+                st.success("✅ Weekly data saved successfully!")
                 st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col3:
-        st.subheader("شهري")
+        st.markdown('<div class="analytics-box" style="padding: 1rem;">', unsafe_allow_html=True)
+        st.subheader("📅 Monthly")
         with st.form("monthly_form", clear_on_submit=True):
-            m_date = st.date_input("بداية الشهر", datetime.now().date(), key="m_date")
+            m_date = st.date_input("Month Start", datetime.now().date(), key="m_date")
             m_scores = {c: st.number_input(f"{c}", -100., 100., 0., 0.1, format="%.2f", key=f"m_{c}") for c in currencies}
-            
-            if st.form_submit_button("حفظ شهري"):
-                curr = load_data(MONTHLY_WS, "Month_Start")
+            if st.form_submit_button("💾 Save Monthly", use_container_width=True):
+                curr = load_csv(MONTHLY_FILE, "Month_Start")
                 new = pd.DataFrame([{"Month_Start": m_date, **m_scores}])
                 new['Month_Start'] = pd.to_datetime(new['Month_Start']).dt.date
-                
                 if not curr.empty:
                     curr = curr[curr['Month_Start'] != m_date]
-                
                 final = pd.concat([curr, new]).sort_values('Month_Start')
-                save_data(final, MONTHLY_WS)
-                st.success("✅ تم حفظ البيانات الشهرية")
+                save_csv(final, MONTHLY_FILE)
+                st.success("✅ Monthly data saved successfully!")
                 st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
 # ──── تبويب داش بورد يومي ─────────────────────────────────
 with tab_dashboard:
     if db_daily.empty:
@@ -365,17 +715,31 @@ with tab_dashboard:
                         st.info(f"لا توجد بيانات للعملة {currency}")
             
             st.markdown("---")
-# ──── تبويب نتائج الأزواج (مع إضافة زر لعرض الشارت) ─────────────────────
+
+# ──── تبويب نتائج الأزواج (28 كرت مرتب حسب قوة الزوج) ─────────────────────
 with tab_results:
     if db_daily.empty or len(db_daily) < 2:
-        st.info("أدخل بيانات يومين على الأقل لعرض النتائج")
+        st.info("📊 أدخل بيانات يومين على الأقل لعرض النتائج")
     else:
-        st.header("نتائج الأزواج – تحليل 5 نقاط")
+        st.header("🎯 نتائج الأزواج – 28 زوج")
         
-        # تهيئة session state لتخزين حالة الشارتات
+        # ================== تهيئة Session State للشارتات ==================
         if 'show_chart' not in st.session_state:
-            st.session_state.show_chart = {}
+            st.session_state.show_chart = {pair: False for pair in pairs}
         
+        def toggle_chart(pair):
+            st.session_state.show_chart[pair] = not st.session_state.show_chart[pair]
+        
+        # زر إغلاق جميع الشارتات
+        col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+        with col_btn2:
+            if st.button("🗑️ إخفاء كل الشارتات", use_container_width=True):
+                for p in st.session_state.show_chart:
+                    st.session_state.show_chart[p] = False
+        
+        st.markdown("---")
+        
+        # ================== حساب البيانات ==================
         latest = db_daily.iloc[-1]
         prev = db_daily.iloc[-2]
         delta = {c: latest[c] - prev[c] for c in currencies}
@@ -384,157 +748,319 @@ with tab_results:
         
         for pair in pairs:
             base, quote = pair[:3], pair[3:]
-            health_today = latest[base] - latest[quote]
-            health_yest  = prev[base] - prev[quote]
-            health_delta = health_today - health_yest
-            base_delta   = delta[base]
-            quote_delta  = delta[quote]
             
-            score_h = 1 if health_delta > 0 else -1 if health_delta < 0 else 0
-            score_b = 1 if base_delta > 0 else -1 if base_delta < 0 else 0
-            score_q = -1 if quote_delta > 0 else 1 if quote_delta < 0 else 0
+            # الإشارة الأساسية = قوة الزوج (Base - Quote)
+            strength_today = latest[base] - latest[quote]
             
-            if base_delta > health_today and quote_delta > health_today:
-                score_comp = 1
-            elif base_delta < health_today and quote_delta < health_today:
-                score_comp = -1
-            else:
-                score_comp = 0
-            
-            diff = base_delta - quote_delta
-            score_diff = 1 if diff > 0 else -1 if diff < 0 else 0
-            total_score = score_h + score_b + score_q + score_comp + score_diff
-            
-            if total_score > 0:
+            # تحديد الإشارة بناءً على القوة
+            if strength_today > 0:
                 signal = "شراء"
-                color = "🟢"
-                strength = min(total_score * 20, 100)
-            elif total_score < 0:
+                signal_color = "🟢"
+            elif strength_today < 0:
                 signal = "بيع"
-                color = "🔴"
-                strength = min(abs(total_score) * 20, 100)
+                signal_color = "🔴"
             else:
                 signal = "ثبات"
-                color = "🟡"
-                strength = 0
+                signal_color = "🟡"
+            
+            # حساب قوة الإشارة (نسبة مئوية)
+            max_strength = 5.0
+            strength_percent = min(abs(strength_today) / max_strength * 100, 100)
+            
+            # حساب الدلتا
+            health_delta = (latest[base] - latest[quote]) - (prev[base] - prev[quote])
+            base_delta = delta[base]
+            quote_delta = delta[quote]
+            
+            # ========== Confirmation (Up Trend / Down Trend / Range) ==========
+            if base_delta > health_delta and quote_delta > health_delta:
+                confirmation = "Up Trend"  # ترند صاعد
+                conf_icon = "📈"
+                conf_color = "#10b981"
+            elif base_delta < health_delta and quote_delta < health_delta:
+                confirmation = "Down Trend"  # ترند هابط
+                conf_icon = "📉"
+                conf_color = "#ef4444"
+            else:
+                confirmation = "Range"  # منطقة سعرية
+                conf_icon = "🔄"
+                conf_color = "#f59e0b"
+            
+            # حساب التقلب (Volatility)
+            volatility = abs(base_delta - quote_delta)
             
             results.append({
-                "الزوج": pair, "H": health_delta, "B": base_delta, "Q": quote_delta,
-                "Comp": score_comp, "Diff": score_diff, "Total": total_score,
-                "الإشارة": f"{color} {signal}", "القوة %": strength,
-                "score_h": score_h, "score_b": score_b, "score_q": score_q,
-                "score_comp": score_comp, "score_diff": score_diff
+                "الزوج": pair,
+                "قوة الزوج": round(strength_today, 2),  # تقريب لرقمين
+                "الإشارة": f"{signal_color} {signal}",
+                "القوة %": round(strength_percent, 0),
+                "Base Δ": round(base_delta, 2),
+                "Quote Δ": round(quote_delta, 2),
+                "Health Δ": round(health_delta, 2),
+                "Confirmation": confirmation,
+                "conf_icon": conf_icon,
+                "conf_color": conf_color,
+                "Volatility": round(volatility, 2),
             })
         
-        df_results = pd.DataFrame(results).sort_values("Total", ascending=False).reset_index(drop=True)
+        # ترتيب النتائج حسب قوة الزوج من الأكبر للأقل
+        df_results = pd.DataFrame(results)
+        df_results = df_results.sort_values("قوة الزوج", ascending=False).reset_index(drop=True)
         
-        st.subheader("تحليل الـ 5 نقاط لكل زوج")
+        # ================== عرض 28 كرت ==================
         
-        for idx, row in df_results.iterrows():
-            pair = row["الزوج"]
-            total = row["Total"]
-            signal = row["الإشارة"]
-            strength = row["القوة %"]
+        for i in range(0, len(df_results), 2):
+            col1, col2 = st.columns(2, gap="large")
             
-            categories = ['H (Health Δ)', 'B (Base Δ)', 'Q (Quote Δ)', 'Comp', 'Diff']
-            values = [row["score_h"], row["score_b"], row["score_q"], row["score_comp"], row["score_diff"]]
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=values, y=categories, orientation='h',
-                marker_color=['gold' if v > 0 else 'red' if v < 0 else 'gray' for v in values],
-                text=values, textposition='auto', width=0.6
-            ))
-            fig.update_layout(
-                title=f"{pair}  →  {signal}   |   Total Score: {total}   |   قوة الإشارة: {strength:.0f}%",
-                xaxis=dict(range=[-1.2, 1.2], dtick=1, zeroline=True, zerolinecolor='black', zerolinewidth=3),
-                yaxis=dict(title=""), height=280, template="plotly_white", margin=dict(l=80, r=20, t=60, b=40)
-            )
-            st.plotly_chart(fig, use_container_width=True, key=f"results_chart_{pair}")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Health Delta", f"{row['H']:+.2f}")
-            col2.metric("Base Delta", f"{row['B']:+.2f}")
-            col3.metric("Quote Delta", f"{row['Q']:+.2f}")
-            col4.metric("Total Score", f"{total} / 5")
-            
-            # زر عرض الشارت للزوج
-            if st.button(f"📈 عرض شارت {pair}", key=f"btn_chart_{pair}"):
-                # تبديل حالة الشارت
-                st.session_state.show_chart[pair] = not st.session_state.show_chart.get(pair, False)
-            
-            # عرض الشارت إذا كان الزر مفعلاً
-            if st.session_state.show_chart.get(pair, False):
-                st.markdown(f"#### 📊 شارت الزوج {pair}")
+            # الكرت الأول
+            with col1:
+                row = df_results.iloc[i]
+                pair = row["الزوج"]
                 
-                base, quote = pair[:3], pair[3:]
-                plot_df = db_daily.set_index('Date')
-                
-                if base not in plot_df.columns or quote not in plot_df.columns:
-                    st.warning(f"⚠️ البيانات غير كاملة للزوج {pair}")
+                # خلفية الكرت حسب الإشارة
+                if "شراء" in row["الإشارة"]:
+                    bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
+                    border_color = "#10b981"
+                elif "بيع" in row["الإشارة"]:
+                    bg_gradient = "linear-gradient(135deg, #2f1a1a, #1a0a0a)"
+                    border_color = "#ef4444"
                 else:
-                    plot_df['Strength'] = plot_df[base] - plot_df[quote]
-                    plot_df['Δ ' + base] = plot_df[base].diff()
-                    plot_df['Δ ' + quote] = plot_df[quote].diff()
-                    plot_df = plot_df.dropna(subset=['Δ ' + base, 'Δ ' + quote])
+                    bg_gradient = "linear-gradient(135deg, #2d2a1a, #1f1c0f)"
+                    border_color = "#f59e0b"
+                
+                st.markdown(f"""
+                <div style="background: {bg_gradient}; 
+                            padding: 20px; 
+                            border-radius: 20px; 
+                            margin: 10px 0;
+                            border: 2px solid {border_color};
+                            box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 style="margin:0; color: {border_color}; font-size: 28px;">{pair}</h2>
+                        <h1 style="margin:0; font-size: 42px;">{row['الإشارة']}</h1>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 10px; margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="font-size: 20px;">📊 قوة الزوج:</span>
+                            <span style="font-size: 24px; font-weight: bold; color: {border_color};">{row['قوة الزوج']:+.2f}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                            <span>⚡ قوة الإشارة:</span>
+                            <span style="font-weight: bold;">{row['القوة %']:.0f}%</span>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # المؤشرات الإضافية في صفوف (Base Δ, Quote Δ, Health Δ)
+                col_a, col_b, col_c = st.columns(3)
+                col_a.metric("📈 Base Δ", f"{row['Base Δ']:+.2f}", 
+                          delta_color="normal" if row['Base Δ'] >= 0 else "inverse")
+                col_b.metric("📉 Quote Δ", f"{row['Quote Δ']:+.2f}",
+                          delta_color="normal" if row['Quote Δ'] >= 0 else "inverse")
+                col_c.metric("💚 Health Δ", f"{row['Health Δ']:+.2f}",
+                          delta_color="normal" if row['Health Δ'] >= 0 else "inverse")
+                
+                # صف ثاني للمقاييس الإضافية (Volatility و Confirmation)
+                col_d, col_e = st.columns(2)
+                with col_d:
+                    st.metric("📊 Volatility", f"{row['Volatility']:.2f}")
+                with col_e:
+                    st.markdown(f"""
+                    <div style="background: {row['conf_color']}20; 
+                                border-radius: 12px; 
+                                padding: 12px; 
+                                text-align: center;
+                                border: 1px solid {row['conf_color']};">
+                        <span style="font-size: 20px;">{row['conf_icon']}</span>
+                        <span style="font-size: 16px; font-weight: bold; color: {row['conf_color']};">
+                            {row['Confirmation']}
+                        </span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # زر عرض الشارت
+                st.button(
+                    f"📈 عرض / إخفاء شارت {pair}",
+                    key=f"btn_chart_{pair}_{i}",
+                    on_click=toggle_chart,
+                    args=(pair,),
+                    use_container_width=True
+                )
+                
+                # عرض الشارت إذا كان مفعلاً
+                if st.session_state.show_chart.get(pair, False):
+                    base, quote = pair[:3], pair[3:]
+                    plot_df = db_daily.set_index('Date').copy()
                     
-                    if plot_df.empty:
-                        st.warning("⚠️ بيانات غير كافية لرسم الشارت")
+                    if base in plot_df.columns and quote in plot_df.columns:
+                        plot_df['Strength'] = plot_df[base] - plot_df[quote]
+                        plot_df[f'Δ {base}'] = plot_df[base].diff()
+                        plot_df[f'Δ {quote}'] = plot_df[quote].diff()
+                        plot_df = plot_df.dropna()
+                        
+                        if not plot_df.empty:
+                            fig_pair = go.Figure()
+                            
+                            fig_pair.add_trace(go.Scatter(
+                                x=plot_df.index, y=plot_df['Strength'],
+                                name=f"قوة {pair}",
+                                line=dict(color='#f1c40f', width=3),
+                                mode='lines+markers',
+                                fill='tozeroy',
+                                fillcolor='rgba(241, 196, 15, 0.1)'
+                            ))
+                            
+                            fig_pair.add_trace(go.Scatter(
+                                x=plot_df.index, y=plot_df[f'Δ {base}'],
+                                name=f"Δ {base}",
+                                line=dict(color='#10b981', width=2, dash='dash'),
+                                yaxis='y2'
+                            ))
+                            
+                            fig_pair.add_trace(go.Scatter(
+                                x=plot_df.index, y=plot_df[f'Δ {quote}'],
+                                name=f"Δ {quote}",
+                                line=dict(color='#ef4444', width=2, dash='dash'),
+                                yaxis='y2'
+                            ))
+                            
+                            fig_pair.add_hline(y=0, line_dash="solid", line_color="#6b7280")
+                            
+                            fig_pair.update_layout(
+                                title=dict(text=f"<b>{pair}</b> – القوة والتغيرات", x=0.5),
+                                height=450,
+                                yaxis=dict(title="قوة الزوج (Base - Quote)"),
+                                yaxis2=dict(title="التغير اليومي", overlaying='y', side='right'),
+                                template="plotly_dark",
+                                hovermode="x unified"
+                            )
+                            
+                            st.plotly_chart(fig_pair, use_container_width=True)
                     else:
-                        fig_pair = go.Figure()
-                        
-                        fig_pair.add_trace(go.Scatter(
-                            x=plot_df.index, y=plot_df['Strength'],
-                            name=f"✨ قوة {pair}",
-                            line=dict(color='#f1c40f', width=3.5),
-                            mode='lines+markers',
-                            fill='tozeroy',
-                            fillcolor='rgba(241, 196, 15, 0.1)'
-                        ))
-                        
-                        fig_pair.add_trace(go.Scatter(
-                            x=plot_df.index, y=plot_df['Δ ' + base],
-                            name=f"📈 تغير {base}",
-                            line=dict(color='#10b981', width=2.5, dash='dash'),
-                            yaxis='y2'
-                        ))
-                        
-                        fig_pair.add_trace(go.Scatter(
-                            x=plot_df.index, y=plot_df['Δ ' + quote],
-                            name=f"📉 تغير {quote}",
-                            line=dict(color='#ef4444', width=2.5, dash='dash'),
-                            yaxis='y2'
-                        ))
-                        
-                        fig_pair.add_hline(y=0, line_dash="solid", line_color="#6b7280", line_width=1.5)
-                        
-                        fig_pair.update_layout(
-                            title=dict(text=f"<b>{pair}</b> – قوة الزوج والتغييرات اليومية",
-                                      font=dict(size=18, color='#f1c40f'), x=0.5),
-                            height=500,
-                            yaxis=dict(title=dict(text=f"<b>قوة الزوج</b><br>({base} - {quote})", font=dict(size=12))),
-                            yaxis2=dict(title=dict(text="<b>التغيير اليومي</b>", font=dict(size=12)),
-                                       overlaying='y', side='right', showgrid=False),
-                            template="plotly_dark",
-                            hovermode="x unified",
-                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-                            plot_bgcolor='rgba(15, 23, 42, 0.8)',
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            margin=dict(t=80, b=50, l=60, r=80)
-                        )
-                        
-                        st.plotly_chart(fig_pair, use_container_width=True)
-                        
-                        # عرض آخر القيم
-                        last = plot_df.iloc[-1]
-                        c1, c2, c3 = st.columns(3)
-                        c1.metric("قوة الزوج", f"{last['Strength']:.2f}")
-                        c2.metric(f"Δ {base}", f"{last['Δ ' + base]:+.2f}")
-                        c3.metric(f"Δ {quote}", f"{last['Δ ' + quote]:+.2f}")
+                        st.warning(f"⚠️ بيانات غير كاملة للزوج {pair}")
             
-            st.markdown("---")
-        
-        st.subheader("ملخص الإشارات")
-        summary_df = df_results[["الزوج", "Total", "الإشارة", "القوة %"]].copy()
-        summary_df = summary_df.style.format({"Total": "{:+d}", "القوة %": "{:.0f}%"})
-        st.dataframe(summary_df, hide_index=True, use_container_width=True, height=600)
+            # الكرت الثاني (إذا موجود)
+            with col2:
+                if i + 1 < len(df_results):
+                    row = df_results.iloc[i + 1]
+                    pair = row["الزوج"]
+                    
+                    if "شراء" in row["الإشارة"]:
+                        bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
+                        border_color = "#10b981"
+                    elif "بيع" in row["الإشارة"]:
+                        bg_gradient = "linear-gradient(135deg, #2f1a1a, #1a0a0a)"
+                        border_color = "#ef4444"
+                    else:
+                        bg_gradient = "linear-gradient(135deg, #2d2a1a, #1f1c0f)"
+                        border_color = "#f59e0b"
+                    
+                    st.markdown(f"""
+                    <div style="background: {bg_gradient}; 
+                                padding: 20px; 
+                                border-radius: 20px; 
+                                margin: 10px 0;
+                                border: 2px solid {border_color};
+                                box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h2 style="margin:0; color: {border_color}; font-size: 28px;">{pair}</h2>
+                            <h1 style="margin:0; font-size: 42px;">{row['الإشارة']}</h1>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 10px; margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="font-size: 20px;">📊 قوة الزوج:</span>
+                                <span style="font-size: 24px; font-weight: bold; color: {border_color};">{row['قوة الزوج']:+.2f}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                                <span>⚡ قوة الإشارة:</span>
+                                <span style="font-weight: bold;">{row['القوة %']:.0f}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    col_a, col_b, col_c = st.columns(3)
+                    col_a.metric("📈 Base Δ", f"{row['Base Δ']:+.2f}",
+                              delta_color="normal" if row['Base Δ'] >= 0 else "inverse")
+                    col_b.metric("📉 Quote Δ", f"{row['Quote Δ']:+.2f}",
+                              delta_color="normal" if row['Quote Δ'] >= 0 else "inverse")
+                    col_c.metric("💚 Health Δ", f"{row['Health Δ']:+.2f}",
+                              delta_color="normal" if row['Health Δ'] >= 0 else "inverse")
+                    
+                    # صف ثاني للمقاييس الإضافية (Volatility و Confirmation)
+                    col_d, col_e = st.columns(2)
+                    with col_d:
+                        st.metric("📊 Volatility", f"{row['Volatility']:.2f}")
+                    with col_e:
+                        st.markdown(f"""
+                        <div style="background: {row['conf_color']}20; 
+                                    border-radius: 12px; 
+                                    padding: 12px; 
+                                    text-align: center;
+                                    border: 1px solid {row['conf_color']};">
+                            <span style="font-size: 20px;">{row['conf_icon']}</span>
+                            <span style="font-size: 16px; font-weight: bold; color: {row['conf_color']};">
+                                {row['Confirmation']}
+                            </span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.button(
+                        f"📈 عرض / إخفاء شارت {pair}",
+                        key=f"btn_chart_{pair}_{i+1}",
+                        on_click=toggle_chart,
+                        args=(pair,),
+                        use_container_width=True
+                    )
+                    
+                    if st.session_state.show_chart.get(pair, False):
+                        base, quote = pair[:3], pair[3:]
+                        plot_df = db_daily.set_index('Date').copy()
+                        
+                        if base in plot_df.columns and quote in plot_df.columns:
+                            plot_df['Strength'] = plot_df[base] - plot_df[quote]
+                            plot_df[f'Δ {base}'] = plot_df[base].diff()
+                            plot_df[f'Δ {quote}'] = plot_df[quote].diff()
+                            plot_df = plot_df.dropna()
+                            
+                            if not plot_df.empty:
+                                fig_pair = go.Figure()
+                                
+                                fig_pair.add_trace(go.Scatter(
+                                    x=plot_df.index, y=plot_df['Strength'],
+                                    name=f"قوة {pair}",
+                                    line=dict(color='#f1c40f', width=3),
+                                    mode='lines+markers',
+                                    fill='tozeroy',
+                                    fillcolor='rgba(241, 196, 15, 0.1)'
+                                ))
+                                
+                                fig_pair.add_trace(go.Scatter(
+                                    x=plot_df.index, y=plot_df[f'Δ {base}'],
+                                    name=f"Δ {base}",
+                                    line=dict(color='#10b981', width=2, dash='dash'),
+                                    yaxis='y2'
+                                ))
+                                
+                                fig_pair.add_trace(go.Scatter(
+                                    x=plot_df.index, y=plot_df[f'Δ {quote}'],
+                                    name=f"Δ {quote}",
+                                    line=dict(color='#ef4444', width=2, dash='dash'),
+                                    yaxis='y2'
+                                ))
+                                
+                                fig_pair.add_hline(y=0, line_dash="solid", line_color="#6b7280")
+                                
+                                fig_pair.update_layout(
+                                    title=dict(text=f"<b>{pair}</b> – القوة والتغيرات", x=0.5),
+                                    height=450,
+                                    yaxis=dict(title="قوة الزوج (Base - Quote)"),
+                                    yaxis2=dict(title="التغير اليومي", overlaying='y', side='right'),
+                                    template="plotly_dark",
+                                    hovermode="x unified"
+                                )
+                                
+                                st.plotly_chart(fig_pair, use_container_width=True)
+                        else:
+                            st.warning(f"⚠️ بيانات غير كاملة للزوج {pair}")
