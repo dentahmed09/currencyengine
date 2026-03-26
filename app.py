@@ -429,8 +429,6 @@ db_daily   = load_data(DAILY_WS, "Date")
 db_weekly  = load_data(WEEKLY_WS, "Week_Start")
 db_monthly = load_data(MONTHLY_WS, "Month_Start")
 
-st.title("Currency Strength Engine v2")
-
 tab_dashboard, tab_results = st.tabs([
     "📊 داش بورد يومي",
     "🔍 نتائج الأزواج",
