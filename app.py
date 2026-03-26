@@ -709,15 +709,15 @@ with tab_results:
             
             # ========== Confirmation (Up Trend / Down Trend / Range) ==========
             if base_delta > health_delta and quote_delta > health_delta:
-                confirmation = "Up Trend"  # ترند صاعد
+                confirmation = "Up Trend"
                 conf_icon = "📈"
                 conf_color = "#10b981"
             elif base_delta < health_delta and quote_delta < health_delta:
-                confirmation = "Down Trend"  # ترند هابط
+                confirmation = "Down Trend"
                 conf_icon = "📉"
                 conf_color = "#ef4444"
             else:
-                confirmation = "Range"  # منطقة سعرية
+                confirmation = "Range"
                 conf_icon = "🔄"
                 conf_color = "#f59e0b"
             
@@ -726,7 +726,7 @@ with tab_results:
             
             results.append({
                 "الزوج": pair,
-                "قوة الزوج": round(strength_today, 2),  # تقريب لرقمين
+                "قوة الزوج": round(strength_today, 2),
                 "الإشارة": f"{signal_color} {signal}",
                 "القوة %": round(strength_percent, 0),
                 "Base Δ": round(base_delta, 2),
@@ -747,12 +747,12 @@ with tab_results:
         for i in range(0, len(df_results), 2):
             col1, col2 = st.columns(2, gap="large")
             
-            # الكرت الأول
+            # ================== الكرت الأول ==================
             with col1:
                 row = df_results.iloc[i]
                 pair = row["الزوج"]
                 
-                # خلفية الكرت حسب الإشارة
+                # تحديد الألوان حسب الإشارة
                 if "شراء" in row["الإشارة"]:
                     bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
                     border_color = "#10b981"
@@ -763,56 +763,57 @@ with tab_results:
                     bg_gradient = "linear-gradient(135deg, #2d2a1a, #1f1c0f)"
                     border_color = "#f59e0b"
                 
-                st.markdown(f"""
-                <div style="background: {bg_gradient}; 
-                            padding: 20px; 
-                            border-radius: 20px; 
-                            margin: 10px 0;
-                            border: 2px solid {border_color};
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                # ألوان الدلتا
+                base_delta_color = "#10b981" if row['Base Δ'] >= 0 else "#ef4444"
+                quote_delta_color = "#10b981" if row['Quote Δ'] >= 0 else "#ef4444"
+                health_delta_color = "#10b981" if row['Health Δ'] >= 0 else "#ef4444"
+                
+                # عرض الكرت باستخدام HTML
+                card_html = f'''
+                <div style="background: {bg_gradient}; padding: 20px; border-radius: 20px; margin: 10px 0; border: 2px solid {border_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h2 style="margin:0; color: {border_color}; font-size: 28px;">{pair}</h2>
                         <h1 style="margin:0; font-size: 42px;">{row['الإشارة']}</h1>
                     </div>
-                    <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 10px; margin-top: 10px;">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="font-size: 20px;">📊 قوة الزوج:</span>
+                    <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-size: 18px;">📊 قوة الزوج:</span>
                             <span style="font-size: 24px; font-weight: bold; color: {border_color};">{row['قوة الزوج']:+.2f}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
-                            <span>⚡ قوة الإشارة:</span>
-                            <span style="font-weight: bold;">{row['القوة %']:.0f}%</span>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="font-size: 18px;">⚡ قوة الإشارة:</span>
+                            <span style="font-size: 20px; font-weight: bold;">{row['القوة %']:.0f}%</span>
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 15px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 14px; color: #9ca3af;">📈 BASE Δ</div>
+                                <div style="font-size: 20px; font-weight: bold; color: {base_delta_color};">{row['Base Δ']:+.2f}</div>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 14px; color: #9ca3af;">📉 QUOTE Δ</div>
+                                <div style="font-size: 20px; font-weight: bold; color: {quote_delta_color};">{row['Quote Δ']:+.2f}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 14px; color: #9ca3af;">💚 HEALTH Δ</div>
+                                <div style="font-size: 20px; font-weight: bold; color: {health_delta_color};">{row['Health Δ']:+.2f}</div>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 14px; color: #9ca3af;">📊 VOLATILITY</div>
+                                <div style="font-size: 20px; font-weight: bold; color: #f59e0b;">{row['Volatility']:.2f}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; padding: 8px; background: {row['conf_color']}20; border-radius: 10px; border: 1px solid {row['conf_color']};">
+                            <span style="font-size: 18px;">{row['conf_icon']}</span>
+                            <span style="font-size: 16px; font-weight: bold; color: {row['conf_color']};"> {row['Confirmation']}</span>
                         </div>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
-                
-                # المؤشرات الإضافية في صفوف (Base Δ, Quote Δ, Health Δ)
-                col_a, col_b, col_c = st.columns(3)
-                col_a.metric("📈 Base Δ", f"{row['Base Δ']:+.2f}", 
-                          delta_color="normal" if row['Base Δ'] >= 0 else "inverse")
-                col_b.metric("📉 Quote Δ", f"{row['Quote Δ']:+.2f}",
-                          delta_color="normal" if row['Quote Δ'] >= 0 else "inverse")
-                col_c.metric("💚 Health Δ", f"{row['Health Δ']:+.2f}",
-                          delta_color="normal" if row['Health Δ'] >= 0 else "inverse")
-                
-                # صف ثاني للمقاييس الإضافية (Volatility و Confirmation)
-                col_d, col_e = st.columns(2)
-                with col_d:
-                    st.metric("📊 Volatility", f"{row['Volatility']:.2f}")
-                with col_e:
-                    st.markdown(f"""
-                    <div style="background: {row['conf_color']}20; 
-                                border-radius: 12px; 
-                                padding: 12px; 
-                                text-align: center;
-                                border: 1px solid {row['conf_color']};">
-                        <span style="font-size: 20px;">{row['conf_icon']}</span>
-                        <span style="font-size: 16px; font-weight: bold; color: {row['conf_color']};">
-                            {row['Confirmation']}
-                        </span>
-                    </div>
-                    """, unsafe_allow_html=True)
+                '''
+                st.markdown(card_html, unsafe_allow_html=True)
                 
                 # زر عرض الشارت
                 st.button(
@@ -875,12 +876,13 @@ with tab_results:
                     else:
                         st.warning(f"⚠️ بيانات غير كاملة للزوج {pair}")
             
-            # الكرت الثاني (إذا موجود)
+            # ================== الكرت الثاني ==================
             with col2:
                 if i + 1 < len(df_results):
                     row = df_results.iloc[i + 1]
                     pair = row["الزوج"]
                     
+                    # تحديد الألوان حسب الإشارة
                     if "شراء" in row["الإشارة"]:
                         bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
                         border_color = "#10b981"
@@ -891,56 +893,59 @@ with tab_results:
                         bg_gradient = "linear-gradient(135deg, #2d2a1a, #1f1c0f)"
                         border_color = "#f59e0b"
                     
-                    st.markdown(f"""
-                    <div style="background: {bg_gradient}; 
-                                padding: 20px; 
-                                border-radius: 20px; 
-                                margin: 10px 0;
-                                border: 2px solid {border_color};
-                                box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    # ألوان الدلتا
+                    base_delta_color = "#10b981" if row['Base Δ'] >= 0 else "#ef4444"
+                    quote_delta_color = "#10b981" if row['Quote Δ'] >= 0 else "#ef4444"
+                    health_delta_color = "#10b981" if row['Health Δ'] >= 0 else "#ef4444"
+                    
+                    # عرض الكرت باستخدام HTML
+                    card_html = f'''
+                    <div style="background: {bg_gradient}; padding: 20px; border-radius: 20px; margin: 10px 0; border: 2px solid {border_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <h2 style="margin:0; color: {border_color}; font-size: 28px;">{pair}</h2>
                             <h1 style="margin:0; font-size: 42px;">{row['الإشارة']}</h1>
                         </div>
-                        <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 10px; margin-top: 10px;">
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="font-size: 20px;">📊 قوة الزوج:</span>
+                        <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="font-size: 18px;">📊 قوة الزوج:</span>
                                 <span style="font-size: 24px; font-weight: bold; color: {border_color};">{row['قوة الزوج']:+.2f}</span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
-                                <span>⚡ قوة الإشارة:</span>
-                                <span style="font-weight: bold;">{row['القوة %']:.0f}%</span>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="font-size: 18px;">⚡ قوة الإشارة:</span>
+                                <span style="font-size: 20px; font-weight: bold;">{row['القوة %']:.0f}%</span>
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="font-size: 14px; color: #9ca3af;">📈 BASE Δ</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: {base_delta_color};">{row['Base Δ']:+.2f}</div>
+                                </div>
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="font-size: 14px; color: #9ca3af;">📉 QUOTE Δ</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: {quote_delta_color};">{row['Quote Δ']:+.2f}</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="font-size: 14px; color: #9ca3af;">💚 HEALTH Δ</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: {health_delta_color};">{row['Health Δ']:+.2f}</div>
+                                </div>
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="font-size: 14px; color: #9ca3af;">📊 VOLATILITY</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: #f59e0b;">{row['Volatility']:.2f}</div>
+                                </div>
+                            </div>
+                            <div style="text-align: center; padding: 8px; background: {row['conf_color']}20; border-radius: 10px; border: 1px solid {row['conf_color']};">
+                                <span style="font-size: 18px;">{row['conf_icon']}</span>
+                                <span style="font-size: 16px; font-weight: bold; color: {row['conf_color']};"> {row['Confirmation']}</span>
                             </div>
                         </div>
                     </div>
-                    """, unsafe_allow_html=True)
+                    '''
+                    st.markdown(card_html, unsafe_allow_html=True)
                     
-                    col_a, col_b, col_c = st.columns(3)
-                    col_a.metric("📈 Base Δ", f"{row['Base Δ']:+.2f}",
-                              delta_color="normal" if row['Base Δ'] >= 0 else "inverse")
-                    col_b.metric("📉 Quote Δ", f"{row['Quote Δ']:+.2f}",
-                              delta_color="normal" if row['Quote Δ'] >= 0 else "inverse")
-                    col_c.metric("💚 Health Δ", f"{row['Health Δ']:+.2f}",
-                              delta_color="normal" if row['Health Δ'] >= 0 else "inverse")
-                    
-                    # صف ثاني للمقاييس الإضافية (Volatility و Confirmation)
-                    col_d, col_e = st.columns(2)
-                    with col_d:
-                        st.metric("📊 Volatility", f"{row['Volatility']:.2f}")
-                    with col_e:
-                        st.markdown(f"""
-                        <div style="background: {row['conf_color']}20; 
-                                    border-radius: 12px; 
-                                    padding: 12px; 
-                                    text-align: center;
-                                    border: 1px solid {row['conf_color']};">
-                            <span style="font-size: 20px;">{row['conf_icon']}</span>
-                            <span style="font-size: 16px; font-weight: bold; color: {row['conf_color']};">
-                                {row['Confirmation']}
-                            </span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
+                    # زر عرض الشارت
                     st.button(
                         f"📈 عرض / إخفاء شارت {pair}",
                         key=f"btn_chart_{pair}_{i+1}",
@@ -949,6 +954,7 @@ with tab_results:
                         use_container_width=True
                     )
                     
+                    # عرض الشارت إذا كان مفعلاً
                     if st.session_state.show_chart.get(pair, False):
                         base, quote = pair[:3], pair[3:]
                         plot_df = db_daily.set_index('Date').copy()
