@@ -689,13 +689,13 @@ with tab_results:
             
             # تحديد الإشارة بناءً على القوة
             if strength_today > 0:
-                signal = "شراء"
+                signal = "BUY"
                 signal_color = "🟢"
             elif strength_today < 0:
-                signal = "بيع"
+                signal = "SELL"
                 signal_color = "🔴"
             else:
-                signal = "ثبات"
+                signal = "RANGE"
                 signal_color = "🟡"
             
             # حساب قوة الإشارة (نسبة مئوية)
@@ -777,11 +777,11 @@ with tab_results:
                     </div>
                     <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <span style="font-size: 18px;">📊 قوة الزوج:</span>
+                            <span style="font-size: 18px;">📊Pair Power:</span>
                             <span style="font-size: 24px; font-weight: bold; color: {border_color};">{row['قوة الزوج']:+.2f}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between;">
-                            <span style="font-size: 18px;">⚡ قوة الإشارة:</span>
+                            <span style="font-size: 18px;">⚡Signal:</span>
                             <span style="font-size: 20px; font-weight: bold;">{row['القوة %']:.0f}%</span>
                         </div>
                     </div>
