@@ -656,7 +656,7 @@ with tab_results:
     if db_daily.empty or len(db_daily) < 2:
         st.info("📊 أدخل بيانات يومين على الأقل لعرض النتائج")
     else:
-        st.header("🎯 نتائج الأزواج – 28 زوج")
+        st.header("🎯 28 Pairs Results")
         
         # ================== تهيئة Session State للشارتات ==================
         if 'show_chart' not in st.session_state:
@@ -695,7 +695,7 @@ with tab_results:
                 signal = "SELL"
                 signal_color = "🔴"
             else:
-                signal = "RANGE"
+                signal = "WAIT"
                 signal_color = "🟡"
             
             # حساب قوة الإشارة (نسبة مئوية)
@@ -753,10 +753,10 @@ with tab_results:
                 pair = row["الزوج"]
                 
                 # تحديد الألوان حسب الإشارة
-                if "شراء" in row["الإشارة"]:
+                if "BUY" in row["الإشارة"]:
                     bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
                     border_color = "#10b981"
-                elif "بيع" in row["الإشارة"]:
+                elif "SELL" in row["الإشارة"]:
                     bg_gradient = "linear-gradient(135deg, #2f1a1a, #1a0a0a)"
                     border_color = "#ef4444"
                 else:
@@ -777,11 +777,11 @@ with tab_results:
                     </div>
                     <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <span style="font-size: 18px;">📊Pair Power:</span>
+                            <span style="font-size: 18px;">📊 قوة الزوج:</span>
                             <span style="font-size: 24px; font-weight: bold; color: {border_color};">{row['قوة الزوج']:+.2f}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between;">
-                            <span style="font-size: 18px;">⚡Signal:</span>
+                            <span style="font-size: 18px;">⚡ قوة الإشارة:</span>
                             <span style="font-size: 20px; font-weight: bold;">{row['القوة %']:.0f}%</span>
                         </div>
                     </div>
@@ -883,10 +883,10 @@ with tab_results:
                     pair = row["الزوج"]
                     
                     # تحديد الألوان حسب الإشارة
-                    if "شراء" in row["الإشارة"]:
+                    if "BUY" in row["الإشارة"]:
                         bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
                         border_color = "#10b981"
-                    elif "بيع" in row["الإشارة"]:
+                    elif "SELL" in row["الإشارة"]:
                         bg_gradient = "linear-gradient(135deg, #2f1a1a, #1a0a0a)"
                         border_color = "#ef4444"
                     else:
@@ -1005,3 +1005,4 @@ with tab_results:
                                 st.plotly_chart(fig_pair, use_container_width=True)
                         else:
                             st.warning(f"⚠️ بيانات غير كاملة للزوج {pair}")
+
