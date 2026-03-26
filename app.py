@@ -431,73 +431,10 @@ db_monthly = load_data(MONTHLY_WS, "Month_Start")
 
 st.title("Currency Strength Engine v2")
 
-tab_input, tab_dashboard, tab_results = st.tabs([
-    "📥 إدخال البيانات",
+tab_dashboard, tab_results = st.tabs([
     "📊 داش بورد يومي",
     "🔍 نتائج الأزواج",
 ])
-
-# ──── تبويب الإدخال ────────────────────────────────────────────────────
-with tab_input:
-    st.header("📥 Data Entry")
-    st.markdown('<p style="color: #94a3b8;">Input multi-timeframe currency strength scores</p>', unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown('<div class="analytics-box" style="padding: 1rem;">', unsafe_allow_html=True)
-        st.subheader("📅 Daily")
-        with st.form("daily_form", clear_on_submit=True):
-            d_date = st.date_input("Date", datetime.now().date(), key="d_date")
-            d_scores = {c: st.number_input(f"{c}", -100., 100., 0., 0.1, format="%.2f", key=f"d_{c}") for c in currencies}
-            if st.form_submit_button("💾 Save Daily", use_container_width=True):
-                curr = load_csv(DAILY_FILE)
-                new = pd.DataFrame([{"Date": d_date, **d_scores}])
-                new['Date'] = pd.to_datetime(new['Date']).dt.date
-                if not curr.empty:
-                    curr = curr[curr['Date'] != d_date]
-                final = pd.concat([curr, new]).sort_values('Date')
-                save_csv(final, DAILY_FILE)
-                st.success("✅ Daily data saved successfully!")
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col2:
-        st.markdown('<div class="analytics-box" style="padding: 1rem;">', unsafe_allow_html=True)
-        st.subheader("📆 Weekly")
-        with st.form("weekly_form", clear_on_submit=True):
-            w_date = st.date_input("Week Start", datetime.now().date(), key="w_date")
-            w_scores = {c: st.number_input(f"{c}", -100., 100., 0., 0.1, format="%.2f", key=f"w_{c}") for c in currencies}
-            if st.form_submit_button("💾 Save Weekly", use_container_width=True):
-                curr = load_csv(WEEKLY_FILE, "Week_Start")
-                new = pd.DataFrame([{"Week_Start": w_date, **w_scores}])
-                new['Week_Start'] = pd.to_datetime(new['Week_Start']).dt.date
-                if not curr.empty:
-                    curr = curr[curr['Week_Start'] != w_date]
-                final = pd.concat([curr, new]).sort_values('Week_Start')
-                save_csv(final, WEEKLY_FILE)
-                st.success("✅ Weekly data saved successfully!")
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col3:
-        st.markdown('<div class="analytics-box" style="padding: 1rem;">', unsafe_allow_html=True)
-        st.subheader("📅 Monthly")
-        with st.form("monthly_form", clear_on_submit=True):
-            m_date = st.date_input("Month Start", datetime.now().date(), key="m_date")
-            m_scores = {c: st.number_input(f"{c}", -100., 100., 0., 0.1, format="%.2f", key=f"m_{c}") for c in currencies}
-            if st.form_submit_button("💾 Save Monthly", use_container_width=True):
-                curr = load_csv(MONTHLY_FILE, "Month_Start")
-                new = pd.DataFrame([{"Month_Start": m_date, **m_scores}])
-                new['Month_Start'] = pd.to_datetime(new['Month_Start']).dt.date
-                if not curr.empty:
-                    curr = curr[curr['Month_Start'] != m_date]
-                final = pd.concat([curr, new]).sort_values('Month_Start')
-                save_csv(final, MONTHLY_FILE)
-                st.success("✅ Monthly data saved successfully!")
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
 # ──── تبويب داش بورد يومي ─────────────────────────────────
 with tab_dashboard:
     if db_daily.empty:
