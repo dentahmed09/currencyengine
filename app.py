@@ -430,15 +430,15 @@ db_weekly  = load_data(WEEKLY_WS, "Week_Start")
 db_monthly = load_data(MONTHLY_WS, "Month_Start")
 
 tab_dashboard, tab_results = st.tabs([
-    "📊 داش بورد يومي",
-    "🔍 نتائج الأزواج",
+    "📊 Daily Dashboord",
+    "🔍 Pair Matrix ",
 ])
-# ──── تبويب داش بورد يومي ─────────────────────────────────
+# ──── تبويب Daily Dashboord ─────────────────────────────────
 with tab_dashboard:
     if db_daily.empty:
         st.info("أدخل بيانات يومية أولاً")
     else:
-        st.header("🌙 داش بورد يومي – آخر تحديث (دارك مود)")
+        st.header("🌙 Daily Dashboord")
         
         latest = db_daily.iloc[-1]
         prev = db_daily.iloc[-2] if len(db_daily) >= 2 else None
@@ -450,7 +450,7 @@ with tab_dashboard:
             <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
                         border-radius: 15px; padding: 20px; margin: 10px 0; 
                         border: 1px solid #334155;'>
-                <h3 style='color: #f1c40f; text-align: center; margin-bottom: 20px;'>🥧 ترتيب العملات حسب القوة</h3>
+                <h3 style='color: #f1c40f; text-align: center; margin-bottom: 20px;'>🥧 Currency Strength</h3>
             </div>
             """, unsafe_allow_html=True)
             
@@ -496,7 +496,7 @@ with tab_dashboard:
             <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
                         border-radius: 15px; padding: 20px; margin: 10px 0; 
                         border: 1px solid #334155;'>
-                <h3 style='color: #f1c40f; text-align: center; margin-bottom: 20px;'>📊 التغيرات اليومية</h3>
+                <h3 style='color: #f1c40f; text-align: center; margin-bottom: 20px;'>📊 Daily Changes</h3>
             </div>
             """, unsafe_allow_html=True)
             
@@ -537,7 +537,7 @@ with tab_dashboard:
         <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
                     border-radius: 15px; padding: 20px; margin: 20px 0; 
                     border: 1px solid #334155;'>
-            <h3 style='color: #f1c40f; text-align: center;'>📈 تحليل تطور قوة العملات (يومي - أسبوعي - شهري)</h3>
+            <h3 style='color: #f1c40f; text-align: center;'>📈 Highr Time Frame Analysies</h3>
         </div>
         """, unsafe_allow_html=True)
         
@@ -651,7 +651,7 @@ with tab_dashboard:
             
             st.markdown("---")
 
-# ──── تبويب نتائج الأزواج (28 كرت مرتب حسب قوة الزوج) ─────────────────────
+# ──── تبويب Pair Matrix ─────────────────────
 with tab_results:
     if db_daily.empty or len(db_daily) < 2:
         st.info("📊 أدخل بيانات يومين على الأقل لعرض النتائج")
