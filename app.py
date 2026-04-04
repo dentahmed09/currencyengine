@@ -534,8 +534,8 @@ with tab_dashboard:
                 <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
                             border-radius: 15px; padding: 20px; text-align: center;
                             border: 2px solid {get_color(asia_power)};'>
-                    <div style='font-size: 40px; margin-bottom: 10px;'>AS</div>
-                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Asia</div>
+                    <div style='font-size: 40px; margin-bottom: 10px;'>🌏</div>
+                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Asia Pacific</div>
                     <div style='font-size: 32px; font-weight: bold; color: {get_color(asia_power)};'>{asia_power:+.2f}</div>
                     <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
                         AUD, NZD, JPY
@@ -544,7 +544,7 @@ with tab_dashboard:
                 """, unsafe_allow_html=True)
             
             # Strongest region
-            powers = {'Americas': us_power, 'Europe': europe_power, 'Asia': asia_power}
+            powers = {'Americas': us_power, 'Europe': europe_power, 'Asia Pacific': asia_power}
             strongest_region = max(powers, key=powers.get)
             strongest_value_region = powers[strongest_region]
             
@@ -652,13 +652,10 @@ with tab_dashboard:
                     
                     # Signal based on pair strength
                     if strength_today > 0:
-                        signal = "BUY"
                         signal_display = "🟢 BUY"
                     elif strength_today < 0:
-                        signal = "SELL"
                         signal_display = "🔴 SELL"
                     else:
-                        signal = "WAIT"
                         signal_display = "🟡 WAIT"
                     
                     # Calculate deltas if previous data available
@@ -666,7 +663,6 @@ with tab_dashboard:
                         delta = {c: current_data[c] - prev_data[c] for c in currencies}
                         base_delta = delta[base]
                         quote_delta = delta[quote]
-                        health_delta = (current_data[base] - current_data[quote]) - (prev_data[base] - prev_data[quote])
                         volatility = abs(base_delta - quote_delta)
                         
                         # Delta Power (Change in pair strength)
@@ -679,21 +675,10 @@ with tab_dashboard:
                             base_vs_quote = f"{base} < {quote}"
                         else:
                             base_vs_quote = f"{base} = {quote}"
-                        
-                        # Economy (Confirmation - Up Trend / Down Trend / Range)
-                        if base_delta > health_delta and quote_delta > health_delta:
-                            economy = "📈 Up Trend"
-                        elif base_delta < health_delta and quote_delta < health_delta:
-                            economy = "📉 Down Trend"
-                        else:
-                            economy = "🔄 Range"
                     else:
-                        base_delta = 0
-                        quote_delta = 0
                         delta_power = 0
                         volatility = 0
                         base_vs_quote = "N/A"
-                        economy = "❓ No Data"
                     
                     table_data.append({
                         "Pair": pair,
@@ -701,8 +686,7 @@ with tab_dashboard:
                         "Power": f"{strength_today:+.0f}",
                         "Δ Power": f"{delta_power:+.0f}",
                         "Base vs Quote": base_vs_quote,
-                        "Volatility": f"{volatility:.0f}",
-                        "Economy": economy
+                        "Volatility": f"{volatility:.0f}"
                     })
                 
                 # Create DataFrame
@@ -723,8 +707,7 @@ with tab_dashboard:
                         "Power": st.column_config.TextColumn("Power", width="small"),
                         "Δ Power": st.column_config.TextColumn("Δ Power", width="small"),
                         "Base vs Quote": st.column_config.TextColumn("Base vs Quote", width="medium"),
-                        "Volatility": st.column_config.TextColumn("Volatility", width="small"),
-                        "Economy": st.column_config.TextColumn("Economy", width="medium")
+                        "Volatility": st.column_config.TextColumn("Volatility", width="small")
                     }
                 )
                 
