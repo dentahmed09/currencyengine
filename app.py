@@ -433,221 +433,637 @@ tab_dashboard, tab_results = st.tabs([
     "📊 Daily Dashboord",
     "🔍 Pair Matrix ",
 ])
-# ──── تبويب Daily Dashboord ─────────────────────────────────
+
+# ──── Daily Dashboard Tab ─────────────────────────────────
 with tab_dashboard:
     if db_daily.empty:
-        st.info("أدخل بيانات يومية أولاً")
+        st.info("📊 Please enter daily data first")
     else:
-        st.header("🌙 Daily Dashboord")
+        st.header("🌙 Daily Dashboard")
         
-        latest = db_daily.iloc[-1]
-        prev = db_daily.iloc[-2] if len(db_daily) >= 2 else None
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
-                        border-radius: 15px; padding: 20px; margin: 10px 0; 
-                        border: 1px solid #334155;'>
-                <h3 style='color: #f1c40f; text-align: center; margin-bottom: 20px;'>🥧 Currency Strength</h3>
-            </div>
-            """, unsafe_allow_html=True)
+        # ========== Date Dropdown ==========
+        if 'Date' not in db_daily.columns:
+            st.error("Date column not found in data")
+        else:
+            # Convert dates properly
+            db_daily['Date'] = pd.to_datetime(db_daily['Date']).dt.date
+            date_options = db_daily['Date'].tolist()
+            date_options_str = [d.strftime('%Y-%m-%d') for d in date_options]
             
-            strength_df = latest[currencies].to_frame('القوة').sort_values('القوة', ascending=False).reset_index(names='العملة')
-            colors = ['#f39c12', '#e67e22', '#e74c3c', '#3498db', '#2ecc71', '#1abc9c', '#9b59b6', '#34495e']
-            
-            fig_pie = go.Figure(data=[go.Pie(
-                labels=strength_df['العملة'],
-                values=strength_df['القوة'].abs(),
-                textinfo='label+percent',
-                textposition='inside',
-                hole=0.35,
-                marker=dict(colors=colors, line=dict(color='#1e2a3a', width=3)),
-                hovertemplate='<b>%{label}</b><br>القوة: %{customdata:.2f}<br><extra></extra>',
-                customdata=strength_df['القوة'],
-                textfont=dict(size=12, color='white')
-            )])
-            
-            strongest = strength_df.iloc[0]['العملة']
-            strongest_value = strength_df.iloc[0]['القوة']
-            
-            fig_pie.add_annotation(
-                text=f"<b>{strongest}</b><br>{strongest_value:.1f}",
-                x=0.5, y=0.5, font=dict(size=16, color='#f1c40f'), showarrow=False,
-                bgcolor='rgba(15, 23, 42, 0.8)', bordercolor='#f1c40f', borderwidth=2
+            selected_date_str = st.selectbox(
+                "📅 Select Date to View Analysis:",
+                options=date_options_str,
+                index=len(date_options_str)-1
             )
             
-            fig_pie.update_layout(
-                title=dict(text="🏆 توزيع قوة العملات", font=dict(size=18, color='#f1c40f'), x=0.5),
-                height=550, showlegend=True, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05,
-                           font=dict(size=11, color='#e2e8f0'), bgcolor='rgba(15, 23, 42, 0.7)')
-            )
-            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
+            # Get selected date
+            selected_date = pd.to_datetime(selected_date_str).date()
+            selected_row = db_daily[db_daily['Date'] == selected_date]
             
-            with st.expander("📊 عرض تفاصيل الترتيب"):
-                st.dataframe(strength_df.style.format({'القوة': '{:.2f}'}).bar(subset=['القوة'], color='#f39c12')
-                            .set_properties(**{'background-color': '#1e2a3a', 'color': '#e2e8f0'}),
-                            hide_index=True, use_container_width=True)
-        
-        with col2:
-            st.markdown("""
-            <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
-                        border-radius: 15px; padding: 20px; margin: 10px 0; 
-                        border: 1px solid #334155;'>
-                <h3 style='color: #f1c40f; text-align: center; margin-bottom: 20px;'>📊 Daily Changes</h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if prev is not None:
-                deltas = {c: latest[c] - prev[c] for c in currencies}
-                sorted_currencies = sorted(currencies, key=lambda x: deltas[x])
-                sorted_deltas = [deltas[c] for c in sorted_currencies]
-                bar_colors = ['#ef4444' if x < 0 else '#10b981' if x > 0 else '#6b7280' for x in sorted_deltas]
-                
-                fig_bar = go.Figure()
-                fig_bar.add_trace(go.Bar(x=sorted_currencies, y=sorted_deltas,
-                    marker=dict(color=bar_colors), text=[f"{x:+.2f}" for x in sorted_deltas], textposition='outside'))
-                fig_bar.add_hline(y=0, line_dash="solid", line_color="#f1c40f", line_width=2.5)
-                
-                max_delta = max(abs(min(sorted_deltas)), abs(max(sorted_deltas))) if sorted_deltas else 10
-                y_range = max_delta * 1.3 if max_delta > 0 else 10
-                
-                fig_bar.update_layout(
-                    title=dict(text="<b>التغيرات اليومية لكل عملة</b>", font=dict(size=16, color='#f1c40f'), x=0.5),
-                    xaxis=dict(title=dict(text="<b>العملة</b>", font=dict(size=13, color='#e2e8f0')), tickangle=45),
-                    yaxis=dict(title=dict(text="<b>قيمة التغير</b>", font=dict(size=13, color='#e2e8f0')), range=[-y_range, y_range]),
-                    height=550, template="plotly_dark", plot_bgcolor='rgba(15, 23, 42, 0.8)',
-                    paper_bgcolor='rgba(0,0,0,0)'
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
-                
-                with st.expander("📊 عرض تفاصيل التغيرات"):
-                    changes_df = pd.DataFrame({'العملة': sorted_currencies, 'التغير اليومي': sorted_deltas})
-                    st.dataframe(changes_df.style.format({'التغير اليومي': '{:+.2f}'})
-                                .set_properties(**{'background-color': '#1e2a3a', 'color': '#e2e8f0'}),
-                                hide_index=True, use_container_width=True)
+            if selected_row.empty:
+                st.error(f"❌ No data found for {selected_date_str}")
+                current_data = db_daily.iloc[-1]
+                selected_date = current_data['Date']
             else:
-                st.info("ℹ️ لا يوجد يوم سابق لحساب التغيرات")
-        
-        # الشارتات الـ 8
+                current_data = selected_row.iloc[0]
+            
+            # Get previous data if available
+            date_index = db_daily[db_daily['Date'] == selected_date].index[0]
+            if date_index > 0:
+                prev_data = db_daily.iloc[date_index - 1]
+            else:
+                prev_data = None
+            
+            st.markdown("---")
+            
+            # ========== Regional Power (3 separate boxes) ==========
+            st.subheader("🌍 Regional Power")
+            
+            # Define currencies by region
+            us_currencies_codes = ['USD', 'CAD']
+            europe_currencies_codes = ['GBP', 'EUR', 'CHF']
+            asia_currencies_codes = ['AUD', 'NZD', 'JPY']
+            
+            # Calculate averages based on selected date
+            us_power = current_data[us_currencies_codes].mean() if all(c in current_data.index for c in us_currencies_codes) else 0
+            europe_power = current_data[europe_currencies_codes].mean() if all(c in current_data.index for c in europe_currencies_codes) else 0
+            asia_power = current_data[asia_currencies_codes].mean() if all(c in current_data.index for c in asia_currencies_codes) else 0
+            
+            # Function to determine color
+            def get_color(value):
+                if value > 0:
+                    return "#10b981"
+                elif value < 0:
+                    return "#ef4444"
+                else:
+                    return "#6b7280"
+            
+            # Display three boxes in a row
+            col_r1, col_r2, col_r3 = st.columns(3)
+            
+            with col_r1:
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 20px; text-align: center;
+                            border: 2px solid {get_color(us_power)};'>
+                    <div style='font-size: 40px; margin-bottom: 10px;'>🇺🇸</div>
+                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Americas</div>
+                    <div style='font-size: 32px; font-weight: bold; color: {get_color(us_power)};'>{us_power:+.2f}</div>
+                    <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
+                        USD, CAD
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col_r2:
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 20px; text-align: center;
+                            border: 2px solid {get_color(europe_power)};'>
+                    <div style='font-size: 40px; margin-bottom: 10px;'>🇪🇺</div>
+                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Europe</div>
+                    <div style='font-size: 32px; font-weight: bold; color: {get_color(europe_power)};'>{europe_power:+.2f}</div>
+                    <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
+                        GBP, EUR, CHF
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col_r3:
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 20px; text-align: center;
+                            border: 2px solid {get_color(asia_power)};'>
+                    <div style='font-size: 40px; margin-bottom: 10px;'>AS</div>
+                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Asia</div>
+                    <div style='font-size: 32px; font-weight: bold; color: {get_color(asia_power)};'>{asia_power:+.2f}</div>
+                    <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
+                        AUD, NZD, JPY
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Strongest region
+            powers = {'Americas': us_power, 'Europe': europe_power, 'Asia': asia_power}
+            strongest_region = max(powers, key=powers.get)
+            strongest_value_region = powers[strongest_region]
+            
+            st.markdown(f"""
+            <div style='background: #1e2a3a; border-radius: 10px; padding: 10px; text-align: center; margin: 20px 0;'>
+                <span style='color: #f1c40f;'>🏆 Strongest Region Currently:</span>
+                <span style='font-weight: bold; color: #10b981;'>{strongest_region}</span>
+                <span style='color: #f1c40f;'> ({strongest_value_region:+.2f})</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # ========== Currency Cards ==========
+            st.subheader("💱 Currency Cards")
+            
+            # Full names for display
+            currency_full_names = {
+                "USD": "US Dollar",
+                "EUR": "Euro",
+                "GBP": "British Pound",
+                "JPY": "Japanese Yen",
+                "CHF": "Swiss Franc",
+                "CAD": "Canadian Dollar",
+                "AUD": "Australian Dollar",
+                "NZD": "New Zealand Dollar"
+            }
+            
+            # Additional currency data
+            currency_extra_data = {
+                "USD": {
+                    "yield": "5.25%",
+                    "prev_meeting": "2024-01-31",
+                    "next_meeting": "2024-03-20",
+                    "central_bank": "Federal Reserve",
+                    "flag": "🇺🇸"
+                },
+                "EUR": {
+                    "yield": "4.50%",
+                    "prev_meeting": "2024-01-25",
+                    "next_meeting": "2024-03-07",
+                    "central_bank": "European Central Bank",
+                    "flag": "🇪🇺"
+                },
+                "GBP": {
+                    "yield": "5.25%",
+                    "prev_meeting": "2024-02-01",
+                    "next_meeting": "2024-03-21",
+                    "central_bank": "Bank of England",
+                    "flag": "🇬🇧"
+                },
+                "JPY": {
+                    "yield": "-0.10%",
+                    "prev_meeting": "2024-01-23",
+                    "next_meeting": "2024-03-19",
+                    "central_bank": "Bank of Japan",
+                    "flag": "🇯🇵"
+                },
+                "CHF": {
+                    "yield": "1.75%",
+                    "prev_meeting": "2024-01-15",
+                    "next_meeting": "2024-03-21",
+                    "central_bank": "Swiss National Bank",
+                    "flag": "🇨🇭"
+                },
+                "CAD": {
+                    "yield": "5.00%",
+                    "prev_meeting": "2024-01-24",
+                    "next_meeting": "2024-03-06",
+                    "central_bank": "Bank of Canada",
+                    "flag": "🇨🇦"
+                },
+                "AUD": {
+                    "yield": "4.35%",
+                    "prev_meeting": "2024-02-06",
+                    "next_meeting": "2024-03-19",
+                    "central_bank": "Reserve Bank of Australia",
+                    "flag": "🇦🇺"
+                },
+                "NZD": {
+                    "yield": "5.50%",
+                    "prev_meeting": "2024-02-07",
+                    "next_meeting": "2024-03-13",
+                    "central_bank": "Reserve Bank of New Zealand",
+                    "flag": "🇳🇿"
+                }
+            }
+            
+            # Function to display currency pairs as a table
+            def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
+                """Display table for pairs related to a specific currency"""
+                # Filter pairs containing the currency
+                related_pairs = [pair for pair in pairs if currency_code in pair]
+                
+                currency_full = currency_full_names.get(currency_code, currency_code)
+                st.subheader(f"🔍 {currency_full} Pairs")
+                
+                # Calculate data for each pair
+                table_data = []
+                for pair in related_pairs:
+                    base, quote = pair[:3], pair[3:]
+                    
+                    # Pair Strength
+                    strength_today = current_data[base] - current_data[quote]
+                    
+                    # Signal based on pair strength
+                    if strength_today > 0:
+                        signal = "BUY"
+                        signal_display = "🟢 BUY"
+                    elif strength_today < 0:
+                        signal = "SELL"
+                        signal_display = "🔴 SELL"
+                    else:
+                        signal = "WAIT"
+                        signal_display = "🟡 WAIT"
+                    
+                    # Calculate deltas if previous data available
+                    if prev_data is not None:
+                        delta = {c: current_data[c] - prev_data[c] for c in currencies}
+                        base_delta = delta[base]
+                        quote_delta = delta[quote]
+                        health_delta = (current_data[base] - current_data[quote]) - (prev_data[base] - prev_data[quote])
+                        volatility = abs(base_delta - quote_delta)
+                        
+                        # Delta Power (Change in pair strength)
+                        delta_power = strength_today - (prev_data[base] - prev_data[quote])
+                        
+                        # Base vs Quote comparison
+                        if current_data[base] > current_data[quote]:
+                            base_vs_quote = f"{base} > {quote}"
+                        elif current_data[base] < current_data[quote]:
+                            base_vs_quote = f"{base} < {quote}"
+                        else:
+                            base_vs_quote = f"{base} = {quote}"
+                        
+                        # Economy (Confirmation - Up Trend / Down Trend / Range)
+                        if base_delta > health_delta and quote_delta > health_delta:
+                            economy = "📈 Up Trend"
+                        elif base_delta < health_delta and quote_delta < health_delta:
+                            economy = "📉 Down Trend"
+                        else:
+                            economy = "🔄 Range"
+                    else:
+                        base_delta = 0
+                        quote_delta = 0
+                        delta_power = 0
+                        volatility = 0
+                        base_vs_quote = "N/A"
+                        economy = "❓ No Data"
+                    
+                    table_data.append({
+                        "Pair": pair,
+                        "Signal": signal_display,
+                        "Power": f"{strength_today:+.0f}",
+                        "Δ Power": f"{delta_power:+.0f}",
+                        "Base vs Quote": base_vs_quote,
+                        "Volatility": f"{volatility:.0f}",
+                        "Economy": economy
+                    })
+                
+                # Create DataFrame
+                df_table = pd.DataFrame(table_data)
+                
+                # Sort by Power (highest first)
+                df_table['Power_Num'] = df_table['Power'].str.replace('+', '').astype(float)
+                df_table = df_table.sort_values('Power_Num', ascending=False).drop('Power_Num', axis=1)
+                
+                # Display table with custom styling
+                st.dataframe(
+                    df_table,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Pair": st.column_config.TextColumn("Pair", width="small"),
+                        "Signal": st.column_config.TextColumn("Signal", width="small"),
+                        "Power": st.column_config.TextColumn("Power", width="small"),
+                        "Δ Power": st.column_config.TextColumn("Δ Power", width="small"),
+                        "Base vs Quote": st.column_config.TextColumn("Base vs Quote", width="medium"),
+                        "Volatility": st.column_config.TextColumn("Volatility", width="small"),
+                        "Economy": st.column_config.TextColumn("Economy", width="medium")
+                    }
+                )
+                
+                # Add color coding explanation
+                st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
+            
+            # Display currency cards in grid (2x4)
+            for i in range(0, len(currencies), 2):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    currency_code = currencies[i]
+                    strength = current_data[currency_code]
+                    strength_color = "#10b981" if strength >= 0 else "#ef4444"
+                    extra = currency_extra_data.get(currency_code, {})
+                    full_name = currency_full_names.get(currency_code, currency_code)
+                    
+                    # Session state key for showing pairs table
+                    if f"show_pairs_{currency_code}" not in st.session_state:
+                        st.session_state[f"show_pairs_{currency_code}"] = False
+                    
+                    card_html = f'''
+                    <div style="background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
+                                border-radius: 15px; padding: 20px; margin: 10px 0;
+                                border: 1px solid #334155;">
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                            <div style="font-size: 48px;">{extra.get('flag', '💰')}</div>
+                            <div>
+                                <h2 style="margin:0; color: #f1c40f;">{full_name}</h2>
+                                <div style="font-size: 12px; color: #94a3b8;">{extra.get('central_bank', '')}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                            <span>💪 Economic Strength:</span>
+                            <span style="font-weight: bold; color: {strength_color};">{strength:+.2f}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                            <span>📈 Yield:</span>
+                            <span style="font-weight: bold; color: #f1c40f;">{extra.get('yield', 'N/A')}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+                            <span>📅 Previous Meeting:</span>
+                            <span>{extra.get('prev_meeting', 'N/A')}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
+                            <span>📅 Next Meeting:</span>
+                            <span style="color: #f1c40f;">{extra.get('next_meeting', 'N/A')}</span>
+                        </div>
+                    </div>
+                    '''
+                    st.markdown(card_html, unsafe_allow_html=True)
+                    
+                    # Single button to show pairs table
+                    if st.button(f"📊 {full_name} Pairs", key=f"btn_{currency_code}"):
+                        st.session_state[f"show_pairs_{currency_code}"] = not st.session_state[f"show_pairs_{currency_code}"]
+                        st.rerun()
+                    
+                    # Show pairs table if button is active
+                    if st.session_state[f"show_pairs_{currency_code}"]:
+                        show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
+                
+                if i + 1 < len(currencies):
+                    with col2:
+                        currency_code = currencies[i + 1]
+                        strength = current_data[currency_code]
+                        strength_color = "#10b981" if strength >= 0 else "#ef4444"
+                        extra = currency_extra_data.get(currency_code, {})
+                        full_name = currency_full_names.get(currency_code, currency_code)
+                        
+                        if f"show_pairs_{currency_code}" not in st.session_state:
+                            st.session_state[f"show_pairs_{currency_code}"] = False
+                        
+                        card_html = f'''
+                        <div style="background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
+                                    border-radius: 15px; padding: 20px; margin: 10px 0;
+                                    border: 1px solid #334155;">
+                            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                                <div style="font-size: 48px;">{extra.get('flag', '💰')}</div>
+                                <div>
+                                    <h2 style="margin:0; color: #f1c40f;">{full_name}</h2>
+                                    <div style="font-size: 12px; color: #94a3b8;">{extra.get('central_bank', '')}</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                                <span>💪 Economic Strength:</span>
+                                <span style="font-weight: bold; color: {strength_color};">{strength:+.2f}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                                <span>📈 Yield:</span>
+                                <span style="font-weight: bold; color: #f1c40f;">{extra.get('yield', 'N/A')}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+                                <span>📅 Previous Meeting:</span>
+                                <span>{extra.get('prev_meeting', 'N/A')}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
+                                <span>📅 Next Meeting:</span>
+                                <span style="color: #f1c40f;">{extra.get('next_meeting', 'N/A')}</span>
+                            </div>
+                        </div>
+                        '''
+                        st.markdown(card_html, unsafe_allow_html=True)
+                        
+                        # Single button to show pairs table
+                        if st.button(f"📊 {full_name} Pairs", key=f"btn_{currency_code}"):
+                            st.session_state[f"show_pairs_{currency_code}"] = not st.session_state[f"show_pairs_{currency_code}"]
+                            st.rerun()
+                        
+                        # Show pairs table if button is active
+                        if st.session_state[f"show_pairs_{currency_code}"]:
+                            show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
+        # ========== Higher Time Frame Analyses ==========
         st.markdown("---")
         st.markdown("""
         <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
                     border-radius: 15px; padding: 20px; margin: 20px 0; 
                     border: 1px solid #334155;'>
-            <h3 style='color: #f1c40f; text-align: center;'>📈 Highr Time Frame Analysies</h3>
+            <h3 style='color: #f1c40f; text-align: center;'>📈 Higher Time Frame Analyses</h3>
         </div>
         """, unsafe_allow_html=True)
         
+        # Display charts for all currencies (2 per row)
         for i in range(0, len(currencies), 2):
             col1, col2 = st.columns(2)
             
             with col1:
                 currency = currencies[i]
-                st.markdown(f"### 💱 {currency}")
+                currency_full = currency_full_names.get(currency, currency)
+                st.markdown(f"### 💱 {currency_full} ({currency})")
+                
+                # Prepare chart data from all three timeframes
                 chart_data = pd.DataFrame()
                 
                 if not db_daily.empty:
-                    daily_data = db_daily[['Date', currency]].copy().rename(columns={currency: 'يومي'})
+                    daily_data = db_daily[['Date', currency]].copy().rename(columns={currency: 'Daily'})
                     chart_data = pd.concat([chart_data, daily_data], ignore_index=True)
+                
                 if not db_weekly.empty:
-                    weekly_data = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'أسبوعي'})
+                    weekly_data = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'Weekly'})
                     if not chart_data.empty:
-                        chart_data = chart_data.merge(weekly_data[['Date', 'أسبوعي']], on='Date', how='outer')
+                        chart_data = chart_data.merge(weekly_data[['Date', 'Weekly']], on='Date', how='outer')
                     else:
                         chart_data = weekly_data
+                
                 if not db_monthly.empty:
-                    monthly_data = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'شهري'})
+                    monthly_data = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'Monthly'})
                     if not chart_data.empty:
-                        chart_data = chart_data.merge(monthly_data[['Date', 'شهري']], on='Date', how='outer')
+                        chart_data = chart_data.merge(monthly_data[['Date', 'Monthly']], on='Date', how='outer')
                     else:
                         chart_data = monthly_data
                 
                 if not chart_data.empty:
                     chart_data = chart_data.sort_values('Date').reset_index(drop=True)
+                    
                     fig = go.Figure()
                     
-                    if 'يومي' in chart_data.columns and not chart_data['يومي'].isna().all():
-                        daily_plot = chart_data[chart_data['يومي'].notna()]
-                        fig.add_trace(go.Scatter(x=daily_plot['Date'], y=daily_plot['يومي'], mode='lines+markers',
-                                                  name='يومي', line=dict(color='#3498db', width=2.5)))
-                    if 'أسبوعي' in chart_data.columns and not chart_data['أسبوعي'].isna().all():
-                        weekly_plot = chart_data[chart_data['أسبوعي'].notna()]
-                        fig.add_trace(go.Scatter(x=weekly_plot['Date'], y=weekly_plot['أسبوعي'], mode='lines+markers',
-                                                  name='أسبوعي', line=dict(color='#f1c40f', width=2.5, dash='dash')))
-                    if 'شهري' in chart_data.columns and not chart_data['شهري'].isna().all():
-                        monthly_plot = chart_data[chart_data['شهري'].notna()]
-                        fig.add_trace(go.Scatter(x=monthly_plot['Date'], y=monthly_plot['شهري'], mode='lines+markers',
-                                                  name='شهري', line=dict(color='white', width=2.5, dash='dot')))
+                    # Daily line (blue)
+                    if 'Daily' in chart_data.columns and not chart_data['Daily'].isna().all():
+                        daily_plot = chart_data[chart_data['Daily'].notna()]
+                        fig.add_trace(go.Scatter(
+                            x=daily_plot['Date'], 
+                            y=daily_plot['Daily'], 
+                            mode='lines+markers',
+                            name='Daily', 
+                            line=dict(color='#3498db', width=2.5),
+                            marker=dict(size=6)
+                        ))
                     
+                    # Weekly line (yellow, dashed)
+                    if 'Weekly' in chart_data.columns and not chart_data['Weekly'].isna().all():
+                        weekly_plot = chart_data[chart_data['Weekly'].notna()]
+                        fig.add_trace(go.Scatter(
+                            x=weekly_plot['Date'], 
+                            y=weekly_plot['Weekly'], 
+                            mode='lines+markers',
+                            name='Weekly', 
+                            line=dict(color='#f1c40f', width=2.5, dash='dash'),
+                            marker=dict(size=6)
+                        ))
+                    
+                    # Monthly line (white, dotted)
+                    if 'Monthly' in chart_data.columns and not chart_data['Monthly'].isna().all():
+                        monthly_plot = chart_data[chart_data['Monthly'].notna()]
+                        fig.add_trace(go.Scatter(
+                            x=monthly_plot['Date'], 
+                            y=monthly_plot['Monthly'], 
+                            mode='lines+markers',
+                            name='Monthly', 
+                            line=dict(color='white', width=2.5, dash='dot'),
+                            marker=dict(size=6)
+                        ))
+                    
+                    # Update layout
                     fig.update_layout(
-                        title=dict(text=f"<b>{currency}</b> - تطور القوة", font=dict(size=14, color='#f1c40f'), x=0.5),
-                        xaxis=dict(title=dict(text="<b>التاريخ</b>", font=dict(size=10, color='#e2e8f0')), tickangle=45),
-                        yaxis=dict(title=dict(text="<b>قوة العملة</b>", font=dict(size=10, color='#e2e8f0')),
-                                  zeroline=True, zerolinecolor='#f1c40f'),
-                        height=400, template="plotly_dark", hovermode='x unified',
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-                        plot_bgcolor='rgba(15, 23, 42, 0.8)', paper_bgcolor='rgba(0,0,0,0)'
+                        title=dict(
+                            text=f"<b>{currency_full}</b> - Strength Evolution", 
+                            font=dict(size=14, color='#f1c40f'), 
+                            x=0.5
+                        ),
+                        xaxis=dict(
+                            title=dict(text="<b>Date</b>", font=dict(size=10, color='#e2e8f0')), 
+                            tickangle=45,
+                            tickfont=dict(size=10)
+                        ),
+                        yaxis=dict(
+                            title=dict(text="<b>Currency Strength</b>", font=dict(size=10, color='#e2e8f0')),
+                            zeroline=True, 
+                            zerolinecolor='#f1c40f',
+                            zerolinewidth=1.5
+                        ),
+                        height=400, 
+                        template="plotly_dark", 
+                        hovermode='x unified',
+                        legend=dict(
+                            orientation="h", 
+                            yanchor="bottom", 
+                            y=1.02, 
+                            xanchor="center", 
+                            x=0.5,
+                            font=dict(size=10)
+                        ),
+                        plot_bgcolor='rgba(15, 23, 42, 0.8)', 
+                        paper_bgcolor='rgba(0,0,0,0)'
                     )
-                    fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5)
-                    st.plotly_chart(fig, use_container_width=True, key=f"dashboard_chart_{currency}")
+                    
+                    # Add zero line
+                    fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.7)
+                    
+                    st.plotly_chart(fig, use_container_width=True, key=f"htf_chart_{currency}")
                 else:
-                    st.info(f"لا توجد بيانات للعملة {currency}")
+                    st.info(f"📊 No data available for {currency_full}")
             
             if i + 1 < len(currencies):
                 with col2:
                     currency = currencies[i + 1]
-                    st.markdown(f"### 💱 {currency}")
+                    currency_full = currency_full_names.get(currency, currency)
+                    st.markdown(f"### 💱 {currency_full} ({currency})")
+                    
+                    # Prepare chart data from all three timeframes
                     chart_data = pd.DataFrame()
                     
                     if not db_daily.empty:
-                        daily_data = db_daily[['Date', currency]].copy().rename(columns={currency: 'يومي'})
+                        daily_data = db_daily[['Date', currency]].copy().rename(columns={currency: 'Daily'})
                         chart_data = pd.concat([chart_data, daily_data], ignore_index=True)
+                    
                     if not db_weekly.empty:
-                        weekly_data = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'أسبوعي'})
+                        weekly_data = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'Weekly'})
                         if not chart_data.empty:
-                            chart_data = chart_data.merge(weekly_data[['Date', 'أسبوعي']], on='Date', how='outer')
+                            chart_data = chart_data.merge(weekly_data[['Date', 'Weekly']], on='Date', how='outer')
                         else:
                             chart_data = weekly_data
+                    
                     if not db_monthly.empty:
-                        monthly_data = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'شهري'})
+                        monthly_data = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'Monthly'})
                         if not chart_data.empty:
-                            chart_data = chart_data.merge(monthly_data[['Date', 'شهري']], on='Date', how='outer')
+                            chart_data = chart_data.merge(monthly_data[['Date', 'Monthly']], on='Date', how='outer')
                         else:
                             chart_data = monthly_data
                     
                     if not chart_data.empty:
                         chart_data = chart_data.sort_values('Date').reset_index(drop=True)
+                        
                         fig = go.Figure()
                         
-                        if 'يومي' in chart_data.columns and not chart_data['يومي'].isna().all():
-                            daily_plot = chart_data[chart_data['يومي'].notna()]
-                            fig.add_trace(go.Scatter(x=daily_plot['Date'], y=daily_plot['يومي'], mode='lines+markers',
-                                                      name='يومي', line=dict(color='#3498db', width=2.5)))
-                        if 'أسبوعي' in chart_data.columns and not chart_data['أسبوعي'].isna().all():
-                            weekly_plot = chart_data[chart_data['أسبوعي'].notna()]
-                            fig.add_trace(go.Scatter(x=weekly_plot['Date'], y=weekly_plot['أسبوعي'], mode='lines+markers',
-                                                      name='أسبوعي', line=dict(color='#f1c40f', width=2.5, dash='dash')))
-                        if 'شهري' in chart_data.columns and not chart_data['شهري'].isna().all():
-                            monthly_plot = chart_data[chart_data['شهري'].notna()]
-                            fig.add_trace(go.Scatter(x=monthly_plot['Date'], y=monthly_plot['شهري'], mode='lines+markers',
-                                                      name='شهري', line=dict(color='white', width=2.5, dash='dot')))
+                        # Daily line (blue)
+                        if 'Daily' in chart_data.columns and not chart_data['Daily'].isna().all():
+                            daily_plot = chart_data[chart_data['Daily'].notna()]
+                            fig.add_trace(go.Scatter(
+                                x=daily_plot['Date'], 
+                                y=daily_plot['Daily'], 
+                                mode='lines+markers',
+                                name='Daily', 
+                                line=dict(color='#3498db', width=2.5),
+                                marker=dict(size=6)
+                            ))
                         
+                        # Weekly line (yellow, dashed)
+                        if 'Weekly' in chart_data.columns and not chart_data['Weekly'].isna().all():
+                            weekly_plot = chart_data[chart_data['Weekly'].notna()]
+                            fig.add_trace(go.Scatter(
+                                x=weekly_plot['Date'], 
+                                y=weekly_plot['Weekly'], 
+                                mode='lines+markers',
+                                name='Weekly', 
+                                line=dict(color='#f1c40f', width=2.5, dash='dash'),
+                                marker=dict(size=6)
+                            ))
+                        
+                        # Monthly line (white, dotted)
+                        if 'Monthly' in chart_data.columns and not chart_data['Monthly'].isna().all():
+                            monthly_plot = chart_data[chart_data['Monthly'].notna()]
+                            fig.add_trace(go.Scatter(
+                                x=monthly_plot['Date'], 
+                                y=monthly_plot['Monthly'], 
+                                mode='lines+markers',
+                                name='Monthly', 
+                                line=dict(color='white', width=2.5, dash='dot'),
+                                marker=dict(size=6)
+                            ))
+                        
+                        # Update layout
                         fig.update_layout(
-                            title=dict(text=f"<b>{currency}</b> - تطور القوة", font=dict(size=14, color='#f1c40f'), x=0.5),
-                            xaxis=dict(title=dict(text="<b>التاريخ</b>", font=dict(size=10, color='#e2e8f0')), tickangle=45),
-                            yaxis=dict(title=dict(text="<b>قوة العملة</b>", font=dict(size=10, color='#e2e8f0')),
-                                      zeroline=True, zerolinecolor='#f1c40f'),
-                            height=400, template="plotly_dark", hovermode='x unified',
-                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-                            plot_bgcolor='rgba(15, 23, 42, 0.8)', paper_bgcolor='rgba(0,0,0,0)'
+                            title=dict(
+                                text=f"<b>{currency_full}</b> - Strength Evolution", 
+                                font=dict(size=14, color='#f1c40f'), 
+                                x=0.5
+                            ),
+                            xaxis=dict(
+                                title=dict(text="<b>Date</b>", font=dict(size=10, color='#e2e8f0')), 
+                                tickangle=45,
+                                tickfont=dict(size=10)
+                            ),
+                            yaxis=dict(
+                                title=dict(text="<b>Currency Strength</b>", font=dict(size=10, color='#e2e8f0')),
+                                zeroline=True, 
+                                zerolinecolor='#f1c40f',
+                                zerolinewidth=1.5
+                            ),
+                            height=400, 
+                            template="plotly_dark", 
+                            hovermode='x unified',
+                            legend=dict(
+                                orientation="h", 
+                                yanchor="bottom", 
+                                y=1.02, 
+                                xanchor="center", 
+                                x=0.5,
+                                font=dict(size=10)
+                            ),
+                            plot_bgcolor='rgba(15, 23, 42, 0.8)', 
+                            paper_bgcolor='rgba(0,0,0,0)'
                         )
-                        fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5)
-                        st.plotly_chart(fig, use_container_width=True, key=f"dashboard_chart_{currency}")
+                        
+                        # Add zero line
+                        fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.7)
+                        
+                        st.plotly_chart(fig, use_container_width=True, key=f"htf_chart_{currency}")
                     else:
-                        st.info(f"لا توجد بيانات للعملة {currency}")
+                        st.info(f"📊 No data available for {currency_full}")
             
             st.markdown("---")
 
