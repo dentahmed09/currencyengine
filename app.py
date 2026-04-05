@@ -264,6 +264,8 @@ SHEET_ID = "1q_q9QGYHm0w7Z5nnO1Uq4NKLW1SoQCf5stbAMKoT3FE"
 DAILY_WS   = "daily"
 WEEKLY_WS  = "weekly"
 MONTHLY_WS = "monthly"
+ECONOMY_WS = "ECONOMY"    
+YIELD_WS   = "YIELD"       
 
 currencies = ["USD", "CAD", "EUR", "GBP", "CHF", "AUD", "NZD", "JPY"]
 
@@ -428,6 +430,8 @@ st.markdown("""
 db_daily   = load_data(DAILY_WS, "Date")
 db_weekly  = load_data(WEEKLY_WS, "Week_Start")
 db_monthly = load_data(MONTHLY_WS, "Month_Start")
+db_yield   = load_data(YIELD_WS, "Date")
+db_economy = load_data(ECONOMY_WS, "Date")
 
 tab_dashboard, tab_results = st.tabs([
     "📊 Daily Dashboord",
@@ -558,7 +562,7 @@ with tab_dashboard:
             
             st.markdown("---")
             
-            # ========== Currency Cards ==========
+                        # ========== Currency Cards ==========
             st.subheader("💱 Currency Cards")
             
             # Full names for display
@@ -573,68 +577,55 @@ with tab_dashboard:
                 "NZD": "New Zealand Dollar"
             }
             
-            # Additional currency data (without meeting dates)
-            currency_extra_data = {
-                "USD": {
-                    "yield": "5.25%",
-                    "central_bank": "Federal Reserve",
-                    "flag": "🇺🇸"
-                },
-                "EUR": {
-                    "yield": "4.50%",
-                    "central_bank": "European Central Bank",
-                    "flag": "🇪🇺"
-                },
-                "GBP": {
-                    "yield": "5.25%",
-                    "central_bank": "Bank of England",
-                    "flag": "🇬🇧"
-                },
-                "JPY": {
-                    "yield": "-0.10%",
-                    "central_bank": "Bank of Japan",
-                    "flag": "🇯🇵"
-                },
-                "CHF": {
-                    "yield": "1.75%",
-                    "central_bank": "Swiss National Bank",
-                    "flag": "🇨🇭"
-                },
-                "CAD": {
-                    "yield": "5.00%",
-                    "central_bank": "Bank of Canada",
-                    "flag": "🇨🇦"
-                },
-                "AUD": {
-                    "yield": "4.35%",
-                    "central_bank": "Reserve Bank of Australia",
-                    "flag": "🇦🇺"
-                },
-                "NZD": {
-                    "yield": "5.50%",
-                    "central_bank": "Reserve Bank of New Zealand",
-                    "flag": "🇳🇿"
-                }
+            # Central bank data (ثابتة)
+            currency_central_banks = {
+                "USD": "Federal Reserve",
+                "EUR": "European Central Bank",
+                "GBP": "Bank of England",
+                "JPY": "Bank of Japan",
+                "CHF": "Swiss National Bank",
+                "CAD": "Bank of Canada",
+                "AUD": "Reserve Bank of Australia",
+                "NZD": "Reserve Bank of New Zealand"
             }
             
-            # Function to display currency pairs as a table
+            currency_flags = {
+                "USD": "🇺🇸",
+                "EUR": "🇪🇺",
+                "GBP": "🇬🇧",
+                "JPY": "🇯🇵",
+                "CHF": "🇨🇭",
+                "CAD": "🇨🇦",
+                "AUD": "🇦🇺",
+                "NZD": "🇳🇿"
+            }
+            
+            # جلب بيانات الاقتصاد والعوائد لليوم المختار
+            economy_data_today = None
+            yield_data_today = None
+            
+            if not db_economy.empty:
+                economy_row = db_economy[db_economy['Date'] == selected_date]
+                if not economy_row.empty:
+                    economy_data_today = economy_row.iloc[0]
+            
+            if not db_yield.empty:
+                yield_row = db_yield[db_yield['Date'] == selected_date]
+                if not yield_row.empty:
+                    yield_data_today = yield_row.iloc[0]
+            
+            # Function to display currency pairs as a table (نفسها زي ماهي)
             def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
                 """Display table for pairs related to a specific currency"""
-                # Filter pairs containing the currency
                 related_pairs = [pair for pair in pairs if currency_code in pair]
-                
                 currency_full = currency_full_names.get(currency_code, currency_code)
                 st.subheader(f"🔍 {currency_full} Pairs")
                 
-                # Calculate data for each pair
                 table_data = []
                 for pair in related_pairs:
                     base, quote = pair[:3], pair[3:]
-                    
-                    # Pair Strength
                     strength_today = current_data[base] - current_data[quote]
                     
-                    # Signal based on pair strength
                     if strength_today > 0:
                         signal_display = "🟢 BUY"
                     elif strength_today < 0:
@@ -642,17 +633,13 @@ with tab_dashboard:
                     else:
                         signal_display = "🟡 WAIT"
                     
-                    # Calculate deltas if previous data available
                     if prev_data is not None:
                         delta = {c: current_data[c] - prev_data[c] for c in currencies}
                         base_delta = delta[base]
                         quote_delta = delta[quote]
                         volatility = abs(base_delta - quote_delta)
-                        
-                        # Delta Power (Change in pair strength)
                         delta_power = strength_today - (prev_data[base] - prev_data[quote])
                         
-                        # Base vs Quote comparison
                         if current_data[base] > current_data[quote]:
                             base_vs_quote = f"{base} > {quote}"
                         elif current_data[base] < current_data[quote]:
@@ -673,14 +660,10 @@ with tab_dashboard:
                         "Volatility": f"{volatility:.0f}"
                     })
                 
-                # Create DataFrame
                 df_table = pd.DataFrame(table_data)
-                
-                # Sort by Power (highest first)
                 df_table['Power_Num'] = df_table['Power'].str.replace('+', '').astype(float)
                 df_table = df_table.sort_values('Power_Num', ascending=False).drop('Power_Num', axis=1)
                 
-                # Display table with custom styling
                 st.dataframe(
                     df_table,
                     use_container_width=True,
@@ -694,8 +677,6 @@ with tab_dashboard:
                         "Volatility": st.column_config.TextColumn("Volatility", width="small")
                     }
                 )
-                
-                # Add color coding explanation
                 st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
             
             # Display currency cards in grid (2x4)
@@ -704,10 +685,31 @@ with tab_dashboard:
                 
                 with col1:
                     currency_code = currencies[i]
-                    strength = current_data[currency_code]
-                    strength_color = "#10b981" if strength >= 0 else "#ef4444"
-                    extra = currency_extra_data.get(currency_code, {})
+                    currency_strength = current_data[currency_code]  # قوة العملات من daily
+                    strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
                     full_name = currency_full_names.get(currency_code, currency_code)
+                    flag = currency_flags.get(currency_code, "💰")
+                    central_bank = currency_central_banks.get(currency_code, "")
+                    
+                    # جلب القوة الاقتصادية من شيت ECONOMY
+                    economic_strength = None
+                    if economy_data_today is not None and currency_code in economy_data_today.index:
+                        eco_val = economy_data_today[currency_code]
+                        if pd.notna(eco_val):
+                            economic_strength = eco_val
+                    
+                    economic_strength_text = f"{economic_strength:+.2f}" if economic_strength is not None else "N/A"
+                    economic_color = "#10b981" if (economic_strength is not None and economic_strength >= 0) else "#ef4444" if (economic_strength is not None and economic_strength < 0) else "#6b7280"
+                    
+                    # جلب العائد من شيت YIELD
+                    yield_value = None
+                    if yield_data_today is not None and currency_code in yield_data_today.index:
+                        y_val = yield_data_today[currency_code]
+                        if pd.notna(y_val):
+                            yield_value = y_val
+                    
+                    yield_text = f"{yield_value:.2f}%" if yield_value is not None else "N/A"
+                    yield_color = "#10b981" if (yield_value is not None and yield_value > 0) else "#ef4444" if (yield_value is not None and yield_value < 0) else "#f1c40f"
                     
                     # Session state key for showing pairs table
                     if f"show_pairs_{currency_code}" not in st.session_state:
@@ -718,19 +720,23 @@ with tab_dashboard:
                                 border-radius: 15px; padding: 20px; margin: 10px 0;
                                 border: 1px solid #334155;">
                         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                            <div style="font-size: 48px;">{extra.get('flag', '💰')}</div>
+                            <div style="font-size: 48px;">{flag}</div>
                             <div>
                                 <h2 style="margin:0; color: #f1c40f;">{full_name}</h2>
-                                <div style="font-size: 12px; color: #94a3b8;">{extra.get('central_bank', '')}</div>
+                                <div style="font-size: 12px; color: #94a3b8;">{central_bank}</div>
                             </div>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                            <span>💪 Economic Strength:</span>
-                            <span style="font-weight: bold; color: {strength_color};">{strength:+.2f}</span>
+                            <span>💪 Currency Strength (Daily):</span>
+                            <span style="font-weight: bold; color: {strength_color};">{currency_strength:+.2f}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                            <span>📈 Yield:</span>
-                            <span style="font-weight: bold; color: #f1c40f;">{extra.get('yield', 'N/A')}</span>
+                            <span>🏭 Economic Strength (ECONOMY):</span>
+                            <span style="font-weight: bold; color: {economic_color};">{economic_strength_text}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                            <span>📈 Yield (YIELD):</span>
+                            <span style="font-weight: bold; color: {yield_color};">{yield_text}</span>
                         </div>
                     </div>
                     '''
@@ -748,10 +754,31 @@ with tab_dashboard:
                 if i + 1 < len(currencies):
                     with col2:
                         currency_code = currencies[i + 1]
-                        strength = current_data[currency_code]
-                        strength_color = "#10b981" if strength >= 0 else "#ef4444"
-                        extra = currency_extra_data.get(currency_code, {})
+                        currency_strength = current_data[currency_code]
+                        strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
                         full_name = currency_full_names.get(currency_code, currency_code)
+                        flag = currency_flags.get(currency_code, "💰")
+                        central_bank = currency_central_banks.get(currency_code, "")
+                        
+                        # جلب القوة الاقتصادية من شيت ECONOMY
+                        economic_strength = None
+                        if economy_data_today is not None and currency_code in economy_data_today.index:
+                            eco_val = economy_data_today[currency_code]
+                            if pd.notna(eco_val):
+                                economic_strength = eco_val
+                        
+                        economic_strength_text = f"{economic_strength:+.2f}" if economic_strength is not None else "N/A"
+                        economic_color = "#10b981" if (economic_strength is not None and economic_strength >= 0) else "#ef4444" if (economic_strength is not None and economic_strength < 0) else "#6b7280"
+                        
+                        # جلب العائد من شيت YIELD
+                        yield_value = None
+                        if yield_data_today is not None and currency_code in yield_data_today.index:
+                            y_val = yield_data_today[currency_code]
+                            if pd.notna(y_val):
+                                yield_value = y_val
+                        
+                        yield_text = f"{yield_value:.2f}%" if yield_value is not None else "N/A"
+                        yield_color = "#10b981" if (yield_value is not None and yield_value > 0) else "#ef4444" if (yield_value is not None and yield_value < 0) else "#f1c40f"
                         
                         if f"show_pairs_{currency_code}" not in st.session_state:
                             st.session_state[f"show_pairs_{currency_code}"] = False
@@ -761,19 +788,23 @@ with tab_dashboard:
                                     border-radius: 15px; padding: 20px; margin: 10px 0;
                                     border: 1px solid #334155;">
                             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                                <div style="font-size: 48px;">{extra.get('flag', '💰')}</div>
+                                <div style="font-size: 48px;">{flag}</div>
                                 <div>
                                     <h2 style="margin:0; color: #f1c40f;">{full_name}</h2>
-                                    <div style="font-size: 12px; color: #94a3b8;">{extra.get('central_bank', '')}</div>
+                                    <div style="font-size: 12px; color: #94a3b8;">{central_bank}</div>
                                 </div>
                             </div>
                             <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                                <span>💪 Economic Strength:</span>
-                                <span style="font-weight: bold; color: {strength_color};">{strength:+.2f}</span>
+                                <span>💪 Currency Strength (Daily):</span>
+                                <span style="font-weight: bold; color: {strength_color};">{currency_strength:+.2f}</span>
                             </div>
                             <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                                <span>📈 Yield:</span>
-                                <span style="font-weight: bold; color: #f1c40f;">{extra.get('yield', 'N/A')}</span>
+                                <span>🏭 Economic Strength (ECONOMY):</span>
+                                <span style="font-weight: bold; color: {economic_color};">{economic_strength_text}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                                <span>📈 Yield (YIELD):</span>
+                                <span style="font-weight: bold; color: {yield_color};">{yield_text}</span>
                             </div>
                         </div>
                         '''
