@@ -573,61 +573,45 @@ with tab_dashboard:
                 "NZD": "New Zealand Dollar"
             }
             
-            # Additional currency data
+            # Additional currency data (without meeting dates)
             currency_extra_data = {
                 "USD": {
                     "yield": "5.25%",
-                    "prev_meeting": "2024-01-31",
-                    "next_meeting": "2024-03-20",
                     "central_bank": "Federal Reserve",
                     "flag": "🇺🇸"
                 },
                 "EUR": {
                     "yield": "4.50%",
-                    "prev_meeting": "2024-01-25",
-                    "next_meeting": "2024-03-07",
                     "central_bank": "European Central Bank",
                     "flag": "🇪🇺"
                 },
                 "GBP": {
                     "yield": "5.25%",
-                    "prev_meeting": "2024-02-01",
-                    "next_meeting": "2024-03-21",
                     "central_bank": "Bank of England",
                     "flag": "🇬🇧"
                 },
                 "JPY": {
                     "yield": "-0.10%",
-                    "prev_meeting": "2024-01-23",
-                    "next_meeting": "2024-03-19",
                     "central_bank": "Bank of Japan",
                     "flag": "🇯🇵"
                 },
                 "CHF": {
                     "yield": "1.75%",
-                    "prev_meeting": "2024-01-15",
-                    "next_meeting": "2024-03-21",
                     "central_bank": "Swiss National Bank",
                     "flag": "🇨🇭"
                 },
                 "CAD": {
                     "yield": "5.00%",
-                    "prev_meeting": "2024-01-24",
-                    "next_meeting": "2024-03-06",
                     "central_bank": "Bank of Canada",
                     "flag": "🇨🇦"
                 },
                 "AUD": {
                     "yield": "4.35%",
-                    "prev_meeting": "2024-02-06",
-                    "next_meeting": "2024-03-19",
                     "central_bank": "Reserve Bank of Australia",
                     "flag": "🇦🇺"
                 },
                 "NZD": {
                     "yield": "5.50%",
-                    "prev_meeting": "2024-02-07",
-                    "next_meeting": "2024-03-13",
                     "central_bank": "Reserve Bank of New Zealand",
                     "flag": "🇳🇿"
                 }
@@ -748,14 +732,6 @@ with tab_dashboard:
                             <span>📈 Yield:</span>
                             <span style="font-weight: bold; color: #f1c40f;">{extra.get('yield', 'N/A')}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
-                            <span>📅 Previous Meeting:</span>
-                            <span>{extra.get('prev_meeting', 'N/A')}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
-                            <span>📅 Next Meeting:</span>
-                            <span style="color: #f1c40f;">{extra.get('next_meeting', 'N/A')}</span>
-                        </div>
                     </div>
                     '''
                     st.markdown(card_html, unsafe_allow_html=True)
@@ -798,14 +774,6 @@ with tab_dashboard:
                             <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
                                 <span>📈 Yield:</span>
                                 <span style="font-weight: bold; color: #f1c40f;">{extra.get('yield', 'N/A')}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
-                                <span>📅 Previous Meeting:</span>
-                                <span>{extra.get('prev_meeting', 'N/A')}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
-                                <span>📅 Next Meeting:</span>
-                                <span style="color: #f1c40f;">{extra.get('next_meeting', 'N/A')}</span>
                             </div>
                         </div>
                         '''
