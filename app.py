@@ -446,9 +446,11 @@ with tab_dashboard:
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-            
 # ========== Currency Cards ==========
 st.subheader("💱 Currency Cards")
+
+# قائمة العملات كاملة
+currencies = ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]
 
 # Full names for display
 currency_full_names = {
@@ -486,6 +488,17 @@ if not db_yield.empty:
     yield_row = db_yield[db_yield['Date'] == selected_date]
     if not yield_row.empty:
         yield_data_today = yield_row.iloc[0]
+
+# قائمة الأزواج الممكنة (كل الأزواج بين العملات الثمانية)
+def generate_pairs(currencies_list):
+    pairs = []
+    for i in range(len(currencies_list)):
+        for j in range(len(currencies_list)):
+            if i != j:
+                pairs.append(currencies_list[i] + currencies_list[j])
+    return pairs
+
+pairs = generate_pairs(currencies)
 
 # Function to display currency pairs as a table
 def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
@@ -551,19 +564,27 @@ def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
         }
     )
     st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
+    st.markdown("---")
 
 # Display currency cards in grid (2x4)
 for i in range(0, len(currencies), 2):
     col1, col2 = st.columns(2)
     
+    # العملة الأولى في الصف
     with col1:
         currency_code = currencies[i]
-        currency_strength = current_data[currency_code]
+        
+        # التحقق من وجود بيانات للعملة
+        if currency_code in current_data.index:
+            currency_strength = current_data[currency_code]
+        else:
+            currency_strength = 0.0
+            
         strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
         full_name = currency_full_names.get(currency_code, currency_code)
         flag = currency_flags.get(currency_code, "💰")
         
-        # جلب القوة الاقتصادية من شيت ECONOMY
+        # جلب القوة الاقتصادية
         economic_strength = None
         if economy_data_today is not None and currency_code in economy_data_today.index:
             eco_val = economy_data_today[currency_code]
@@ -573,7 +594,7 @@ for i in range(0, len(currencies), 2):
         economic_strength_text = f"{economic_strength:+.2f}" if economic_strength is not None else "N/A"
         economic_color = "#10b981" if (economic_strength is not None and economic_strength >= 0) else "#ef4444" if (economic_strength is not None and economic_strength < 0) else "#6b7280"
         
-        # جلب العائد من شيت YIELD
+        # جلب العائد
         yield_value = None
         if yield_data_today is not None and currency_code in yield_data_today.index:
             y_val = yield_data_today[currency_code]
@@ -609,18 +630,24 @@ for i in range(0, len(currencies), 2):
         '''
         st.markdown(card_html, unsafe_allow_html=True)
         
-        # Display pairs table directly under the card
+        # جدول الأزواج تحت الكارت مباشرة
         show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
     
+    # العملة الثانية في الصف (إذا وجدت)
     if i + 1 < len(currencies):
         with col2:
             currency_code = currencies[i + 1]
-            currency_strength = current_data[currency_code]
+            
+            if currency_code in current_data.index:
+                currency_strength = current_data[currency_code]
+            else:
+                currency_strength = 0.0
+                
             strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
             full_name = currency_full_names.get(currency_code, currency_code)
             flag = currency_flags.get(currency_code, "💰")
             
-            # جلب القوة الاقتصادية من شيت ECONOMY
+            # جلب القوة الاقتصادية
             economic_strength = None
             if economy_data_today is not None and currency_code in economy_data_today.index:
                 eco_val = economy_data_today[currency_code]
@@ -630,7 +657,7 @@ for i in range(0, len(currencies), 2):
             economic_strength_text = f"{economic_strength:+.2f}" if economic_strength is not None else "N/A"
             economic_color = "#10b981" if (economic_strength is not None and economic_strength >= 0) else "#ef4444" if (economic_strength is not None and economic_strength < 0) else "#6b7280"
             
-            # جلب العائد من شيت YIELD
+            # جلب العائد
             yield_value = None
             if yield_data_today is not None and currency_code in yield_data_today.index:
                 y_val = yield_data_today[currency_code]
@@ -666,8 +693,9 @@ for i in range(0, len(currencies), 2):
             '''
             st.markdown(card_html, unsafe_allow_html=True)
             
-            # Display pairs table directly under the card
-            show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
+            # جدول الأزواج تحت الكارت مباشرة
+            show_currency_pairs_table(currency_code, current_data, prev_data, pairs)            
+
         # ========== Higher Time Frame Analyses ==========
         st.markdown("---")
         st.markdown("""
