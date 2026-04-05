@@ -396,7 +396,7 @@ with tab_dashboard:
                             border-radius: 15px; padding: 20px; text-align: center;
                             border: 2px solid {get_color(us_power)};'>
                     <div style='font-size: 40px; margin-bottom: 10px;'>🇺🇸</div>
-                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Americas</div>
+                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>America</div>
                     <div style='font-size: 32px; font-weight: bold; color: {get_color(us_power)};'>{us_power:+.2f}</div>
                     <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
                         USD, CAD
