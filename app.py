@@ -462,7 +462,7 @@ with tab_dashboard:
                 "NZD": "New Zealand Dollar"
             }
             
-            # Central bank data (ثابتة)
+            # Central bank data
             currency_central_banks = {
                 "USD": "Federal Reserve",
                 "EUR": "European Central Bank",
@@ -499,12 +499,13 @@ with tab_dashboard:
                 if not yield_row.empty:
                     yield_data_today = yield_row.iloc[0]
             
-            # Function to display currency pairs as a table
+            # Function to display currency pairs as a table (نفسها بدون تغيير)
             def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
                 """Display table for pairs related to a specific currency"""
                 related_pairs = [pair for pair in pairs if currency_code in pair]
                 currency_full = currency_full_names.get(currency_code, currency_code)
-                st.subheader(f"🔍 {currency_full} Pairs")
+                
+                st.markdown(f"##### 🔍 {currency_full} Pairs")
                 
                 table_data = []
                 for pair in related_pairs:
@@ -563,11 +564,13 @@ with tab_dashboard:
                     }
                 )
                 st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
-            
-            # Display currency cards in grid (2x4)
+                st.markdown("---")   # فاصل بين العملات
+
+            # ==================== Display Cards + Tables Directly ====================
             for i in range(0, len(currencies), 2):
                 col1, col2 = st.columns(2)
                 
+                # ==================== العملة الأولى ====================
                 with col1:
                     currency_code = currencies[i]
                     currency_strength = current_data[currency_code]
@@ -576,7 +579,7 @@ with tab_dashboard:
                     flag = currency_flags.get(currency_code, "💰")
                     central_bank = currency_central_banks.get(currency_code, "")
                     
-                    # جلب القوة الاقتصادية من شيت ECONOMY
+                    # Economic Strength
                     economic_strength = None
                     if economy_data_today is not None and currency_code in economy_data_today.index:
                         eco_val = economy_data_today[currency_code]
@@ -586,7 +589,7 @@ with tab_dashboard:
                     economic_strength_text = f"{economic_strength:+.2f}" if economic_strength is not None else "N/A"
                     economic_color = "#10b981" if (economic_strength is not None and economic_strength >= 0) else "#ef4444" if (economic_strength is not None and economic_strength < 0) else "#6b7280"
                     
-                    # جلب العائد من شيت YIELD
+                    # Yield
                     yield_value = None
                     if yield_data_today is not None and currency_code in yield_data_today.index:
                         y_val = yield_data_today[currency_code]
@@ -596,10 +599,7 @@ with tab_dashboard:
                     yield_text = f"{yield_value:.2f}%" if yield_value is not None else "N/A"
                     yield_color = "#10b981" if (yield_value is not None and yield_value > 0) else "#ef4444" if (yield_value is not None and yield_value < 0) else "#f1c40f"
                     
-                    # Session state key for showing pairs table
-                    if f"show_pairs_{currency_code}" not in st.session_state:
-                        st.session_state[f"show_pairs_{currency_code}"] = False
-                    
+                    # عرض الكارت
                     card_html = f'''
                     <div style="background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
                                 border-radius: 15px; padding: 20px; margin: 10px 0;
@@ -627,14 +627,10 @@ with tab_dashboard:
                     '''
                     st.markdown(card_html, unsafe_allow_html=True)
                     
-                    # Single button to show pairs table (بدون st.rerun)
-                    if st.button(f"📊 {full_name} Pairs", key=f"btn_{currency_code}"):
-                        st.session_state[f"show_pairs_{currency_code}"] = not st.session_state[f"show_pairs_{currency_code}"]
-                    
-                    # Show pairs table if button is active
-                    if st.session_state[f"show_pairs_{currency_code}"]:
-                        show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
+                    # الجدول يظهر مباشرة تحت الكارت
+                    show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
                 
+                # ==================== العملة الثانية ====================
                 if i + 1 < len(currencies):
                     with col2:
                         currency_code = currencies[i + 1]
@@ -644,7 +640,7 @@ with tab_dashboard:
                         flag = currency_flags.get(currency_code, "💰")
                         central_bank = currency_central_banks.get(currency_code, "")
                         
-                        # جلب القوة الاقتصادية من شيت ECONOMY
+                        # Economic Strength
                         economic_strength = None
                         if economy_data_today is not None and currency_code in economy_data_today.index:
                             eco_val = economy_data_today[currency_code]
@@ -654,7 +650,7 @@ with tab_dashboard:
                         economic_strength_text = f"{economic_strength:+.2f}" if economic_strength is not None else "N/A"
                         economic_color = "#10b981" if (economic_strength is not None and economic_strength >= 0) else "#ef4444" if (economic_strength is not None and economic_strength < 0) else "#6b7280"
                         
-                        # جلب العائد من شيت YIELD
+                        # Yield
                         yield_value = None
                         if yield_data_today is not None and currency_code in yield_data_today.index:
                             y_val = yield_data_today[currency_code]
@@ -664,9 +660,7 @@ with tab_dashboard:
                         yield_text = f"{yield_value:.2f}%" if yield_value is not None else "N/A"
                         yield_color = "#10b981" if (yield_value is not None and yield_value > 0) else "#ef4444" if (yield_value is not None and yield_value < 0) else "#f1c40f"
                         
-                        if f"show_pairs_{currency_code}" not in st.session_state:
-                            st.session_state[f"show_pairs_{currency_code}"] = False
-                        
+                        # عرض الكارت
                         card_html = f'''
                         <div style="background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
                                     border-radius: 15px; padding: 20px; margin: 10px 0;
@@ -694,13 +688,8 @@ with tab_dashboard:
                         '''
                         st.markdown(card_html, unsafe_allow_html=True)
                         
-                        # Single button to show pairs table (بدون st.rerun)
-                        if st.button(f"📊 {full_name} Pairs", key=f"btn_{currency_code}"):
-                            st.session_state[f"show_pairs_{currency_code}"] = not st.session_state[f"show_pairs_{currency_code}"]
-                        
-                        # Show pairs table if button is active
-                        if st.session_state[f"show_pairs_{currency_code}"]:
-                            show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
+                        # الجدول يظهر مباشرة تحت الكارت
+                        show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
         
         # ========== Higher Time Frame Analyses ==========
         st.markdown("---")
