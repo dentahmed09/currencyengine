@@ -258,7 +258,7 @@ def inject_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
-## ==================== Sheet ID (من اللينك بتاعك) ====================
+## ==================== Sheet ID ====================
 SHEET_ID = "1q_q9QGYHm0w7Z5nnO1Uq4NKLW1SoQCf5stbAMKoT3FE"
 
 DAILY_WS   = "daily"
@@ -281,7 +281,7 @@ pairs = [
 # ====================== Load & Save Functions ======================
 def load_data(worksheet_name: str, date_col: str = "Date"):
     client = get_gspread_client()
-    sheet = client.open_by_key(SHEET_ID)      # استخدام ID بدل الاسم
+    sheet = client.open_by_key(SHEET_ID)
     ws = sheet.worksheet(worksheet_name)
     data = ws.get_all_records()
     
@@ -300,121 +300,6 @@ def save_data(df: pd.DataFrame, worksheet_name: str):
     ws.clear()
     ws.update([df.columns.tolist()] + df.values.tolist())
 
-# ──── Display Currency Cards Function ──────────────────────────────────
-def display_currency_cards(latest, prev=None):
-    st.markdown("---")
-    st.markdown('<p style="color: #f1c40f; font-size: 1.2rem; font-weight: bold;">💱 INSTITUTIONAL CURRENCY PULSES</p>', unsafe_allow_html=True)
-    
-    cols = st.columns(4)
-    for idx, currency in enumerate(currencies):
-        col_idx = idx % 4
-        with cols[col_idx]:
-            strength = latest[currency]
-            strength_class = "positive" if strength > 0 else "negative" if strength < 0 else "neutral"
-            strength_sign = "+" if strength > 0 else ""
-            
-            # Calculate daily change if prev exists
-            change = None
-            if prev is not None:
-                change = latest[currency] - prev[currency]
-                change_class = "positive" if change > 0 else "negative" if change < 0 else "neutral"
-                change_sign = "+" if change > 0 else ""
-                change_text = f'<span class="{change_class}">{change_sign}{change:.1f}</span>'
-            else:
-                change_text = "—"
-            
-            # Get weekly and monthly values
-            weekly_val = None
-            monthly_val = None
-            if not db_weekly.empty:
-                if currency in db_weekly.columns:
-                    weekly_val = db_weekly.iloc[-1][currency]
-            if not db_monthly.empty:
-                if currency in db_monthly.columns:
-                    monthly_val = db_monthly.iloc[-1][currency]
-            
-            weekly_text = f"{weekly_val:.0f}" if weekly_val is not None else "—"
-            monthly_text = f"{monthly_val:.0f}" if monthly_val is not None else "—"
-            
-            st.markdown(f"""
-            <div class="currency-card">
-                <div class="currency-symbol">{currency}</div>
-                <div class="currency-strength {strength_class}">{strength_sign}{strength:.1f}</div>
-                <div class="currency-change">
-                    {change_text}
-                </div>
-                <div class="currency-metrics">
-                    <span>📊 {weekly_text}</span>
-                    <span>📅 {monthly_text}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-
-def display_quick_analytics(latest, prev=None):
-    st.markdown('<p style="color: #f1c40f; font-size: 1.2rem; font-weight: bold;">📊 QUICK ANALYTICS</p>', unsafe_allow_html=True)
-    
-    # Calculate rankings
-    strength_df = pd.DataFrame({
-        'Currency': currencies,
-        'Strength': [latest[c] for c in currencies]
-    }).sort_values('Strength', ascending=False)
-    
-    top_3 = strength_df.head(3)
-    bottom_3 = strength_df.tail(3)
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        <div class="analytics-box">
-            <div class="analytics-title">🏆 TOP ASSETS</div>
-        """, unsafe_allow_html=True)
-        for _, row in top_3.iterrows():
-            st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; margin: 0.5rem 0;">
-                <span style="font-weight: bold;">{row['Currency']}</span>
-                <span class="positive">+{row['Strength']:.1f}</span>
-            </div>
-            """, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="analytics-box">
-            <div class="analytics-title">📉 WEAK ASSETS</div>
-        """, unsafe_allow_html=True)
-        for _, row in bottom_3.iterrows():
-            st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; margin: 0.5rem 0;">
-                <span style="font-weight: bold;">{row['Currency']}</span>
-                <span class="negative">{row['Strength']:.1f}</span>
-            </div>
-            """, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with col3:
-        avg_strength = strength_df['Strength'].mean()
-        std_strength = strength_df['Strength'].std()
-        st.markdown(f"""
-        <div class="analytics-box">
-            <div class="analytics-title">📈 MARKET METRICS</div>
-            <div style="margin: 0.5rem 0;">
-                <div>Average Strength</div>
-                <div class="{'positive' if avg_strength > 0 else 'negative'}" style="font-size: 1.2rem; font-weight: bold;">
-                    {avg_strength:+.1f}
-                </div>
-            </div>
-            <div style="margin: 0.5rem 0;">
-                <div>Market Dispersion</div>
-                <div style="font-size: 1.2rem; font-weight: bold; color: #f1c40f;">
-                    {std_strength:.1f}
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
 # Inject custom CSS
 inject_custom_css()
 
@@ -422,7 +307,7 @@ inject_custom_css()
 st.markdown("""
 <div class="main-header">
     <h1>🏦 Institutional Currency Strength Engine</h1>
-    <p>Multi-Timeframe Analysis | Institutional Flow | Smart Signals | High-Probability Setups</p>
+    <p>Multi-Timeframe Analysis | Economic Strength | Yield Data | Institutional Flow</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -434,8 +319,8 @@ db_yield   = load_data(YIELD_WS, "Date")
 db_economy = load_data(ECONOMY_WS, "Date")
 
 tab_dashboard, tab_results = st.tabs([
-    "📊 Daily Dashboord",
-    "🔍 Pair Matrix ",
+    "📊 Daily Dashboard",
+    "🔍 Pair Matrix",
 ])
 
 # ──── Daily Dashboard Tab ─────────────────────────────────
@@ -538,8 +423,8 @@ with tab_dashboard:
                 <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
                             border-radius: 15px; padding: 20px; text-align: center;
                             border: 2px solid {get_color(asia_power)};'>
-                    <div style='font-size: 40px; margin-bottom: 10px;'>AS</div>
-                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Asia</div>
+                    <div style='font-size: 40px; margin-bottom: 10px;'>🌏</div>
+                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Asia-Pacific</div>
                     <div style='font-size: 32px; font-weight: bold; color: {get_color(asia_power)};'>{asia_power:+.2f}</div>
                     <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
                         AUD, NZD, JPY
@@ -548,7 +433,7 @@ with tab_dashboard:
                 """, unsafe_allow_html=True)
             
             # Strongest region
-            powers = {'Americas': us_power, 'Europe': europe_power, 'Asia': asia_power}
+            powers = {'Americas': us_power, 'Europe': europe_power, 'Asia-Pacific': asia_power}
             strongest_region = max(powers, key=powers.get)
             strongest_value_region = powers[strongest_region]
             
@@ -562,7 +447,7 @@ with tab_dashboard:
             
             st.markdown("---")
             
-                        # ========== Currency Cards ==========
+            # ========== Currency Cards ==========
             st.subheader("💱 Currency Cards")
             
             # Full names for display
@@ -614,7 +499,7 @@ with tab_dashboard:
                 if not yield_row.empty:
                     yield_data_today = yield_row.iloc[0]
             
-            # Function to display currency pairs as a table (نفسها زي ماهي)
+            # Function to display currency pairs as a table
             def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
                 """Display table for pairs related to a specific currency"""
                 related_pairs = [pair for pair in pairs if currency_code in pair]
@@ -685,7 +570,7 @@ with tab_dashboard:
                 
                 with col1:
                     currency_code = currencies[i]
-                    currency_strength = current_data[currency_code]  # قوة العملات من daily
+                    currency_strength = current_data[currency_code]
                     strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
                     full_name = currency_full_names.get(currency_code, currency_code)
                     flag = currency_flags.get(currency_code, "💰")
@@ -742,10 +627,9 @@ with tab_dashboard:
                     '''
                     st.markdown(card_html, unsafe_allow_html=True)
                     
-                    # Single button to show pairs table
+                    # Single button to show pairs table (بدون st.rerun)
                     if st.button(f"📊 {full_name} Pairs", key=f"btn_{currency_code}"):
                         st.session_state[f"show_pairs_{currency_code}"] = not st.session_state[f"show_pairs_{currency_code}"]
-                        st.rerun()
                     
                     # Show pairs table if button is active
                     if st.session_state[f"show_pairs_{currency_code}"]:
@@ -810,14 +694,14 @@ with tab_dashboard:
                         '''
                         st.markdown(card_html, unsafe_allow_html=True)
                         
-                        # Single button to show pairs table
+                        # Single button to show pairs table (بدون st.rerun)
                         if st.button(f"📊 {full_name} Pairs", key=f"btn_{currency_code}"):
                             st.session_state[f"show_pairs_{currency_code}"] = not st.session_state[f"show_pairs_{currency_code}"]
-                            st.rerun()
                         
                         # Show pairs table if button is active
                         if st.session_state[f"show_pairs_{currency_code}"]:
                             show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
+        
         # ========== Higher Time Frame Analyses ==========
         st.markdown("---")
         st.markdown("""
@@ -1050,7 +934,6 @@ with tab_dashboard:
             st.markdown("---")
 
 # ──── تبويب Pair Matrix ─────────────────────
-# ──── تبويب Pair Matrix ─────────────────────
 with tab_results:
     if db_daily.empty or len(db_daily) < 2:
         st.info("📊 أدخل بيانات يومين على الأقل لعرض النتائج")
@@ -1062,17 +945,13 @@ with tab_results:
             st.session_state.selected_date = None
         
         # ================== إنشاء قائمة التواريخ ==================
-        # الحصول على جميع التواريخ المتاحة من البيانات اليومية
-        all_dates = db_daily['Date'].sort_values(ascending=False).tolist()  # ترتيب تنازلي (الأحدث أولاً)
+        all_dates = db_daily['Date'].sort_values(ascending=False).tolist()
         
-        # تنسيق التواريخ للعرض
         date_options = []
-        date_map = {}  # لتخزين العلاقة بين النص المعروض والقيمة الفعلية
+        date_map = {}
         
         for date in all_dates:
-            # تنسيق التاريخ بشكل مقروء (مثال: 2024-01-15)
             date_str = date.strftime("%Y-%m-%d")
-            # تحديد ما إذا كان هذا هو اليوم الأحدث
             if date == all_dates[0]:
                 date_str = f"📅 {date_str} (الأحدث)"
             date_options.append(date_str)
@@ -1084,14 +963,12 @@ with tab_results:
             selected_date_str = st.selectbox(
                 "📆 اختر التاريخ لعرض النتائج:",
                 options=date_options,
-                index=0,  # تحديد الأحدث كافتراضي
+                index=0,
                 key="date_selector"
             )
             
-            # تحديث session state بالتاريخ المختار
             st.session_state.selected_date = date_map[selected_date_str]
             
-            # عرض التاريخ المختار بشكل بارز
             st.markdown(f"""
             <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
                         border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
@@ -1102,7 +979,6 @@ with tab_results:
         st.markdown("---")
         
         # ================== حساب البيانات للتاريخ المختار ==================
-        # الحصول على بيانات اليوم المختار
         selected_date = st.session_state.selected_date
         selected_row = db_daily[db_daily['Date'] == selected_date]
         
@@ -1111,17 +987,14 @@ with tab_results:
         else:
             latest = selected_row.iloc[0]
             
-            # الحصول على البيانات السابقة (اليوم الذي يسبق التاريخ المختار)
             date_index = db_daily[db_daily['Date'] == selected_date].index[0]
             if date_index > 0:
                 prev_row = db_daily.iloc[date_index - 1]
                 prev = prev_row
             else:
-                # إذا كان التاريخ المختار هو أول يوم، لا يوجد بيانات سابقة
                 prev = None
                 st.warning("⚠️ هذا هو أول يوم في البيانات، لا توجد بيانات سابقة لحساب التغيرات")
             
-            # حساب الدلتا (التغيرات) إذا توجد بيانات سابقة
             delta = {}
             if prev is not None:
                 delta = {c: latest[c] - prev[c] for c in currencies}
@@ -1131,10 +1004,8 @@ with tab_results:
             for pair in pairs:
                 base, quote = pair[:3], pair[3:]
                 
-                # الإشارة الأساسية = قوة الزوج (Base - Quote)
                 strength_today = latest[base] - latest[quote]
                 
-                # تحديد الإشارة بناءً على القوة
                 if strength_today > 0:
                     signal = "BUY"
                     signal_color = "🟢"
@@ -1145,17 +1016,14 @@ with tab_results:
                     signal = "WAIT"
                     signal_color = "🟡"
                 
-                # حساب قوة الإشارة (نسبة مئوية)
                 max_strength = 5.0
                 strength_percent = min(abs(strength_today) / max_strength * 100, 100)
                 
-                # حساب الدلتا (إذا توفرت بيانات سابقة)
                 if prev is not None:
                     health_delta = (latest[base] - latest[quote]) - (prev[base] - prev[quote])
                     base_delta = delta[base]
                     quote_delta = delta[quote]
                     
-                    # ========== Confirmation (Up Trend / Down Trend / Range) ==========
                     if base_delta > health_delta and quote_delta > health_delta:
                         confirmation = "Up Trend"
                         conf_icon = "📈"
@@ -1169,10 +1037,8 @@ with tab_results:
                         conf_icon = "🔄"
                         conf_color = "#f59e0b"
                     
-                    # حساب التقلب (Volatility)
                     volatility = abs(base_delta - quote_delta)
                 else:
-                    # إذا لم توجد بيانات سابقة، اعرض قيم صفرية
                     health_delta = 0
                     base_delta = 0
                     quote_delta = 0
@@ -1195,12 +1061,10 @@ with tab_results:
                     "Volatility": round(volatility, 2),
                 })
             
-            # ترتيب النتائج حسب قوة الزوج من الأكبر للأقل
             df_results = pd.DataFrame(results)
             df_results = df_results.sort_values("قوة الزوج", ascending=False).reset_index(drop=True)
             
             # ================== عرض 28 كرت ==================
-            
             for i in range(0, len(df_results), 2):
                 col1, col2 = st.columns(2, gap="large")
                 
@@ -1209,7 +1073,6 @@ with tab_results:
                     row = df_results.iloc[i]
                     pair = row["الزوج"]
                     
-                    # تحديد الألوان حسب الإشارة
                     if "BUY" in row["الإشارة"]:
                         bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
                         border_color = "#10b981"
@@ -1220,12 +1083,10 @@ with tab_results:
                         bg_gradient = "linear-gradient(135deg, #2d2a1a, #1f1c0f)"
                         border_color = "#f59e0b"
                     
-                    # ألوان الدلتا
                     base_delta_color = "#10b981" if row['Base Δ'] >= 0 else "#ef4444"
                     quote_delta_color = "#10b981" if row['Quote Δ'] >= 0 else "#ef4444"
                     health_delta_color = "#10b981" if row['Health Δ'] >= 0 else "#ef4444"
                     
-                    # عرض الكرت باستخدام HTML
                     card_html = f'''
                     <div style="background: {bg_gradient}; padding: 20px; border-radius: 20px; margin: 10px 0; border: 2px solid {border_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -1278,7 +1139,6 @@ with tab_results:
                         row = df_results.iloc[i + 1]
                         pair = row["الزوج"]
                         
-                        # تحديد الألوان حسب الإشارة
                         if "BUY" in row["الإشارة"]:
                             bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
                             border_color = "#10b981"
@@ -1289,12 +1149,10 @@ with tab_results:
                             bg_gradient = "linear-gradient(135deg, #2d2a1a, #1f1c0f)"
                             border_color = "#f59e0b"
                         
-                        # ألوان الدلتا
                         base_delta_color = "#10b981" if row['Base Δ'] >= 0 else "#ef4444"
                         quote_delta_color = "#10b981" if row['Quote Δ'] >= 0 else "#ef4444"
                         health_delta_color = "#10b981" if row['Health Δ'] >= 0 else "#ef4444"
                         
-                        # عرض الكرت باستخدام HTML
                         card_html = f'''
                         <div style="background: {bg_gradient}; padding: 20px; border-radius: 20px; margin: 10px 0; border: 2px solid {border_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
