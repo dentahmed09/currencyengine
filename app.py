@@ -423,7 +423,7 @@ with tab_dashboard:
                 <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
                             border-radius: 15px; padding: 20px; text-align: center;
                             border: 2px solid {get_color(asia_power)};'>
-                    <div style='font-size: 40px; margin-bottom: 10px;'>AS</div>
+                    <div style='font-size: 40px; margin-bottom: 10px;'>🇯🇵</div>
                     <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Asia</div>
                     <div style='font-size: 32px; font-weight: bold; color: {get_color(asia_power)};'>{asia_power:+.2f}</div>
                     <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
