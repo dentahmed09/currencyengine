@@ -364,6 +364,137 @@ with tab_dashboard:
                 prev_data = None
             
             st.markdown("---")
+                        st.markdown("---")
+            
+            # ========== Currency Rankings (Economic Power & Yield) ==========
+            st.subheader("📊 Currency Rankings")
+            
+            # Create two columns for side-by-side rankings
+            col_rank1, col_rank2 = st.columns(2)
+            
+            # ===== Column 1: Economic Power Ranking =====
+            with col_rank1:
+                st.markdown("""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 15px; 
+                            border: 1px solid #334155;'>
+                    <div style='text-align: center; margin-bottom: 15px;'>
+                        <span style='font-size: 24px;'>🏭</span>
+                        <h4 style='color: #f1c40f; margin: 0;'>Economic Power Ranking</h4>
+                        <span style='font-size: 12px; color: #94a3b8;'>Strongest → Weakest</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Collect economic strength data for all currencies
+                economic_ranking = []
+                if economy_data_today is not None:
+                    for currency_code in currencies:
+                        if currency_code in economy_data_today.index:
+                            eco_val = economy_data_today[currency_code]
+                            if pd.notna(eco_val):
+                                full_name = currency_full_names.get(currency_code, currency_code)
+                                flag = currency_flags.get(currency_code, "💰")
+                                economic_ranking.append({
+                                    'currency': currency_code,
+                                    'name': full_name,
+                                    'flag': flag,
+                                    'value': eco_val
+                                })
+                
+                # Sort from largest to smallest
+                economic_ranking.sort(key=lambda x: x['value'], reverse=True)
+                
+                if economic_ranking:
+                    for idx, item in enumerate(economic_ranking, 1):
+                        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
+                        value_color = "#10b981" if item['value'] >= 0 else "#ef4444"
+                        
+                        st.markdown(f"""
+                        <div style='display: flex; align-items: center; justify-content: space-between; 
+                                    padding: 10px 12px; margin: 8px 0; 
+                                    background: rgba(0,0,0,0.3); border-radius: 10px;
+                                    border-left: 3px solid {value_color};'>
+                            <div style='display: flex; align-items: center; gap: 12px;'>
+                                <span style='font-size: 18px; font-weight: bold; width: 35px;'>{medal}</span>
+                                <span style='font-size: 28px;'>{item['flag']}</span>
+                                <div>
+                                    <span style='font-weight: bold;'>{item['currency']}</span>
+                                    <span style='font-size: 11px; color: #94a3b8; margin-left: 5px;'>{item['name']}</span>
+                                </div>
+                            </div>
+                            <span style='font-weight: bold; font-size: 18px; color: {value_color};'>{item['value']:+.2f}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("📊 No economic data available")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            # ===== Column 2: Yield Ranking =====
+            with col_rank2:
+                st.markdown("""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 15px; 
+                            border: 1px solid #334155;'>
+                    <div style='text-align: center; margin-bottom: 15px;'>
+                        <span style='font-size: 24px;'>📈</span>
+                        <h4 style='color: #f1c40f; margin: 0;'>Yield Ranking</h4>
+                        <span style='font-size: 12px; color: #94a3b8;'>Highest → Lowest</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Collect yield data for all currencies
+                yield_ranking = []
+                if yield_data_today is not None:
+                    for currency_code in currencies:
+                        if currency_code in yield_data_today.index:
+                            y_val = yield_data_today[currency_code]
+                            if pd.notna(y_val):
+                                full_name = currency_full_names.get(currency_code, currency_code)
+                                flag = currency_flags.get(currency_code, "💰")
+                                yield_ranking.append({
+                                    'currency': currency_code,
+                                    'name': full_name,
+                                    'flag': flag,
+                                    'value': y_val
+                                })
+                
+                # Sort from largest to smallest
+                yield_ranking.sort(key=lambda x: x['value'], reverse=True)
+                
+                if yield_ranking:
+                    for idx, item in enumerate(yield_ranking, 1):
+                        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
+                        # Yield color: green for positive, red for negative, yellow for near zero
+                        if item['value'] > 0.5:
+                            value_color = "#10b981"
+                        elif item['value'] < 0:
+                            value_color = "#ef4444"
+                        else:
+                            value_color = "#f1c40f"
+                        
+                        st.markdown(f"""
+                        <div style='display: flex; align-items: center; justify-content: space-between; 
+                                    padding: 10px 12px; margin: 8px 0; 
+                                    background: rgba(0,0,0,0.3); border-radius: 10px;
+                                    border-left: 3px solid {value_color};'>
+                            <div style='display: flex; align-items: center; gap: 12px;'>
+                                <span style='font-size: 18px; font-weight: bold; width: 35px;'>{medal}</span>
+                                <span style='font-size: 28px;'>{item['flag']}</span>
+                                <div>
+                                    <span style='font-weight: bold;'>{item['currency']}</span>
+                                    <span style='font-size: 11px; color: #94a3b8; margin-left: 5px;'>{item['name']}</span>
+                                </div>
+                            </div>
+                            <span style='font-weight: bold; font-size: 18px; color: {value_color};'>{item['value']:.2f}%</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("📊 No yield data available")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.markdown("---")
             
             # ========== Regional Power (3 separate boxes) ==========
             st.subheader("🌍 Regional Power")
@@ -485,28 +616,6 @@ with tab_dashboard:
                 "NZD": "🇳🇿"
             }
             
-            # ======================================================
-            # NEW FUNCTION: To get historical data for charts
-            # ======================================================
-            def get_historical_data_for_currency(currency_code, db_economy, db_yield):
-                """Returns two dataframes: historical economy and historical yield for a currency"""
-                hist_economy = pd.DataFrame()
-                hist_yield = pd.DataFrame()
-                
-                if db_economy is not None and not db_economy.empty and currency_code in db_economy.columns:
-                    hist_economy = db_economy[['Date', currency_code]].copy()
-                    hist_economy = hist_economy.rename(columns={currency_code: 'Economic_Strength'})
-                    hist_economy['Date'] = pd.to_datetime(hist_economy['Date'])
-                    hist_economy = hist_economy.sort_values('Date')
-                
-                if db_yield is not None and not db_yield.empty and currency_code in db_yield.columns:
-                    hist_yield = db_yield[['Date', currency_code]].copy()
-                    hist_yield = hist_yield.rename(columns={currency_code: 'Yield'})
-                    hist_yield['Date'] = pd.to_datetime(hist_yield['Date'])
-                    hist_yield = hist_yield.sort_values('Date')
-                
-                return hist_economy, hist_yield
-            
             # جلب بيانات الاقتصاد والعوائد لليوم المختار
             economy_data_today = None
             yield_data_today = None
@@ -588,66 +697,7 @@ with tab_dashboard:
                 st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
                 st.markdown("---")   # فاصل بين العملات
 
-            # ======================================================
-            # NEW FUNCTION: To display Economy & Yield Charts
-            # ======================================================
-            def display_economy_and_yield_charts(currency_code):
-                """Displays historical economy and yield charts for a currency"""
-                hist_economy, hist_yield = get_historical_data_for_currency(currency_code, db_economy, db_yield)
-                
-                # Economic Strength Chart
-                if not hist_economy.empty:
-                    fig_economy = go.Figure()
-                    fig_economy.add_trace(go.Scatter(
-                        x=hist_economy['Date'],
-                        y=hist_economy['Economic_Strength'],
-                        mode='lines+markers',
-                        name='Economic Strength',
-                        line=dict(color='#f39c12', width=2.5),
-                        marker=dict(size=5, color='#f39c12')
-                    ))
-                    fig_economy.update_layout(
-                        title=dict(text="<b>📉 Economic Strength Trend</b>", font=dict(size=12, color='#f1c40f'), x=0.5),
-                        xaxis_title="Date",
-                        yaxis_title="Economic Strength",
-                        height=250,
-                        template="plotly_dark",
-                        margin=dict(l=10, r=10, t=40, b=10),
-                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
-                        paper_bgcolor='rgba(0,0,0,0)'
-                    )
-                    fig_economy.add_hline(y=0, line_dash="dash", line_color="#e74c3c", line_width=1, opacity=0.5)
-                    st.plotly_chart(fig_economy, use_container_width=True, key=f"eco_chart_{currency_code}")
-                else:
-                    st.caption("📉 No historical Economic Strength data available.")
-                
-                # Yield Chart
-                if not hist_yield.empty:
-                    fig_yield = go.Figure()
-                    fig_yield.add_trace(go.Scatter(
-                        x=hist_yield['Date'],
-                        y=hist_yield['Yield'],
-                        mode='lines+markers',
-                        name='Yield',
-                        line=dict(color='#2ecc71', width=2.5),
-                        marker=dict(size=5, color='#2ecc71')
-                    ))
-                    fig_yield.update_layout(
-                        title=dict(text="<b>📊 Yield Trend</b>", font=dict(size=12, color='#f1c40f'), x=0.5),
-                        xaxis_title="Date",
-                        yaxis_title="Yield (%)",
-                        height=250,
-                        template="plotly_dark",
-                        margin=dict(l=10, r=10, t=40, b=10),
-                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
-                        paper_bgcolor='rgba(0,0,0,0)'
-                    )
-                    fig_yield.add_hline(y=0, line_dash="dash", line_color="#e74c3c", line_width=1, opacity=0.5)
-                    st.plotly_chart(fig_yield, use_container_width=True, key=f"yield_chart_{currency_code}")
-                else:
-                    st.caption("📊 No historical Yield data available.")
-
-            # ==================== Display Cards + Tables + NEW Charts ====================
+            # ==================== Display Cards + Tables Directly ====================
             for i in range(0, len(currencies), 2):
                 col1, col2 = st.columns(2)
                 
@@ -710,12 +760,6 @@ with tab_dashboard:
                     
                     # الجدول يظهر مباشرة تحت الكارت
                     show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
-                    
-                    # ========== NEW: Display Economy & Yield Charts ==========
-                    st.markdown("---")
-                    st.markdown("##### 📈 Historical Analysis")
-                    display_economy_and_yield_charts(currency_code)
-                    st.markdown("---")
                 
                 # ==================== العملة الثانية ====================
                 if i + 1 < len(currencies):
@@ -777,14 +821,8 @@ with tab_dashboard:
                         
                         # الجدول يظهر مباشرة تحت الكارت
                         show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
-                        
-                        # ========== NEW: Display Economy & Yield Charts ==========
-                        st.markdown("---")
-                        st.markdown("##### 📈 Historical Analysis")
-                        display_economy_and_yield_charts(currency_code)
-                        st.markdown("---")
         
-       # ========== Higher Time Frame Analyses ==========
+        # ========== Higher Time Frame Analyses ==========
         st.markdown("---")
         st.markdown("""
         <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
