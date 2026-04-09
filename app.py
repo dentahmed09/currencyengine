@@ -616,6 +616,181 @@ with tab_dashboard:
                 st.markdown("</div>", unsafe_allow_html=True)
             
             st.markdown("---")
+                        # ========== Economic & Yield Charts ==========
+            st.markdown("---")
+            
+            # Create two columns for charts
+            col_chart1, col_chart2 = st.columns(2)
+            
+            # ===== Chart 1: Economic Strength Timeline =====
+            with col_chart1:
+                st.markdown("""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 15px; 
+                            border: 1px solid #334155;'>
+                    <div style='text-align: center; margin-bottom: 15px;'>
+                        <span style='font-size: 24px;'>🏭</span>
+                        <h4 style='color: #f1c40f; margin: 0;'>Economic Strength Timeline</h4>
+                        <span style='font-size: 12px; color: #94a3b8;'>All Currencies - Historical Data</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Prepare economic data for chart
+                if not db_economy.empty:
+                    # Get all economic data
+                    econ_chart_data = db_economy.copy()
+                    econ_chart_data['Date'] = pd.to_datetime(econ_chart_data['Date'])
+                    econ_chart_data = econ_chart_data.sort_values('Date')
+                    
+                    # Create figure
+                    fig_econ = go.Figure()
+                    
+                    # Colors for each currency
+                    econ_colors = {
+                        'USD': '#3498db', 'EUR': '#2ecc71', 'GBP': '#e74c3c', 'JPY': '#f39c12',
+                        'CHF': '#9b59b6', 'CAD': '#1abc9c', 'AUD': '#e67e22', 'NZD': '#e84393'
+                    }
+                    
+                    # Add line for each currency
+                    for currency in currencies_list:
+                        if currency in econ_chart_data.columns:
+                            currency_data = econ_chart_data[['Date', currency]].dropna()
+                            if not currency_data.empty:
+                                fig_econ.add_trace(go.Scatter(
+                                    x=currency_data['Date'],
+                                    y=currency_data[currency],
+                                    mode='lines+markers',
+                                    name=currency,
+                                    line=dict(color=econ_colors.get(currency, '#95a5a6'), width=2),
+                                    marker=dict(size=4)
+                                ))
+                    
+                    # Update layout
+                    fig_econ.update_layout(
+                        title=dict(
+                            text="<b>Economic Strength Over Time</b>",
+                            font=dict(size=14, color='#f1c40f'),
+                            x=0.5
+                        ),
+                        xaxis=dict(
+                            title=dict(text="<b>Date</b>", font=dict(size=10, color='#e2e8f0')),
+                            tickangle=45,
+                            tickfont=dict(size=9)
+                        ),
+                        yaxis=dict(
+                            title=dict(text="<b>Economic Strength</b>", font=dict(size=10, color='#e2e8f0')),
+                            zeroline=True,
+                            zerolinecolor='#f1c40f',
+                            zerolinewidth=1.5
+                        ),
+                        height=400,
+                        template="plotly_dark",
+                        hovermode='x unified',
+                        legend=dict(
+                            orientation="h",
+                            yanchor="bottom",
+                            y=1.02,
+                            xanchor="center",
+                            x=0.5,
+                            font=dict(size=10)
+                        ),
+                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
+                        paper_bgcolor='rgba(0,0,0,0)'
+                    )
+                    
+                    # Add zero line
+                    fig_econ.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.5)
+                    
+                    st.plotly_chart(fig_econ, use_container_width=True, key="econ_timeline_chart")
+                else:
+                    st.info("📊 No economic data available for chart")
+            
+            # ===== Chart 2: Yield Timeline =====
+            with col_chart2:
+                st.markdown("""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 15px; 
+                            border: 1px solid #334155;'>
+                    <div style='text-align: center; margin-bottom: 15px;'>
+                        <span style='font-size: 24px;'>📈</span>
+                        <h4 style='color: #f1c40f; margin: 0;'>Yield Timeline</h4>
+                        <span style='font-size: 12px; color: #94a3b8;'>All Currencies - Historical Data</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Prepare yield data for chart
+                if not db_yield.empty:
+                    # Get all yield data
+                    yield_chart_data = db_yield.copy()
+                    yield_chart_data['Date'] = pd.to_datetime(yield_chart_data['Date'])
+                    yield_chart_data = yield_chart_data.sort_values('Date')
+                    
+                    # Create figure
+                    fig_yield = go.Figure()
+                    
+                    # Colors for each currency (same as economic)
+                    yield_colors = {
+                        'USD': '#3498db', 'EUR': '#2ecc71', 'GBP': '#e74c3c', 'JPY': '#f39c12',
+                        'CHF': '#9b59b6', 'CAD': '#1abc9c', 'AUD': '#e67e22', 'NZD': '#e84393'
+                    }
+                    
+                    # Add line for each currency
+                    for currency in currencies_list:
+                        if currency in yield_chart_data.columns:
+                            currency_data = yield_chart_data[['Date', currency]].dropna()
+                            if not currency_data.empty:
+                                fig_yield.add_trace(go.Scatter(
+                                    x=currency_data['Date'],
+                                    y=currency_data[currency],
+                                    mode='lines+markers',
+                                    name=currency,
+                                    line=dict(color=yield_colors.get(currency, '#95a5a6'), width=2),
+                                    marker=dict(size=4)
+                                ))
+                    
+                    # Update layout
+                    fig_yield.update_layout(
+                        title=dict(
+                            text="<b>Yield Rates Over Time</b>",
+                            font=dict(size=14, color='#f1c40f'),
+                            x=0.5
+                        ),
+                        xaxis=dict(
+                            title=dict(text="<b>Date</b>", font=dict(size=10, color='#e2e8f0')),
+                            tickangle=45,
+                            tickfont=dict(size=9)
+                        ),
+                        yaxis=dict(
+                            title=dict(text="<b>Yield (%)</b>", font=dict(size=10, color='#e2e8f0')),
+                            zeroline=True,
+                            zerolinecolor='#f1c40f',
+                            zerolinewidth=1.5
+                        ),
+                        height=400,
+                        template="plotly_dark",
+                        hovermode='x unified',
+                        legend=dict(
+                            orientation="h",
+                            yanchor="bottom",
+                            y=1.02,
+                            xanchor="center",
+                            x=0.5,
+                            font=dict(size=10)
+                        ),
+                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
+                        paper_bgcolor='rgba(0,0,0,0)'
+                    )
+                    
+                    # Add zero line
+                    fig_yield.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.5)
+                    
+                    st.plotly_chart(fig_yield, use_container_width=True, key="yield_timeline_chart")
+                else:
+                    st.info("📊 No yield data available for chart")
+            
+            st.markdown("---")
             
             # ========== Currency Cards ==========
             st.subheader("💱 Currency Cards")
