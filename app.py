@@ -364,136 +364,6 @@ with tab_dashboard:
                 prev_data = None
             
             st.markdown("---")
-        
-            # ========== Currency Rankings (Economic Power & Yield) ==========
-            st.subheader("📊 Currency Rankings")
-            
-            # Create two columns for side-by-side rankings
-            col_rank1, col_rank2 = st.columns(2)
-            
-            # ===== Column 1: Economic Power Ranking =====
-            with col_rank1:
-                st.markdown("""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 15px; 
-                            border: 1px solid #334155;'>
-                    <div style='text-align: center; margin-bottom: 15px;'>
-                        <span style='font-size: 24px;'>🏭</span>
-                        <h4 style='color: #f1c40f; margin: 0;'>Economic Power Ranking</h4>
-                        <span style='font-size: 12px; color: #94a3b8;'>Strongest → Weakest</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Collect economic strength data for all currencies
-                economic_ranking = []
-                if economy_data_today is not None:
-                    for currency_code in currencies:
-                        if currency_code in economy_data_today.index:
-                            eco_val = economy_data_today[currency_code]
-                            if pd.notna(eco_val):
-                                full_name = currency_full_names.get(currency_code, currency_code)
-                                flag = currency_flags.get(currency_code, "💰")
-                                economic_ranking.append({
-                                    'currency': currency_code,
-                                    'name': full_name,
-                                    'flag': flag,
-                                    'value': eco_val
-                                })
-                
-                # Sort from largest to smallest
-                economic_ranking.sort(key=lambda x: x['value'], reverse=True)
-                
-                if economic_ranking:
-                    for idx, item in enumerate(economic_ranking, 1):
-                        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
-                        value_color = "#10b981" if item['value'] >= 0 else "#ef4444"
-                        
-                        st.markdown(f"""
-                        <div style='display: flex; align-items: center; justify-content: space-between; 
-                                    padding: 10px 12px; margin: 8px 0; 
-                                    background: rgba(0,0,0,0.3); border-radius: 10px;
-                                    border-left: 3px solid {value_color};'>
-                            <div style='display: flex; align-items: center; gap: 12px;'>
-                                <span style='font-size: 18px; font-weight: bold; width: 35px;'>{medal}</span>
-                                <span style='font-size: 28px;'>{item['flag']}</span>
-                                <div>
-                                    <span style='font-weight: bold;'>{item['currency']}</span>
-                                    <span style='font-size: 11px; color: #94a3b8; margin-left: 5px;'>{item['name']}</span>
-                                </div>
-                            </div>
-                            <span style='font-weight: bold; font-size: 18px; color: {value_color};'>{item['value']:+.2f}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("📊 No economic data available")
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-            
-            # ===== Column 2: Yield Ranking =====
-            with col_rank2:
-                st.markdown("""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 15px; 
-                            border: 1px solid #334155;'>
-                    <div style='text-align: center; margin-bottom: 15px;'>
-                        <span style='font-size: 24px;'>📈</span>
-                        <h4 style='color: #f1c40f; margin: 0;'>Yield Ranking</h4>
-                        <span style='font-size: 12px; color: #94a3b8;'>Highest → Lowest</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Collect yield data for all currencies
-                yield_ranking = []
-                if yield_data_today is not None:
-                    for currency_code in currencies:
-                        if currency_code in yield_data_today.index:
-                            y_val = yield_data_today[currency_code]
-                            if pd.notna(y_val):
-                                full_name = currency_full_names.get(currency_code, currency_code)
-                                flag = currency_flags.get(currency_code, "💰")
-                                yield_ranking.append({
-                                    'currency': currency_code,
-                                    'name': full_name,
-                                    'flag': flag,
-                                    'value': y_val
-                                })
-                
-                # Sort from largest to smallest
-                yield_ranking.sort(key=lambda x: x['value'], reverse=True)
-                
-                if yield_ranking:
-                    for idx, item in enumerate(yield_ranking, 1):
-                        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
-                        # Yield color: green for positive, red for negative, yellow for near zero
-                        if item['value'] > 0.5:
-                            value_color = "#10b981"
-                        elif item['value'] < 0:
-                            value_color = "#ef4444"
-                        else:
-                            value_color = "#f1c40f"
-                        
-                        st.markdown(f"""
-                        <div style='display: flex; align-items: center; justify-content: space-between; 
-                                    padding: 10px 12px; margin: 8px 0; 
-                                    background: rgba(0,0,0,0.3); border-radius: 10px;
-                                    border-left: 3px solid {value_color};'>
-                            <div style='display: flex; align-items: center; gap: 12px;'>
-                                <span style='font-size: 18px; font-weight: bold; width: 35px;'>{medal}</span>
-                                <span style='font-size: 28px;'>{item['flag']}</span>
-                                <div>
-                                    <span style='font-weight: bold;'>{item['currency']}</span>
-                                    <span style='font-size: 11px; color: #94a3b8; margin-left: 5px;'>{item['name']}</span>
-                                </div>
-                            </div>
-                            <span style='font-weight: bold; font-size: 18px; color: {value_color};'>{item['value']:.2f}%</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("📊 No yield data available")
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-            
-            st.markdown("---")
             
             # ========== Regional Power (3 separate boxes) ==========
             st.subheader("🌍 Regional Power")
@@ -696,6 +566,136 @@ with tab_dashboard:
                 st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
                 st.markdown("---")   # فاصل بين العملات
 
+              # ========== Currency Rankings (Economic Power & Yield) ==========
+            st.subheader("📊 Currency Rankings")
+            
+            # Create two columns for side-by-side rankings
+            col_rank1, col_rank2 = st.columns(2)
+            
+            # ===== Column 1: Economic Power Ranking =====
+            with col_rank1:
+                st.markdown("""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 15px; 
+                            border: 1px solid #334155;'>
+                    <div style='text-align: center; margin-bottom: 15px;'>
+                        <span style='font-size: 24px;'>🏭</span>
+                        <h4 style='color: #f1c40f; margin: 0;'>Economic Power Ranking</h4>
+                        <span style='font-size: 12px; color: #94a3b8;'>Strongest → Weakest</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Collect economic strength data for all currencies
+                economic_ranking = []
+                if economy_data_today is not None:
+                    for currency_code in currencies:
+                        if currency_code in economy_data_today.index:
+                            eco_val = economy_data_today[currency_code]
+                            if pd.notna(eco_val):
+                                full_name = currency_full_names.get(currency_code, currency_code)
+                                flag = currency_flags.get(currency_code, "💰")
+                                economic_ranking.append({
+                                    'currency': currency_code,
+                                    'name': full_name,
+                                    'flag': flag,
+                                    'value': eco_val
+                                })
+                
+                # Sort from largest to smallest
+                economic_ranking.sort(key=lambda x: x['value'], reverse=True)
+                
+                if economic_ranking:
+                    for idx, item in enumerate(economic_ranking, 1):
+                        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
+                        value_color = "#10b981" if item['value'] >= 0 else "#ef4444"
+                        
+                        st.markdown(f"""
+                        <div style='display: flex; align-items: center; justify-content: space-between; 
+                                    padding: 10px 12px; margin: 8px 0; 
+                                    background: rgba(0,0,0,0.3); border-radius: 10px;
+                                    border-left: 3px solid {value_color};'>
+                            <div style='display: flex; align-items: center; gap: 12px;'>
+                                <span style='font-size: 18px; font-weight: bold; width: 35px;'>{medal}</span>
+                                <span style='font-size: 28px;'>{item['flag']}</span>
+                                <div>
+                                    <span style='font-weight: bold;'>{item['currency']}</span>
+                                    <span style='font-size: 11px; color: #94a3b8; margin-left: 5px;'>{item['name']}</span>
+                                </div>
+                            </div>
+                            <span style='font-weight: bold; font-size: 18px; color: {value_color};'>{item['value']:+.2f}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("📊 No economic data available")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            # ===== Column 2: Yield Ranking =====
+            with col_rank2:
+                st.markdown("""
+                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+                            border-radius: 15px; padding: 15px; 
+                            border: 1px solid #334155;'>
+                    <div style='text-align: center; margin-bottom: 15px;'>
+                        <span style='font-size: 24px;'>📈</span>
+                        <h4 style='color: #f1c40f; margin: 0;'>Yield Ranking</h4>
+                        <span style='font-size: 12px; color: #94a3b8;'>Highest → Lowest</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Collect yield data for all currencies
+                yield_ranking = []
+                if yield_data_today is not None:
+                    for currency_code in currencies:
+                        if currency_code in yield_data_today.index:
+                            y_val = yield_data_today[currency_code]
+                            if pd.notna(y_val):
+                                full_name = currency_full_names.get(currency_code, currency_code)
+                                flag = currency_flags.get(currency_code, "💰")
+                                yield_ranking.append({
+                                    'currency': currency_code,
+                                    'name': full_name,
+                                    'flag': flag,
+                                    'value': y_val
+                                })
+                
+                # Sort from largest to smallest
+                yield_ranking.sort(key=lambda x: x['value'], reverse=True)
+                
+                if yield_ranking:
+                    for idx, item in enumerate(yield_ranking, 1):
+                        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
+                        # Yield color: green for positive, red for negative, yellow for near zero
+                        if item['value'] > 0.5:
+                            value_color = "#10b981"
+                        elif item['value'] < 0:
+                            value_color = "#ef4444"
+                        else:
+                            value_color = "#f1c40f"
+                        
+                        st.markdown(f"""
+                        <div style='display: flex; align-items: center; justify-content: space-between; 
+                                    padding: 10px 12px; margin: 8px 0; 
+                                    background: rgba(0,0,0,0.3); border-radius: 10px;
+                                    border-left: 3px solid {value_color};'>
+                            <div style='display: flex; align-items: center; gap: 12px;'>
+                                <span style='font-size: 18px; font-weight: bold; width: 35px;'>{medal}</span>
+                                <span style='font-size: 28px;'>{item['flag']}</span>
+                                <div>
+                                    <span style='font-weight: bold;'>{item['currency']}</span>
+                                    <span style='font-size: 11px; color: #94a3b8; margin-left: 5px;'>{item['name']}</span>
+                                </div>
+                            </div>
+                            <span style='font-weight: bold; font-size: 18px; color: {value_color};'>{item['value']:.2f}%</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("📊 No yield data available")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
             # ==================== Display Cards + Tables Directly ====================
             for i in range(0, len(currencies), 2):
                 col1, col2 = st.columns(2)
