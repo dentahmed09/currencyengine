@@ -485,6 +485,28 @@ with tab_dashboard:
                 "NZD": "🇳🇿"
             }
             
+            # ======================================================
+            # NEW FUNCTION: To get historical data for charts
+            # ======================================================
+            def get_historical_data_for_currency(currency_code, db_economy, db_yield):
+                """Returns two dataframes: historical economy and historical yield for a currency"""
+                hist_economy = pd.DataFrame()
+                hist_yield = pd.DataFrame()
+                
+                if db_economy is not None and not db_economy.empty and currency_code in db_economy.columns:
+                    hist_economy = db_economy[['Date', currency_code]].copy()
+                    hist_economy = hist_economy.rename(columns={currency_code: 'Economic_Strength'})
+                    hist_economy['Date'] = pd.to_datetime(hist_economy['Date'])
+                    hist_economy = hist_economy.sort_values('Date')
+                
+                if db_yield is not None and not db_yield.empty and currency_code in db_yield.columns:
+                    hist_yield = db_yield[['Date', currency_code]].copy()
+                    hist_yield = hist_yield.rename(columns={currency_code: 'Yield'})
+                    hist_yield['Date'] = pd.to_datetime(hist_yield['Date'])
+                    hist_yield = hist_yield.sort_values('Date')
+                
+                return hist_economy, hist_yield
+            
             # جلب بيانات الاقتصاد والعوائد لليوم المختار
             economy_data_today = None
             yield_data_today = None
@@ -566,7 +588,66 @@ with tab_dashboard:
                 st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
                 st.markdown("---")   # فاصل بين العملات
 
-            # ==================== Display Cards + Tables Directly ====================
+            # ======================================================
+            # NEW FUNCTION: To display Economy & Yield Charts
+            # ======================================================
+            def display_economy_and_yield_charts(currency_code):
+                """Displays historical economy and yield charts for a currency"""
+                hist_economy, hist_yield = get_historical_data_for_currency(currency_code, db_economy, db_yield)
+                
+                # Economic Strength Chart
+                if not hist_economy.empty:
+                    fig_economy = go.Figure()
+                    fig_economy.add_trace(go.Scatter(
+                        x=hist_economy['Date'],
+                        y=hist_economy['Economic_Strength'],
+                        mode='lines+markers',
+                        name='Economic Strength',
+                        line=dict(color='#f39c12', width=2.5),
+                        marker=dict(size=5, color='#f39c12')
+                    ))
+                    fig_economy.update_layout(
+                        title=dict(text="<b>📉 Economic Strength Trend</b>", font=dict(size=12, color='#f1c40f'), x=0.5),
+                        xaxis_title="Date",
+                        yaxis_title="Economic Strength",
+                        height=250,
+                        template="plotly_dark",
+                        margin=dict(l=10, r=10, t=40, b=10),
+                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
+                        paper_bgcolor='rgba(0,0,0,0)'
+                    )
+                    fig_economy.add_hline(y=0, line_dash="dash", line_color="#e74c3c", line_width=1, opacity=0.5)
+                    st.plotly_chart(fig_economy, use_container_width=True, key=f"eco_chart_{currency_code}")
+                else:
+                    st.caption("📉 No historical Economic Strength data available.")
+                
+                # Yield Chart
+                if not hist_yield.empty:
+                    fig_yield = go.Figure()
+                    fig_yield.add_trace(go.Scatter(
+                        x=hist_yield['Date'],
+                        y=hist_yield['Yield'],
+                        mode='lines+markers',
+                        name='Yield',
+                        line=dict(color='#2ecc71', width=2.5),
+                        marker=dict(size=5, color='#2ecc71')
+                    ))
+                    fig_yield.update_layout(
+                        title=dict(text="<b>📊 Yield Trend</b>", font=dict(size=12, color='#f1c40f'), x=0.5),
+                        xaxis_title="Date",
+                        yaxis_title="Yield (%)",
+                        height=250,
+                        template="plotly_dark",
+                        margin=dict(l=10, r=10, t=40, b=10),
+                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
+                        paper_bgcolor='rgba(0,0,0,0)'
+                    )
+                    fig_yield.add_hline(y=0, line_dash="dash", line_color="#e74c3c", line_width=1, opacity=0.5)
+                    st.plotly_chart(fig_yield, use_container_width=True, key=f"yield_chart_{currency_code}")
+                else:
+                    st.caption("📊 No historical Yield data available.")
+
+            # ==================== Display Cards + Tables + NEW Charts ====================
             for i in range(0, len(currencies), 2):
                 col1, col2 = st.columns(2)
                 
@@ -629,6 +710,12 @@ with tab_dashboard:
                     
                     # الجدول يظهر مباشرة تحت الكارت
                     show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
+                    
+                    # ========== NEW: Display Economy & Yield Charts ==========
+                    st.markdown("---")
+                    st.markdown("##### 📈 Historical Analysis")
+                    display_economy_and_yield_charts(currency_code)
+                    st.markdown("---")
                 
                 # ==================== العملة الثانية ====================
                 if i + 1 < len(currencies):
@@ -690,6 +777,12 @@ with tab_dashboard:
                         
                         # الجدول يظهر مباشرة تحت الكارت
                         show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
+                        
+                        # ========== NEW: Display Economy & Yield Charts ==========
+                        st.markdown("---")
+                        st.markdown("##### 📈 Historical Analysis")
+                        display_economy_and_yield_charts(currency_code)
+                        st.markdown("---")
         
         # ========== Higher Time Frame Analyses ==========
         st.markdown("---")
@@ -894,33 +987,7 @@ with tab_dashboard:
                             ),
                             yaxis=dict(
                                 title=dict(text="<b>Currency Strength</b>", font=dict(size=10, color='#e2e8f0')),
-                                zeroline=True, 
-                                zerolinecolor='#f1c40f',
-                                zerolinewidth=1.5
-                            ),
-                            height=400, 
-                            template="plotly_dark", 
-                            hovermode='x unified',
-                            legend=dict(
-                                orientation="h", 
-                                yanchor="bottom", 
-                                y=1.02, 
-                                xanchor="center", 
-                                x=0.5,
-                                font=dict(size=10)
-                            ),
-                            plot_bgcolor='rgba(15, 23, 42, 0.8)', 
-                            paper_bgcolor='rgba(0,0,0,0)'
-                        )
-                        
-                        # Add zero line
-                        fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.7)
-                        
-                        st.plotly_chart(fig, use_container_width=True, key=f"htf_chart_{currency}")
-                    else:
-                        st.info(f"📊 No data available for {currency_full}")
-            
-            st.markdown("---")
+                                zeroline=True,
 
 # ──── تبويب Pair Matrix ─────────────────────
 with tab_results:
