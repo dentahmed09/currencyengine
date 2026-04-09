@@ -987,7 +987,7 @@ with tab_dashboard:
                             ),
                             yaxis=dict(
                                 title=dict(text="<b>Currency Strength</b>", font=dict(size=10, color='#e2e8f0')),
-                                zeroline=True,
+                                zeroline=True,))
 
 # ──── تبويب Pair Matrix ─────────────────────
 with tab_results:
