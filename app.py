@@ -364,8 +364,7 @@ with tab_dashboard:
                 prev_data = None
             
             st.markdown("---")
-                        st.markdown("---")
-            
+        
             # ========== Currency Rankings (Economic Power & Yield) ==========
             st.subheader("📊 Currency Rankings")
             
