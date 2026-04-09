@@ -447,8 +447,8 @@ with tab_dashboard:
             
             st.markdown("---")
             
-            # ========== Currency Cards ==========
-            st.subheader("💱 Currency Cards")
+            # ========== Currency Rankings (Economic Power & Yield) ==========
+            st.subheader("📊 Currency Rankings")
             
             # Full names for display
             currency_full_names = {
@@ -460,18 +460,6 @@ with tab_dashboard:
                 "CAD": "Canadian Dollar",
                 "AUD": "Australian Dollar",
                 "NZD": "New Zealand Dollar"
-            }
-            
-            # Central bank data
-            currency_central_banks = {
-                "USD": "Federal Reserve",
-                "EUR": "European Central Bank",
-                "GBP": "Bank of England",
-                "JPY": "Bank of Japan",
-                "CHF": "Swiss National Bank",
-                "CAD": "Bank of Canada",
-                "AUD": "Reserve Bank of Australia",
-                "NZD": "Reserve Bank of New Zealand"
             }
             
             currency_flags = {
@@ -499,76 +487,6 @@ with tab_dashboard:
                 if not yield_row.empty:
                     yield_data_today = yield_row.iloc[0]
             
-            # Function to display currency pairs as a table (نفسها بدون تغيير)
-            def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
-                """Display table for pairs related to a specific currency"""
-                related_pairs = [pair for pair in pairs if currency_code in pair]
-                currency_full = currency_full_names.get(currency_code, currency_code)
-                
-                st.markdown(f"##### 🔍 {currency_full} Pairs")
-                
-                table_data = []
-                for pair in related_pairs:
-                    base, quote = pair[:3], pair[3:]
-                    strength_today = current_data[base] - current_data[quote]
-                    
-                    if strength_today > 0:
-                        signal_display = "🟢 BUY"
-                    elif strength_today < 0:
-                        signal_display = "🔴 SELL"
-                    else:
-                        signal_display = "🟡 WAIT"
-                    
-                    if prev_data is not None:
-                        delta = {c: current_data[c] - prev_data[c] for c in currencies}
-                        base_delta = delta[base]
-                        quote_delta = delta[quote]
-                        volatility = abs(base_delta - quote_delta)
-                        delta_power = strength_today - (prev_data[base] - prev_data[quote])
-                        
-                        if current_data[base] > current_data[quote]:
-                            base_vs_quote = f"{base} > {quote}"
-                        elif current_data[base] < current_data[quote]:
-                            base_vs_quote = f"{base} < {quote}"
-                        else:
-                            base_vs_quote = f"{base} = {quote}"
-                    else:
-                        delta_power = 0
-                        volatility = 0
-                        base_vs_quote = "N/A"
-                    
-                    table_data.append({
-                        "Pair": pair,
-                        "Signal": signal_display,
-                        "Power": f"{strength_today:+.0f}",
-                        "Δ Power": f"{delta_power:+.0f}",
-                        "Base vs Quote": base_vs_quote,
-                        "Volatility": f"{volatility:.0f}"
-                    })
-                
-                df_table = pd.DataFrame(table_data)
-                df_table['Power_Num'] = df_table['Power'].str.replace('+', '').astype(float)
-                df_table = df_table.sort_values('Power_Num', ascending=False).drop('Power_Num', axis=1)
-                
-                st.dataframe(
-                    df_table,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Pair": st.column_config.TextColumn("Pair", width="small"),
-                        "Signal": st.column_config.TextColumn("Signal", width="small"),
-                        "Power": st.column_config.TextColumn("Power", width="small"),
-                        "Δ Power": st.column_config.TextColumn("Δ Power", width="small"),
-                        "Base vs Quote": st.column_config.TextColumn("Base vs Quote", width="medium"),
-                        "Volatility": st.column_config.TextColumn("Volatility", width="small")
-                    }
-                )
-                st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
-                st.markdown("---")   # فاصل بين العملات
-
-              # ========== Currency Rankings (Economic Power & Yield) ==========
-            st.subheader("📊 Currency Rankings")
-            
             # Create two columns for side-by-side rankings
             col_rank1, col_rank2 = st.columns(2)
             
@@ -587,8 +505,10 @@ with tab_dashboard:
                 
                 # Collect economic strength data for all currencies
                 economic_ranking = []
+                currencies_list = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD']
+                
                 if economy_data_today is not None:
-                    for currency_code in currencies:
+                    for currency_code in currencies_list:
                         if currency_code in economy_data_today.index:
                             eco_val = economy_data_today[currency_code]
                             if pd.notna(eco_val):
@@ -645,8 +565,9 @@ with tab_dashboard:
                 
                 # Collect yield data for all currencies
                 yield_ranking = []
+                
                 if yield_data_today is not None:
-                    for currency_code in currencies:
+                    for currency_code in currencies_list:
                         if currency_code in yield_data_today.index:
                             y_val = yield_data_today[currency_code]
                             if pd.notna(y_val):
@@ -696,13 +617,95 @@ with tab_dashboard:
             
             st.markdown("---")
             
+            # ========== Currency Cards ==========
+            st.subheader("💱 Currency Cards")
+            
+            # Central bank data
+            currency_central_banks = {
+                "USD": "Federal Reserve",
+                "EUR": "European Central Bank",
+                "GBP": "Bank of England",
+                "JPY": "Bank of Japan",
+                "CHF": "Swiss National Bank",
+                "CAD": "Bank of Canada",
+                "AUD": "Reserve Bank of Australia",
+                "NZD": "Reserve Bank of New Zealand"
+            }
+            
+            # Function to display currency pairs as a table
+            def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
+                """Display table for pairs related to a specific currency"""
+                related_pairs = [pair for pair in pairs if currency_code in pair]
+                currency_full = currency_full_names.get(currency_code, currency_code)
+                
+                st.markdown(f"##### 🔍 {currency_full} Pairs")
+                
+                table_data = []
+                for pair in related_pairs:
+                    base, quote = pair[:3], pair[3:]
+                    strength_today = current_data[base] - current_data[quote]
+                    
+                    if strength_today > 0:
+                        signal_display = "🟢 BUY"
+                    elif strength_today < 0:
+                        signal_display = "🔴 SELL"
+                    else:
+                        signal_display = "🟡 WAIT"
+                    
+                    if prev_data is not None:
+                        delta = {c: current_data[c] - prev_data[c] for c in currencies_list}
+                        base_delta = delta[base]
+                        quote_delta = delta[quote]
+                        volatility = abs(base_delta - quote_delta)
+                        delta_power = strength_today - (prev_data[base] - prev_data[quote])
+                        
+                        if current_data[base] > current_data[quote]:
+                            base_vs_quote = f"{base} > {quote}"
+                        elif current_data[base] < current_data[quote]:
+                            base_vs_quote = f"{base} < {quote}"
+                        else:
+                            base_vs_quote = f"{base} = {quote}"
+                    else:
+                        delta_power = 0
+                        volatility = 0
+                        base_vs_quote = "N/A"
+                    
+                    table_data.append({
+                        "Pair": pair,
+                        "Signal": signal_display,
+                        "Power": f"{strength_today:+.0f}",
+                        "Δ Power": f"{delta_power:+.0f}",
+                        "Base vs Quote": base_vs_quote,
+                        "Volatility": f"{volatility:.0f}"
+                    })
+                
+                df_table = pd.DataFrame(table_data)
+                df_table['Power_Num'] = df_table['Power'].str.replace('+', '').astype(float)
+                df_table = df_table.sort_values('Power_Num', ascending=False).drop('Power_Num', axis=1)
+                
+                st.dataframe(
+                    df_table,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Pair": st.column_config.TextColumn("Pair", width="small"),
+                        "Signal": st.column_config.TextColumn("Signal", width="small"),
+                        "Power": st.column_config.TextColumn("Power", width="small"),
+                        "Δ Power": st.column_config.TextColumn("Δ Power", width="small"),
+                        "Base vs Quote": st.column_config.TextColumn("Base vs Quote", width="medium"),
+                        "Volatility": st.column_config.TextColumn("Volatility", width="small")
+                    }
+                )
+                st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
+                st.markdown("---")
+            
             # ==================== Display Cards + Tables Directly ====================
-            for i in range(0, len(currencies), 2):
+            for i in range(0, len(currencies_list), 2):
                 col1, col2 = st.columns(2)
                 
                 # ==================== العملة الأولى ====================
                 with col1:
-                    currency_code = currencies[i]
+                    currency_code = currencies_list[i]
                     currency_strength = current_data[currency_code]
                     strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
                     full_name = currency_full_names.get(currency_code, currency_code)
@@ -761,9 +764,9 @@ with tab_dashboard:
                     show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
                 
                 # ==================== العملة الثانية ====================
-                if i + 1 < len(currencies):
+                if i + 1 < len(currencies_list):
                     with col2:
-                        currency_code = currencies[i + 1]
+                        currency_code = currencies_list[i + 1]
                         currency_strength = current_data[currency_code]
                         strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
                         full_name = currency_full_names.get(currency_code, currency_code)
@@ -832,11 +835,11 @@ with tab_dashboard:
         """, unsafe_allow_html=True)
         
         # Display charts for all currencies (2 per row)
-        for i in range(0, len(currencies), 2):
+        for i in range(0, len(currencies_list), 2):
             col1, col2 = st.columns(2)
             
             with col1:
-                currency = currencies[i]
+                currency = currencies_list[i]
                 currency_full = currency_full_names.get(currency, currency)
                 st.markdown(f"### 💱 {currency_full} ({currency})")
                 
@@ -942,9 +945,9 @@ with tab_dashboard:
                 else:
                     st.info(f"📊 No data available for {currency_full}")
             
-            if i + 1 < len(currencies):
+            if i + 1 < len(currencies_list):
                 with col2:
-                    currency = currencies[i + 1]
+                    currency = currencies_list[i + 1]
                     currency_full = currency_full_names.get(currency, currency)
                     st.markdown(f"### 💱 {currency_full} ({currency})")
                     
