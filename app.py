@@ -784,7 +784,7 @@ with tab_dashboard:
                         display_economy_and_yield_charts(currency_code)
                         st.markdown("---")
         
-        # ========== Higher Time Frame Analyses ==========
+       # ========== Higher Time Frame Analyses ==========
         st.markdown("---")
         st.markdown("""
         <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
@@ -987,8 +987,33 @@ with tab_dashboard:
                             ),
                             yaxis=dict(
                                 title=dict(text="<b>Currency Strength</b>", font=dict(size=10, color='#e2e8f0')),
-                                zeroline=True,))
-
+                                zeroline=True, 
+                                zerolinecolor='#f1c40f',
+                                zerolinewidth=1.5
+                            ),
+                            height=400, 
+                            template="plotly_dark", 
+                            hovermode='x unified',
+                            legend=dict(
+                                orientation="h", 
+                                yanchor="bottom", 
+                                y=1.02, 
+                                xanchor="center", 
+                                x=0.5,
+                                font=dict(size=10)
+                            ),
+                            plot_bgcolor='rgba(15, 23, 42, 0.8)', 
+                            paper_bgcolor='rgba(0,0,0,0)'
+                        )
+                        
+                        # Add zero line
+                        fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.7)
+                        
+                        st.plotly_chart(fig, use_container_width=True, key=f"htf_chart_{currency}")
+                    else:
+                        st.info(f"📊 No data available for {currency_full}")
+            
+            st.markdown("---")
 # ──── تبويب Pair Matrix ─────────────────────
 with tab_results:
     if db_daily.empty or len(db_daily) < 2:
