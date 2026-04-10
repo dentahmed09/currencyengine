@@ -2200,21 +2200,15 @@ with tab_signal:
                 eco_arrow = get_arrow(eco_current, eco_prev)
                 eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
                 
-                # === Yield ===
-                yield_current = None
-                yield_prev = None
-                if yield_today is not None and yield_prev is not None:
-                    if base in yield_today.index and quote in yield_today.index:
-                        if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
-                            yield_current = yield_today[base] - yield_today[quote]
-                    if base in yield_prev.index and quote in yield_prev.index:
-                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
-                            yield_prev = yield_prev[base] - yield_prev[quote]
-                
-                yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, True)
-                yield_arrow = get_arrow(yield_current, yield_prev)
-                # ✅ إصلاح 5: عرض فارق العوائد
-                yield_display = f"{yield_current:+.2f}" if yield_current is not None else "N/A"
+               # === Yield ===
+yield_current = None
+yield_prev = None
+if yield_today is not None:  # ✅ شرط مرن - بيكتفي بوجود yield_today فقط
+    if base in yield_today.index and quote in yield_today.index:
+        # ... حساب القيمة
+if yield_prev is not None:  # ✅ فحص منفصل للقيمة السابقة
+    if base in yield_prev.index and quote in yield_prev.index:
+        # ... حساب القيمة السابقة
                 
                 # === Monthly ===
                 monthly_base_curr = monthly_current.get(base, 0)
