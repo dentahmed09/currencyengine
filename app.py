@@ -1449,41 +1449,46 @@ with tab_results:
                 quote_yield_color = get_change_color(quote_yield_val, quote_yield_prev)
                 quote_yield_arrow = get_change_arrow(quote_yield_val, quote_yield_prev)
                 
-                # Daily score change for Base
-                base_daily_val = latest[base]
-                base_daily_prev = prev[base] if prev is not None else None
-                base_daily_color = get_change_color(base_daily_val, base_daily_prev)
-                base_daily_arrow = get_change_arrow(base_daily_val, base_daily_prev)
+                # Daily score change for Base (Delta = Today - Yesterday)
+                base_daily_delta = latest[base] - prev[base] if prev is not None else 0
+                base_daily_prev_val = prev[base] if prev is not None else None
+                base_daily_color = get_change_color(base_daily_delta, 0)  # اللون يعتمد على إشارة الدلتا
+                base_daily_arrow = "▲" if base_daily_delta > 0 else "▼" if base_daily_delta < 0 else "●"
                 
-                # Daily score change for Quote
-                quote_daily_val = latest[quote]
-                quote_daily_prev = prev[quote] if prev is not None else None
-                quote_daily_color = get_change_color(quote_daily_val, quote_daily_prev)
-                quote_daily_arrow = get_change_arrow(quote_daily_val, quote_daily_prev)
+               # Daily score change for Quote (Delta = Today - Yesterday)
+                Quote_daily_delta = latest[Quote] - prev[Quote] if prev is not None else 0
+                Quote_daily_prev_val = prev[Quote] if prev is not None else None
+                Quote_daily_color = get_change_color(Quote_daily_delta, 0)  # اللون يعتمد على إشارة الدلتا
+                Quote_daily_arrow = "▲" if Quote_daily_delta > 0 else "▼" if Quote_daily_delta < 0 else "●"
+
+                # Weekly score change for Base (Delta = This Week - Last Week)
+                base_weekly_current = latest[base]  # أو اجلبها من جدول weekly لو موجود
+                base_weekly_prev_val = weekly_prev_data.get(base, base_weekly_current)
+                base_weekly_delta = base_weekly_current - base_weekly_prev_val
+                base_weekly_color = get_change_color(base_weekly_delta, 0)
+                base_weekly_arrow = "▲" if base_weekly_delta > 0 else "▼" if base_weekly_delta < 0 else "●"
                 
-                # Weekly score change for Base
-                base_weekly_val = latest[base]
-                base_weekly_prev = weekly_prev_data.get(base, base_weekly_val)
-                base_weekly_color = get_change_color(base_weekly_val, base_weekly_prev)
-                base_weekly_arrow = get_change_arrow(base_weekly_val, base_weekly_prev)
+                # Weekly score change for Quote (Delta = This Week - Last Week)
+                Quote_weekly_current = latest[Quote]  # أو اجلبها من جدول weekly لو موجود
+                Quote_weekly_prev_val = weekly_prev_data.get(Quote, Quote_weekly_current)
+                Quote_weekly_delta = Quote_weekly_current - Quote_weekly_prev_val
+                Quote_weekly_color = get_change_color(Quote_weekly_delta, 0)
+                Quote_weekly_arrow = "▲" if Quote_weekly_delta > 0 else "▼" if _weekly_delta < 0 else "●"
                 
-                # Weekly score change for Quote
-                quote_weekly_val = latest[quote]
-                quote_weekly_prev = weekly_prev_data.get(quote, quote_weekly_val)
-                quote_weekly_color = get_change_color(quote_weekly_val, quote_weekly_prev)
-                quote_weekly_arrow = get_change_arrow(quote_weekly_val, quote_weekly_prev)
+               # Monthly score change for Base (Delta = This Month - Last Month)
+                base_monthly_current = latest[base]  # أو اجلبها من جدول monthly
+                base_monthly_prev_val = monthly_prev_data.get(base, base_monthly_current)
+                base_monthly_delta = base_monthly_current - base_monthly_prev_val
+                base_monthly_color = get_change_color(base_monthly_delta, 0)
+                base_monthly_arrow = "▲" if base_monthly_delta > 0 else "▼" if base_monthly_delta < 0 else "●"
                 
-                # Monthly score change for Base
-                base_monthly_val = latest[base]
-                base_monthly_prev = monthly_prev_data.get(base, base_monthly_val)
-                base_monthly_color = get_change_color(base_monthly_val, base_monthly_prev)
-                base_monthly_arrow = get_change_arrow(base_monthly_val, base_monthly_prev)
+                # Monthly score change for Quote (Delta = This Month - Last Month)
+                Quote_monthly_current = latest[Quote]  # أو اجلبها من جدول monthly
+                Quote_monthly_prev_val = monthly_prev_data.get(Quote, Quote_monthly_current)
+                Quote_monthly_delta = Quote_monthly_current - Quote_monthly_prev_val
+                Quote_monthly_color = get_change_color(Quote_monthly_delta, 0)
+                Quote_monthly_arrow = "▲" if Quote_monthly_delta > 0 else "▼" if Quote_monthly_delta < 0 else "●"
                 
-                # Monthly score change for Quote
-                quote_monthly_val = latest[quote]
-                quote_monthly_prev = monthly_prev_data.get(quote, quote_monthly_val)
-                quote_monthly_color = get_change_color(quote_monthly_val, quote_monthly_prev)
-                quote_monthly_arrow = get_change_arrow(quote_monthly_val, quote_monthly_prev)
                 
                 results.append({
                     "pair": pair,
@@ -1505,13 +1510,13 @@ with tab_results:
                     "base_yield_val": base_yield_val,
                     "base_yield_color": base_yield_color,
                     "base_yield_arrow": base_yield_arrow,
-                    "base_daily_val": base_daily_val,
+                    "base_daily_delta": base_daily_delta,
                     "base_daily_color": base_daily_color,
                     "base_daily_arrow": base_daily_arrow,
-                    "base_weekly_val": base_weekly_val,
+                    "base_weekly_delta": base_weekly_delta,
                     "base_weekly_color": base_weekly_color,
                     "base_weekly_arrow": base_weekly_arrow,
-                    "base_monthly_val": base_monthly_val,
+                    "base_monthly_delta": base_monthly_delta,
                     "base_monthly_color": base_monthly_color,
                     "base_monthly_arrow": base_monthly_arrow,
                     # Quote data
@@ -1523,13 +1528,13 @@ with tab_results:
                     "quote_yield_val": quote_yield_val,
                     "quote_yield_color": quote_yield_color,
                     "quote_yield_arrow": quote_yield_arrow,
-                    "quote_daily_val": quote_daily_val,
+                    "quote_daily_delta": quote_daily_delta,
                     "quote_daily_color": quote_daily_color,
                     "quote_daily_arrow": quote_daily_arrow,
-                    "quote_weekly_val": quote_weekly_val,
+                    "quote_weekly_delta": quote_weekly_delta,
                     "quote_weekly_color": quote_weekly_color,
                     "quote_weekly_arrow": quote_weekly_arrow,
-                    "quote_monthly_val": quote_monthly_val,
+                    "quote_monthly_delta": quote_monthly_delta,
                     "quote_monthly_color": quote_monthly_color,
                     "quote_monthly_arrow": quote_monthly_arrow,
                 })
@@ -1634,17 +1639,18 @@ with tab_results:
                                 <!-- Daily Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">📅 Daily Δ:</span>
-                                    <span style="font-weight: bold; color: {row['base_daily_color']};">{row['base_daily_arrow']} {row['base_daily_val']:+.2f}</span>
+                                    <span style="font-weight: bold; color: {row['base_daily_color']};">{row['base_daily_arrow']} {row['base_daily_delta']:+.2f}</span>
                                 </div>
                                 <!-- Weekly Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">📆 Weekly Δ:</span>
-                                    <span style="font-weight: bold; color: {row['base_weekly_color']};">{row['base_weekly_arrow']} {row['base_weekly_val']:+.2f}</span>
+                                   <span style="font-weight: bold; color: {row['base_weekly_color']};">{row['base_weekly_arrow']} {row['base_weekly_delta']:+.2f}</span>
+
                                 </div>
                                 <!-- Monthly Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">🗓️ Monthly Δ:</span>
-                                    <span style="font-weight: bold; color: {row['base_monthly_color']};">{row['base_monthly_arrow']} {row['base_monthly_val']:+.2f}</span>
+                                    <span style="font-weight: bold; color: {row['base_monthly_color']};">{row['base_monthly_arrow']} {row['base_monthly_delta']:+.2f}</span>
                                 </div>
                             </div>
                         </div>
@@ -1680,17 +1686,17 @@ with tab_results:
                                 <!-- Daily Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">📅 Daily Δ:</span>
-                                    <span style="font-weight: bold; color: {row['quote_daily_color']};">{row['quote_daily_arrow']} {row['quote_daily_val']:+.2f}</span>
+                                   <span style="font-weight: bold; color: {row['Quote_daily_color']};">{row['Quote_daily_arrow']} {row['Quote_daily_delta']:+.2f}</span>
                                 </div>
                                 <!-- Weekly Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">📆 Weekly Δ:</span>
-                                    <span style="font-weight: bold; color: {row['quote_weekly_color']};">{row['quote_weekly_arrow']} {row['quote_weekly_val']:+.2f}</span>
+                                   <span style="font-weight: bold; color: {row['Quote_weekly_color']};">{row['Quote_weekly_arrow']} {row['Quote_weekly_delta']:+.2f}</span>
                                 </div>
                                 <!-- Monthly Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">🗓️ Monthly Δ:</span>
-                                    <span style="font-weight: bold; color: {row['quote_monthly_color']};">{row['quote_monthly_arrow']} {row['quote_monthly_val']:+.2f}</span>
+                                   span style="font-weight: bold; color: {row['Quote_monthly_color']};">{row['Quote_monthly_arrow']} {row['Quote_monthly_delta']:+.2f}</span>
                                 </div>
                             </div>
                         </div>
