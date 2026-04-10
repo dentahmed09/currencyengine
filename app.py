@@ -318,9 +318,10 @@ db_monthly = load_data(MONTHLY_WS, "Month_Start")
 db_yield   = load_data(YIELD_WS, "Date")
 db_economy = load_data(ECONOMY_WS, "Date")
 
-tab_dashboard, tab_results = st.tabs([
+tab_dashboard, tab_results, tab_signal = st.tabs([
     "📊 Daily Dashboard",
     "🔍 Pair Matrix",
+    "📊 Signal Matrix",
 ])
 
 # ──── Daily Dashboard Tab ─────────────────────────────────
@@ -1767,3 +1768,570 @@ with tab_results:
                 </div>
                 '''
                 st.components.v1.html(card_html, height=580, scrolling=False)
+
+# ──── Signal Matrix Tab ─────────────────────
+with tab_signal:
+    st.header("📊 Signal Matrix - Multi-Timeframe Currency Strength")
+    st.caption("Economic • Yield • Monthly • Weekly • Daily — Color = Current Value, Arrow = Change vs Previous")
+    
+    if db_daily.empty:
+        st.info("📊 Please enter daily data first")
+    else:
+        # ================== Session State Init ==================
+        if 'signal_selected_date' not in st.session_state:
+            st.session_state.signal_selected_date = None
+        
+        # ================== Date List Creation ==================
+        all_dates = db_daily['Date'].sort_values(ascending=False).tolist()
+        
+        date_options = []
+        date_map = {}
+        
+        for date in all_dates:
+            date_str = date.strftime("%Y-%m-%d")
+            if date == all_dates[0]:
+                date_str = f"📅 {date_str} (Latest)"
+            date_options.append(date_str)
+            date_map[date_str] = date
+        
+        # ================== Date Selector ==================
+        col_date1, col_date2, col_date3 = st.columns([1, 2, 1])
+        with col_date2:
+            selected_date_str = st.selectbox(
+                "📆 Select Date to View Analysis:",
+                options=date_options,
+                index=0,
+                key="signal_date_selector"
+            )
+            
+            st.session_state.signal_selected_date = date_map[selected_date_str]
+            
+            st.markdown(f"""
+            <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                        border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
+                <span style="color: #f1c40f; font-weight: bold;">📅 Selected Date: {selected_date_str}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # ================== Calculate Data for Selected Date ==================
+        selected_date = st.session_state.signal_selected_date
+        selected_row = db_daily[db_daily['Date'] == selected_date]
+        
+        if selected_row.empty:
+            st.error(f"❌ No data found for {selected_date_str}")
+        else:
+            latest = selected_row.iloc[0]
+            
+            # Get previous daily data
+            date_index = db_daily[db_daily['Date'] == selected_date].index[0]
+            if date_index > 0:
+                prev_row = db_daily.iloc[date_index - 1]
+                prev = prev_row
+            else:
+                prev = None
+            
+            # Get Economy data
+            economy_today = None
+            economy_prev = None
+            if not db_economy.empty:
+                db_economy['Date'] = pd.to_datetime(db_economy['Date']).dt.date
+                eco_today_row = db_economy[db_economy['Date'] == selected_date]
+                if not eco_today_row.empty:
+                    economy_today = eco_today_row.iloc[0]
+                    eco_idx = db_economy[db_economy['Date'] == selected_date].index[0]
+                    if eco_idx > 0:
+                        economy_prev = db_economy.iloc[eco_idx - 1]
+            
+            # Get Yield data
+            yield_today = None
+            yield_prev = None
+            if not db_yield.empty:
+                db_yield['Date'] = pd.to_datetime(db_yield['Date']).dt.date
+                yld_today_row = db_yield[db_yield['Date'] == selected_date]
+                if not yld_today_row.empty:
+                    yield_today = yld_today_row.iloc[0]
+                    yld_idx = db_yield[db_yield['Date'] == selected_date].index[0]
+                    if yld_idx > 0:
+                        yield_prev = db_yield.iloc[yld_idx - 1]
+            
+            # Get Weekly data (current week and previous week)
+            selected_date_obj = pd.to_datetime(selected_date)
+            week_start = (selected_date_obj - pd.Timedelta(days=selected_date_obj.weekday())).date()
+            
+            weekly_current = {}
+            weekly_prev_val = {}
+            weekly_prev_pair_val = {}  # For pair diff comparison
+            
+            if not db_weekly.empty:
+                db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
+                weekly_current_row = db_weekly[db_weekly['Week_Start'] == week_start]
+                
+                if not weekly_current_row.empty:
+                    weekly_idx = db_weekly[db_weekly['Week_Start'] == week_start].index[0]
+                    for curr in currencies:
+                        if curr in weekly_current_row.columns and pd.notna(weekly_current_row.iloc[0][curr]):
+                            weekly_current[curr] = weekly_current_row.iloc[0][curr]
+                            if weekly_idx > 0:
+                                prev_week_val = db_weekly.iloc[weekly_idx - 1][curr]
+                                if pd.notna(prev_week_val):
+                                    weekly_prev_val[curr] = prev_week_val
+                                else:
+                                    weekly_prev_val[curr] = weekly_current[curr]
+                            else:
+                                weekly_prev_val[curr] = weekly_current[curr]
+                        else:
+                            weekly_current[curr] = latest[curr] if curr in latest.index else 0
+                            weekly_prev_val[curr] = weekly_current[curr]
+                else:
+                    for curr in currencies:
+                        weekly_current[curr] = latest[curr] if curr in latest.index else 0
+                        weekly_prev_val[curr] = weekly_current[curr]
+            else:
+                for curr in currencies:
+                    weekly_current[curr] = latest[curr] if curr in latest.index else 0
+                    weekly_prev_val[curr] = weekly_current[curr]
+            
+            # Store previous pair diffs for weekly
+            for pair in pairs:
+                base, quote = pair[:3], pair[3:]
+                prev_base = weekly_prev_val.get(base, 0)
+                prev_quote = weekly_prev_val.get(quote, 0)
+                weekly_prev_pair_val[pair] = prev_base - prev_quote
+            
+            # Get Monthly data
+            month_start = selected_date_obj.replace(day=1).date()
+            
+            monthly_current = {}
+            monthly_prev_val = {}
+            monthly_prev_pair_val = {}
+            
+            if not db_monthly.empty:
+                db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
+                monthly_current_row = db_monthly[db_monthly['Month_Start'] == month_start]
+                
+                if not monthly_current_row.empty:
+                    monthly_idx = db_monthly[db_monthly['Month_Start'] == month_start].index[0]
+                    for curr in currencies:
+                        if curr in monthly_current_row.columns and pd.notna(monthly_current_row.iloc[0][curr]):
+                            monthly_current[curr] = monthly_current_row.iloc[0][curr]
+                            if monthly_idx > 0:
+                                prev_month_val = db_monthly.iloc[monthly_idx - 1][curr]
+                                if pd.notna(prev_month_val):
+                                    monthly_prev_val[curr] = prev_month_val
+                                else:
+                                    monthly_prev_val[curr] = monthly_current[curr]
+                            else:
+                                monthly_prev_val[curr] = monthly_current[curr]
+                        else:
+                            monthly_current[curr] = latest[curr] if curr in latest.index else 0
+                            monthly_prev_val[curr] = monthly_current[curr]
+                else:
+                    for curr in currencies:
+                        monthly_current[curr] = latest[curr] if curr in latest.index else 0
+                        monthly_prev_val[curr] = monthly_current[curr]
+            else:
+                for curr in currencies:
+                    monthly_current[curr] = latest[curr] if curr in latest.index else 0
+                    monthly_prev_val[curr] = monthly_current[curr]
+            
+            for pair in pairs:
+                base, quote = pair[:3], pair[3:]
+                prev_base = monthly_prev_val.get(base, 0)
+                prev_quote = monthly_prev_val.get(quote, 0)
+                monthly_prev_pair_val[pair] = prev_base - prev_quote
+            
+            # Previous daily pair diffs
+            daily_prev_pair_val = {}
+            if prev is not None:
+                for pair in pairs:
+                    base, quote = pair[:3], pair[3:]
+                    daily_prev_pair_val[pair] = prev[base] - prev[quote]
+            
+            # Previous economic pair diffs
+            eco_prev_pair_val = {}
+            if economy_prev is not None:
+                for pair in pairs:
+                    base, quote = pair[:3], pair[3:]
+                    if base in economy_prev.index and quote in economy_prev.index:
+                        if pd.notna(economy_prev[base]) and pd.notna(economy_prev[quote]):
+                            eco_prev_pair_val[pair] = economy_prev[base] - economy_prev[quote]
+            
+            # Previous yield pair diffs
+            yield_prev_pair_val = {}
+            if yield_prev is not None:
+                for pair in pairs:
+                    base, quote = pair[:3], pair[3:]
+                    if base in yield_prev.index and quote in yield_prev.index:
+                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
+                            yield_prev_pair_val[pair] = yield_prev[base] - yield_prev[quote]
+            
+            # Helper functions
+            def get_cell_color(value, threshold, is_positive_green=True):
+                if value is None or pd.isna(value):
+                    return "#6b7280"
+                if abs(value) <= threshold:
+                    return "#f1c40f"  # Yellow for neutral
+                if is_positive_green:
+                    return "#10b981" if value > 0 else "#ef4444"
+                else:
+                    return "#ef4444" if value > 0 else "#10b981"
+            
+            def get_arrow(current_val, prev_val):
+                if current_val is None or prev_val is None or pd.isna(current_val) or pd.isna(prev_val):
+                    return "●"
+                if current_val > prev_val:
+                    return "▲"
+                elif current_val < prev_val:
+                    return "▼"
+                else:
+                    return "●"
+            
+            def get_delta_color_and_arrow(current_val, prev_val):
+                if current_val is None or prev_val is None or pd.isna(current_val) or pd.isna(prev_val):
+                    return "#6b7280", "●"
+                delta = current_val - prev_val
+                if delta > 0:
+                    return "#10b981", "▲"
+                elif delta < 0:
+                    return "#ef4444", "▼"
+                else:
+                    return "#f1c40f", "●"
+            
+            # Currency names and flags
+            currency_full_names = {
+                "USD": "US Dollar", "EUR": "Euro", "GBP": "British Pound",
+                "JPY": "Japanese Yen", "CHF": "Swiss Franc", "CAD": "Canadian Dollar",
+                "AUD": "Australian Dollar", "NZD": "New Zealand Dollar"
+            }
+            
+            currency_flags = {
+                "USD": "🇺🇸", "EUR": "🇪🇺", "GBP": "🇬🇧", "JPY": "🇯🇵",
+                "CHF": "🇨🇭", "CAD": "🇨🇦", "AUD": "🇦🇺", "NZD": "🇳🇿"
+            }
+            
+            # Currency order for cards
+            currencies_list = ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]
+            
+            # ================== 1. Currency Snapshot Cards (4x2) ==================
+            st.subheader("💱 Currency Snapshot")
+            
+            # Row 1 (4 currencies)
+            cols_row1 = st.columns(4)
+            for idx, curr in enumerate(currencies_list[:4]):
+                with cols_row1[idx]:
+                    # Get values
+                    curr_val = latest[curr] if curr in latest.index else 0
+                    curr_prev = prev[curr] if prev is not None and curr in prev.index else curr_val
+                    
+                    eco_val = economy_today[curr] if economy_today is not None and curr in economy_today.index and pd.notna(economy_today[curr]) else None
+                    eco_prev = economy_prev[curr] if economy_prev is not None and curr in economy_prev.index and pd.notna(economy_prev[curr]) else eco_val
+                    
+                    yld_val = yield_today[curr] if yield_today is not None and curr in yield_today.index and pd.notna(yield_today[curr]) else None
+                    yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
+                    
+                    daily_delta = curr_val - curr_prev if prev is not None else 0
+                    daily_color, daily_arrow = get_delta_color_and_arrow(curr_val, curr_prev)
+                    
+                    weekly_curr = weekly_current.get(curr, curr_val)
+                    weekly_prev_v = weekly_prev_val.get(curr, weekly_curr)
+                    weekly_delta = weekly_curr - weekly_prev_v
+                    weekly_color, weekly_arrow = get_delta_color_and_arrow(weekly_curr, weekly_prev_v)
+                    
+                    monthly_curr = monthly_current.get(curr, curr_val)
+                    monthly_prev_v = monthly_prev_val.get(curr, monthly_curr)
+                    monthly_delta = monthly_curr - monthly_prev_v
+                    monthly_color, monthly_arrow = get_delta_color_and_arrow(monthly_curr, monthly_prev_v)
+                    
+                    eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
+                    eco_arrow = get_arrow(eco_val, eco_prev)
+                    eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
+                    
+                    yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
+                    yld_arrow = get_arrow(yld_val, yld_prev)
+                    yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
+                    
+                    flag = currency_flags.get(curr, "💰")
+                    full_name = currency_full_names.get(curr, curr)
+                    
+                    card_html = f'''
+                    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                                border-radius: 12px; padding: 14px; margin: 5px 0; 
+                                border: 1px solid #334155; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 6px;">
+                            <span style="font-size: 24px;">{flag}</span>
+                            <div>
+                                <div style="font-weight: bold; color: #f1c40f; font-size: 16px;">{curr}</div>
+                                <div style="font-size: 9px; color: #64748b;">{full_name}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">🏭 Economic:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {eco_color};">{eco_arrow} {eco_str}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">📈 Yield:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {yld_color};">{yld_arrow} {yld_str}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">📅 Daily Δ:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {daily_color};">{daily_arrow} {daily_delta:+.2f}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">📆 Weekly Δ:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {weekly_color};">{weekly_arrow} {weekly_delta:+.2f}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">🗓️ Monthly Δ:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {monthly_color};">{monthly_arrow} {monthly_delta:+.2f}</span>
+                            </div>
+                        </div>
+                    </div>
+                    '''
+                    st.markdown(card_html, unsafe_allow_html=True)
+            
+            # Row 2 (4 currencies)
+            cols_row2 = st.columns(4)
+            for idx, curr in enumerate(currencies_list[4:]):
+                with cols_row2[idx]:
+                    # Get values
+                    curr_val = latest[curr] if curr in latest.index else 0
+                    curr_prev = prev[curr] if prev is not None and curr in prev.index else curr_val
+                    
+                    eco_val = economy_today[curr] if economy_today is not None and curr in economy_today.index and pd.notna(economy_today[curr]) else None
+                    eco_prev = economy_prev[curr] if economy_prev is not None and curr in economy_prev.index and pd.notna(economy_prev[curr]) else eco_val
+                    
+                    yld_val = yield_today[curr] if yield_today is not None and curr in yield_today.index and pd.notna(yield_today[curr]) else None
+                    yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
+                    
+                    daily_delta = curr_val - curr_prev if prev is not None else 0
+                    daily_color, daily_arrow = get_delta_color_and_arrow(curr_val, curr_prev)
+                    
+                    weekly_curr = weekly_current.get(curr, curr_val)
+                    weekly_prev_v = weekly_prev_val.get(curr, weekly_curr)
+                    weekly_delta = weekly_curr - weekly_prev_v
+                    weekly_color, weekly_arrow = get_delta_color_and_arrow(weekly_curr, weekly_prev_v)
+                    
+                    monthly_curr = monthly_current.get(curr, curr_val)
+                    monthly_prev_v = monthly_prev_val.get(curr, monthly_curr)
+                    monthly_delta = monthly_curr - monthly_prev_v
+                    monthly_color, monthly_arrow = get_delta_color_and_arrow(monthly_curr, monthly_prev_v)
+                    
+                    eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
+                    eco_arrow = get_arrow(eco_val, eco_prev)
+                    eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
+                    
+                    yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
+                    yld_arrow = get_arrow(yld_val, yld_prev)
+                    yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
+                    
+                    flag = currency_flags.get(curr, "💰")
+                    full_name = currency_full_names.get(curr, curr)
+                    
+                    card_html = f'''
+                    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                                border-radius: 12px; padding: 14px; margin: 5px 0; 
+                                border: 1px solid #334155; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 6px;">
+                            <span style="font-size: 24px;">{flag}</span>
+                            <div>
+                                <div style="font-weight: bold; color: #f1c40f; font-size: 16px;">{curr}</div>
+                                <div style="font-size: 9px; color: #64748b;">{full_name}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">🏭 Economic:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {eco_color};">{eco_arrow} {eco_str}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">📈 Yield:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {yld_color};">{yld_arrow} {yld_str}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">📅 Daily Δ:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {daily_color};">{daily_arrow} {daily_delta:+.2f}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">📆 Weekly Δ:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {weekly_color};">{weekly_arrow} {weekly_delta:+.2f}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #94a3b8;">🗓️ Monthly Δ:</span>
+                                <span style="font-weight: bold; font-size: 12px; color: {monthly_color};">{monthly_arrow} {monthly_delta:+.2f}</span>
+                            </div>
+                        </div>
+                    </div>
+                    '''
+                    st.markdown(card_html, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # ================== 2. Pairs Signal Matrix Table ==================
+            st.subheader("📈 Pairs Signal Matrix")
+            st.caption("Color = Current Value | Arrow = Change vs Previous")
+            
+            # Thresholds for neutral
+            ECO_THRESHOLD = 2.0
+            YIELD_THRESHOLD = 0.2
+            PRICE_THRESHOLD = 0.3
+            
+            # Build table data
+            table_data = []
+            
+            for pair in pairs:
+                base, quote = pair[:3], pair[3:]
+                
+                # === Economic ===
+                eco_current = None
+                eco_prev = eco_prev_pair_val.get(pair)
+                if economy_today is not None:
+                    if base in economy_today.index and quote in economy_today.index:
+                        if pd.notna(economy_today[base]) and pd.notna(economy_today[quote]):
+                            eco_current = economy_today[base] - economy_today[quote]
+                
+                eco_color = get_cell_color(eco_current, ECO_THRESHOLD, True)
+                eco_arrow = get_arrow(eco_current, eco_prev)
+                eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
+                
+                # === Yield ===
+                yield_current = None
+                yield_prev = yield_prev_pair_val.get(pair)
+                if yield_today is not None:
+                    if base in yield_today.index and quote in yield_today.index:
+                        if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
+                            yield_current = yield_today[base] - yield_today[quote]
+                
+                yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, True)
+                yield_arrow = get_arrow(yield_current, yield_prev)
+                yield_display = f"{yield_current:+.2f}" if yield_current is not None else "N/A"
+                
+                # === Monthly ===
+                monthly_current = monthly_current.get(base, 0) - monthly_current.get(quote, 0)
+                monthly_prev = monthly_prev_pair_val.get(pair, monthly_current)
+                
+                monthly_color = get_cell_color(monthly_current, PRICE_THRESHOLD, True)
+                monthly_arrow = get_arrow(monthly_current, monthly_prev)
+                monthly_display = f"{monthly_current:+.2f}"
+                
+                # === Weekly ===
+                weekly_current = weekly_current.get(base, 0) - weekly_current.get(quote, 0)
+                weekly_prev = weekly_prev_pair_val.get(pair, weekly_current)
+                
+                weekly_color = get_cell_color(weekly_current, PRICE_THRESHOLD, True)
+                weekly_arrow = get_arrow(weekly_current, weekly_prev)
+                weekly_display = f"{weekly_current:+.2f}"
+                
+                # === Daily ===
+                daily_current = latest[base] - latest[quote]
+                daily_prev = daily_prev_pair_val.get(pair, daily_current) if prev is not None else daily_current
+                
+                daily_color = get_cell_color(daily_current, PRICE_THRESHOLD, True)
+                daily_arrow = get_arrow(daily_current, daily_prev)
+                daily_display = f"{daily_current:+.2f}"
+                
+                table_data.append({
+                    "Pair": pair,
+                    "Economic": eco_display,
+                    "Economic_Color": eco_color,
+                    "Economic_Arrow": eco_arrow,
+                    "Yield": yield_display,
+                    "Yield_Color": yield_color,
+                    "Yield_Arrow": yield_arrow,
+                    "Monthly": monthly_display,
+                    "Monthly_Color": monthly_color,
+                    "Monthly_Arrow": monthly_arrow,
+                    "Weekly": weekly_display,
+                    "Weekly_Color": weekly_color,
+                    "Weekly_Arrow": weekly_arrow,
+                    "Daily": daily_display,
+                    "Daily_Color": daily_color,
+                    "Daily_Arrow": daily_arrow,
+                })
+            
+            # Display table using custom HTML
+            st.markdown("""
+            <style>
+                .signal-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                    border-radius: 12px;
+                    overflow: hidden;
+                    font-family: 'Inter', sans-serif;
+                }
+                .signal-table th {
+                    background: #1e293b;
+                    color: #f1c40f;
+                    padding: 14px 8px;
+                    text-align: center;
+                    font-weight: 600;
+                    font-size: 13px;
+                    border-bottom: 2px solid #f1c40f;
+                }
+                .signal-table td {
+                    padding: 10px 8px;
+                    text-align: center;
+                    border-bottom: 1px solid #334155;
+                    font-size: 13px;
+                    font-weight: 500;
+                }
+                .signal-table tr:hover {
+                    background: rgba(241, 196, 15, 0.05);
+                }
+                .pair-cell {
+                    font-weight: 700;
+                    color: #e2e8f0;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Build HTML table
+            table_html = """
+            <table class="signal-table">
+                <thead>
+                    <tr>
+                        <th>Pair</th>
+                        <th>🏭 Economic</th>
+                        <th>📈 Yield</th>
+                        <th>🗓️ Monthly</th>
+                        <th>📆 Weekly</th>
+                        <th>📅 Daily</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
+            
+            for row in table_data:
+                table_html += f"""
+                    <tr>
+                        <td class="pair-cell">{row['Pair']}</td>
+                        <td style="color: {row['Economic_Color']};">{row['Economic_Arrow']} {row['Economic']}</td>
+                        <td style="color: {row['Yield_Color']};">{row['Yield_Arrow']} {row['Yield']}</td>
+                        <td style="color: {row['Monthly_Color']};">{row['Monthly_Arrow']} {row['Monthly']}</td>
+                        <td style="color: {row['Weekly_Color']};">{row['Weekly_Arrow']} {row['Weekly']}</td>
+                        <td style="color: {row['Daily_Color']};">{row['Daily_Arrow']} {row['Daily']}</td>
+                    </tr>
+                """
+            
+            table_html += """
+                </tbody>
+            </table>
+            """
+            
+            st.markdown(table_html, unsafe_allow_html=True)
+            
+            # Legend
+            st.markdown("---")
+            st.markdown("""
+            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; padding: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #10b981; font-size: 20px;">▲</span> <span style="color: #94a3b8;">Increasing</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #ef4444; font-size: 20px;">▼</span> <span style="color: #94a3b8;">Decreasing</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #f1c40f; font-size: 20px;">●</span> <span style="color: #94a3b8;">Unchanged / Neutral</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #10b981; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Positive</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #ef4444; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Negative</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #f1c40f; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Neutral (± threshold)</span></div>
+            </div>
+            """, unsafe_allow_html=True)
