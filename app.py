@@ -2268,7 +2268,51 @@ with tab_signal:
             </style>
             """, unsafe_allow_html=True)
             
+                       # Display table using st.components.v1.html for proper rendering
             table_html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                }
+                .signal-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                    border-radius: 12px;
+                    overflow: hidden;
+                }
+                .signal-table th {
+                    background: #1e293b;
+                    color: #f1c40f;
+                    padding: 14px 8px;
+                    text-align: center;
+                    font-weight: 600;
+                    font-size: 13px;
+                    border-bottom: 2px solid #f1c40f;
+                }
+                .signal-table td {
+                    padding: 10px 8px;
+                    text-align: center;
+                    border-bottom: 1px solid #334155;
+                    font-size: 13px;
+                    font-weight: 500;
+                }
+                .signal-table tr:hover {
+                    background: rgba(241, 196, 15, 0.05);
+                }
+                .pair-cell {
+                    font-weight: 700;
+                    color: #e2e8f0;
+                }
+            </style>
+            </head>
+            <body>
             <table class="signal-table">
                 <thead>
                     <tr>
@@ -2298,9 +2342,11 @@ with tab_signal:
             table_html += """
                 </tbody>
             </table>
+            </body>
+            </html>
             """
             
-            st.markdown(table_html, unsafe_allow_html=True)
+            st.components.v1.html(table_html, height=650, scrolling=True)
             
             # Legend
             st.markdown("---")
