@@ -2243,43 +2243,6 @@ else:
                     "Daily_Arrow": daily_arrow,
                 })
             
-            # Display table
-            st.markdown("""
-            <style>
-                .signal-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-                    border-radius: 12px;
-                    overflow: hidden;
-                    font-family: 'Inter', sans-serif;
-                }
-                .signal-table th {
-                    background: #1e293b;
-                    color: #f1c40f;
-                    padding: 14px 8px;
-                    text-align: center;
-                    font-weight: 600;
-                    font-size: 13px;
-                    border-bottom: 2px solid #f1c40f;
-                }
-                .signal-table td {
-                    padding: 10px 8px;
-                    text-align: center;
-                    border-bottom: 1px solid #334155;
-                    font-size: 13px;
-                    font-weight: 500;
-                }
-                .signal-table tr:hover {
-                    background: rgba(241, 196, 15, 0.05);
-                }
-                .pair-cell {
-                    font-weight: 700;
-                    color: #e2e8f0;
-                }
-            </style>
-            """, unsafe_allow_html=True)
-            
                        # Display table using st.components.v1.html for proper rendering
             table_html = """
             <!DOCTYPE html>
@@ -2362,7 +2325,7 @@ else:
             
             # Legend
             st.markdown("---")
-            st.markdown("""
+            legend_html = """
             <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; padding: 10px;">
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #10b981; font-size: 20px;">▲</span> <span style="color: #94a3b8;">Increasing</span></div>
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #ef4444; font-size: 20px;">▼</span> <span style="color: #94a3b8;">Decreasing</span></div>
@@ -2371,4 +2334,5 @@ else:
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #ef4444; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Negative</span></div>
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #f1c40f; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Neutral (± threshold)</span></div>
             </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(legend_html, unsafe_allow_html=True)
