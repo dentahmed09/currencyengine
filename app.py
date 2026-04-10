@@ -1705,4 +1705,4 @@ with tab_results:
                     </div>
                 </div>
                 '''
-                st.markdown(card_html, unsafe_allow_html=True)
+                st.components.v1.html(card_html, height=580, scrolling=False)
