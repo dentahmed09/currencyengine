@@ -1865,7 +1865,6 @@ with tab_signal:
             
             if not db_weekly.empty:
                 db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
-                weekly_sorted = db_weekly.sort_values('Week_Start')
                 weekly_current_row = db_weekly[db_weekly['Week_Start'] == week_start]
                 
                 if not weekly_current_row.empty:
@@ -1898,7 +1897,6 @@ with tab_signal:
             
             if not db_monthly.empty:
                 db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
-                monthly_sorted = db_monthly.sort_values('Month_Start')
                 monthly_current_row = db_monthly[db_monthly['Month_Start'] == month_start]
                 
                 if not monthly_current_row.empty:
@@ -2151,10 +2149,11 @@ with tab_signal:
                 # === Economic ===
                 eco_current = None
                 eco_prev = None
-                if economy_today is not None and economy_prev is not None:
+                if economy_today is not None:
                     if base in economy_today.index and quote in economy_today.index:
                         if pd.notna(economy_today[base]) and pd.notna(economy_today[quote]):
                             eco_current = economy_today[base] - economy_today[quote]
+                if economy_prev is not None:
                     if base in economy_prev.index and quote in economy_prev.index:
                         if pd.notna(economy_prev[base]) and pd.notna(economy_prev[quote]):
                             eco_prev = economy_prev[base] - economy_prev[quote]
@@ -2163,33 +2162,22 @@ with tab_signal:
                 eco_arrow = get_arrow(eco_current, eco_prev)
                 eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
                 
-               # === Yield ===
-yield_current = None
-yield_prev = None
-
-# Try to get from yield table first
-if yield_today is not None:
-    if base in yield_today.index and quote in yield_today.index:
-        base_yield = yield_today[base] if pd.notna(yield_today[base]) else 0
-        quote_yield = yield_today[quote] if pd.notna(yield_today[quote]) else 0
-        yield_current = base_yield - quote_yield
-
-if yield_prev is not None:
-    if base in yield_prev.index and quote in yield_prev.index:
-        base_yield_prev = yield_prev[base] if pd.notna(yield_prev[base]) else 0
-        quote_yield_prev = yield_prev[quote] if pd.notna(yield_prev[quote]) else 0
-        yield_prev = base_yield_prev - quote_yield_prev
-
-# Fallback: if yield_current is None, use a default value or mark as N/A
-if yield_current is None:
-    yield_display = "N/A"
-    yield_color = "#6b7280"
-    yield_arrow = "●"
-else:
+                # === Yield ===
+                yield_current = None
+                yield_prev = None
+                if yield_today is not None:
+                    if base in yield_today.index and quote in yield_today.index:
+                        if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
+                            yield_current = yield_today[base] - yield_today[quote]
+                if yield_prev is not None:
+                    if base in yield_prev.index and quote in yield_prev.index:
+                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
+                            yield_prev = yield_prev[base] - yield_prev[quote]
+                
                 yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, True)
                 yield_arrow = get_arrow(yield_current, yield_prev)
-                yield_display = f"{yield_current:+.2f}"
-    
+                yield_display = f"{yield_current:+.2f}" if yield_current is not None else "N/A"
+                
                 # === Monthly ===
                 monthly_base_curr = monthly_current.get(base, 0)
                 monthly_quote_curr = monthly_current.get(quote, 0)
@@ -2243,85 +2231,16 @@ else:
                     "Daily_Arrow": daily_arrow,
                 })
             
-                       # Display table using st.components.v1.html for proper rendering
-            table_html = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <style>
-                body {
-                    margin: 0;
-                    padding: 0;
-                    background: transparent;
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-                }
-                .signal-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-                    border-radius: 12px;
-                    overflow: hidden;
-                }
-                .signal-table th {
-                    background: #1e293b;
-                    color: #f1c40f;
-                    padding: 14px 8px;
-                    text-align: center;
-                    font-weight: 600;
-                    font-size: 13px;
-                    border-bottom: 2px solid #f1c40f;
-                }
-                .signal-table td {
-                    padding: 10px 8px;
-                    text-align: center;
-                    border-bottom: 1px solid #334155;
-                    font-size: 13px;
-                    font-weight: 500;
-                }
-                .signal-table tr:hover {
-                    background: rgba(241, 196, 15, 0.05);
-                }
-                .pair-cell {
-                    font-weight: 700;
-                    color: #e2e8f0;
-                }
-            </style>
-            </head>
-            <body>
-            <table class="signal-table">
-                <thead>
-                    <tr>
-                        <th>Pair</th>
-                        <th>🏭 Economic</th>
-                        <th>📈 Yield</th>
-                        <th>🗓️ Monthly</th>
-                        <th>📆 Weekly</th>
-                        <th>📅 Daily</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
+            # Display as dataframe
+            df_display = pd.DataFrame(table_data)
+            df_display = df_display[['Pair', 'Economic', 'Yield', 'Monthly', 'Weekly', 'Daily']]
             
-            for row in table_data:
-                table_html += f"""
-                    <tr>
-                        <td class="pair-cell">{row['Pair']}</td>
-                        <td style="color: {row['Economic_Color']};">{row['Economic_Arrow']} {row['Economic']}</td>
-                        <td style="color: {row['Yield_Color']};">{row['Yield_Arrow']} {row['Yield']}</td>
-                        <td style="color: {row['Monthly_Color']};">{row['Monthly_Arrow']} {row['Monthly']}</td>
-                        <td style="color: {row['Weekly_Color']};">{row['Weekly_Arrow']} {row['Weekly']}</td>
-                        <td style="color: {row['Daily_Color']};">{row['Daily_Arrow']} {row['Daily']}</td>
-                    </tr>
-                """
-            
-            table_html += """
-                </tbody>
-            </table>
-            </body>
-            </html>
-            """
-            
-            st.components.v1.html(table_html, height=650, scrolling=True)
+            st.dataframe(
+                df_display,
+                use_container_width=True,
+                hide_index=True,
+                height=650
+            )
             
             # Legend
             st.markdown("---")
