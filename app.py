@@ -1316,37 +1316,104 @@ with tab_results:
                     if yld_idx > 0:
                         yield_prev = db_yield.iloc[yld_idx - 1]
             
-            # Get weekly and monthly previous data
-            weekly_prev_data = {}
-            monthly_prev_data = {}
+            # ================== Get Weekly Current & Previous ==================
+            selected_date_obj = pd.to_datetime(selected_date)
+            
+            # Weekly data preparation
+            week_start = (selected_date_obj - pd.Timedelta(days=selected_date_obj.weekday())).date()
+            weekly_current = {}
+            weekly_delta = {}
+            
             if not db_weekly.empty:
                 db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
+                weekly_current_row = db_weekly[db_weekly['Week_Start'] == week_start]
                 weekly_sorted = db_weekly.sort_values('Week_Start')
+                
+                if not weekly_current_row.empty:
+                    weekly_idx = db_weekly[db_weekly['Week_Start'] == week_start].index[0]
+                    for curr in currencies:
+                        if curr in weekly_current_row.columns and pd.notna(weekly_current_row.iloc[0][curr]):
+                            weekly_current[curr] = weekly_current_row.iloc[0][curr]
+                            if weekly_idx > 0:
+                                prev_weekly_val = db_weekly.iloc[weekly_idx - 1][curr]
+                                if pd.notna(prev_weekly_val):
+                                    weekly_delta[curr] = weekly_current[curr] - prev_weekly_val
+                                else:
+                                    weekly_delta[curr] = 0
+                            else:
+                                weekly_delta[curr] = 0
+                        else:
+                            weekly_current[curr] = latest[curr] if curr in latest.index else 0
+                            weekly_delta[curr] = 0
+                else:
+                    for curr in currencies:
+                        weekly_current[curr] = latest[curr] if curr in latest.index else 0
+                        weekly_delta[curr] = 0
+            else:
                 for curr in currencies:
-                    curr_data = weekly_sorted[weekly_sorted[curr].notna()]
-                    if len(curr_data) >= 2:
-                        weekly_prev_data[curr] = curr_data.iloc[-2][curr]
-                    elif len(curr_data) == 1:
-                        weekly_prev_data[curr] = curr_data.iloc[-1][curr]
+                    weekly_current[curr] = latest[curr] if curr in latest.index else 0
+                    weekly_delta[curr] = 0
+            
+            # Monthly data preparation
+            month_start = selected_date_obj.replace(day=1).date()
+            monthly_current = {}
+            monthly_delta = {}
             
             if not db_monthly.empty:
                 db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
+                monthly_current_row = db_monthly[db_monthly['Month_Start'] == month_start]
                 monthly_sorted = db_monthly.sort_values('Month_Start')
+                
+                if not monthly_current_row.empty:
+                    monthly_idx = db_monthly[db_monthly['Month_Start'] == month_start].index[0]
+                    for curr in currencies:
+                        if curr in monthly_current_row.columns and pd.notna(monthly_current_row.iloc[0][curr]):
+                            monthly_current[curr] = monthly_current_row.iloc[0][curr]
+                            if monthly_idx > 0:
+                                prev_monthly_val = db_monthly.iloc[monthly_idx - 1][curr]
+                                if pd.notna(prev_monthly_val):
+                                    monthly_delta[curr] = monthly_current[curr] - prev_monthly_val
+                                else:
+                                    monthly_delta[curr] = 0
+                            else:
+                                monthly_delta[curr] = 0
+                        else:
+                            monthly_current[curr] = latest[curr] if curr in latest.index else 0
+                            monthly_delta[curr] = 0
+                else:
+                    for curr in currencies:
+                        monthly_current[curr] = latest[curr] if curr in latest.index else 0
+                        monthly_delta[curr] = 0
+            else:
                 for curr in currencies:
-                    curr_data = monthly_sorted[monthly_sorted[curr].notna()]
-                    if len(curr_data) >= 2:
-                        monthly_prev_data[curr] = curr_data.iloc[-2][curr]
-                    elif len(curr_data) == 1:
-                        monthly_prev_data[curr] = curr_data.iloc[-1][curr]
+                    monthly_current[curr] = latest[curr] if curr in latest.index else 0
+                    monthly_delta[curr] = 0
             
-            # Delta calculations
+            # Delta calculations for daily
             delta = {}
             if prev is not None:
                 delta = {c: latest[c] - prev[c] for c in currencies}
             
-            # Helper function for color based on change
+            # Helper function for color based on change (new version for delta)
+            def get_delta_color(delta_val):
+                if delta_val > 0:
+                    return "#10b981"
+                elif delta_val < 0:
+                    return "#ef4444"
+                else:
+                    return "#f1c40f"
+            
+            def get_delta_arrow(delta_val):
+                if delta_val > 0:
+                    return "▲"
+                elif delta_val < 0:
+                    return "▼"
+                else:
+                    return "●"
+            
+            # Helper function for comparing two values
             def get_change_color(new_val, old_val):
-                if old_val is None or pd.isna(old_val):
+                if old_val is None or pd.isna(old_val) or new_val is None or pd.isna(new_val):
                     return "#6b7280"
                 if new_val > old_val:
                     return "#10b981"
@@ -1356,7 +1423,7 @@ with tab_results:
                     return "#f1c40f"
             
             def get_change_arrow(new_val, old_val):
-                if old_val is None or pd.isna(old_val):
+                if old_val is None or pd.isna(old_val) or new_val is None or pd.isna(new_val):
                     return ""
                 if new_val > old_val:
                     return "▲"
@@ -1449,46 +1516,35 @@ with tab_results:
                 quote_yield_color = get_change_color(quote_yield_val, quote_yield_prev)
                 quote_yield_arrow = get_change_arrow(quote_yield_val, quote_yield_prev)
                 
-                # Daily score change for Base (Delta = Today - Yesterday)
+                # Daily delta for Base
                 base_daily_delta = latest[base] - prev[base] if prev is not None else 0
-                base_daily_prev_val = prev[base] if prev is not None else None
-                base_daily_color = get_change_color(base_daily_delta, 0)  # اللون يعتمد على إشارة الدلتا
-                base_daily_arrow = "▲" if base_daily_delta > 0 else "▼" if base_daily_delta < 0 else "●"
+                base_daily_color = get_delta_color(base_daily_delta)
+                base_daily_arrow = get_delta_arrow(base_daily_delta)
                 
-               # Daily score change for Quote (Delta = Today - Yesterday)
-                Quote_daily_delta = latest[Quote] - prev[Quote] if prev is not None else 0
-                Quote_daily_prev_val = prev[Quote] if prev is not None else None
-                Quote_daily_color = get_change_color(Quote_daily_delta, 0)  # اللون يعتمد على إشارة الدلتا
-                Quote_daily_arrow = "▲" if Quote_daily_delta > 0 else "▼" if Quote_daily_delta < 0 else "●"
-
-                # Weekly score change for Base (Delta = This Week - Last Week)
-                base_weekly_current = latest[base]  # أو اجلبها من جدول weekly لو موجود
-                base_weekly_prev_val = weekly_prev_data.get(base, base_weekly_current)
-                base_weekly_delta = base_weekly_current - base_weekly_prev_val
-                base_weekly_color = get_change_color(base_weekly_delta, 0)
-                base_weekly_arrow = "▲" if base_weekly_delta > 0 else "▼" if base_weekly_delta < 0 else "●"
+                # Daily delta for Quote
+                quote_daily_delta = latest[quote] - prev[quote] if prev is not None else 0
+                quote_daily_color = get_delta_color(quote_daily_delta)
+                quote_daily_arrow = get_delta_arrow(quote_daily_delta)
                 
-                # Weekly score change for Quote (Delta = This Week - Last Week)
-                Quote_weekly_current = latest[Quote]  # أو اجلبها من جدول weekly لو موجود
-                Quote_weekly_prev_val = weekly_prev_data.get(Quote, Quote_weekly_current)
-                Quote_weekly_delta = Quote_weekly_current - Quote_weekly_prev_val
-                Quote_weekly_color = get_change_color(Quote_weekly_delta, 0)
-                Quote_weekly_arrow = "▲" if Quote_weekly_delta > 0 else "▼" if _weekly_delta < 0 else "●"
+                # Weekly delta for Base
+                base_weekly_delta = weekly_delta.get(base, 0)
+                base_weekly_color = get_delta_color(base_weekly_delta)
+                base_weekly_arrow = get_delta_arrow(base_weekly_delta)
                 
-               # Monthly score change for Base (Delta = This Month - Last Month)
-                base_monthly_current = latest[base]  # أو اجلبها من جدول monthly
-                base_monthly_prev_val = monthly_prev_data.get(base, base_monthly_current)
-                base_monthly_delta = base_monthly_current - base_monthly_prev_val
-                base_monthly_color = get_change_color(base_monthly_delta, 0)
-                base_monthly_arrow = "▲" if base_monthly_delta > 0 else "▼" if base_monthly_delta < 0 else "●"
+                # Weekly delta for Quote
+                quote_weekly_delta = weekly_delta.get(quote, 0)
+                quote_weekly_color = get_delta_color(quote_weekly_delta)
+                quote_weekly_arrow = get_delta_arrow(quote_weekly_delta)
                 
-                # Monthly score change for Quote (Delta = This Month - Last Month)
-                Quote_monthly_current = latest[Quote]  # أو اجلبها من جدول monthly
-                Quote_monthly_prev_val = monthly_prev_data.get(Quote, Quote_monthly_current)
-                Quote_monthly_delta = Quote_monthly_current - Quote_monthly_prev_val
-                Quote_monthly_color = get_change_color(Quote_monthly_delta, 0)
-                Quote_monthly_arrow = "▲" if Quote_monthly_delta > 0 else "▼" if Quote_monthly_delta < 0 else "●"
+                # Monthly delta for Base
+                base_monthly_delta = monthly_delta.get(base, 0)
+                base_monthly_color = get_delta_color(base_monthly_delta)
+                base_monthly_arrow = get_delta_arrow(base_monthly_delta)
                 
+                # Monthly delta for Quote
+                quote_monthly_delta = monthly_delta.get(quote, 0)
+                quote_monthly_color = get_delta_color(quote_monthly_delta)
+                quote_monthly_arrow = get_delta_arrow(quote_monthly_delta)
                 
                 results.append({
                     "pair": pair,
@@ -1644,8 +1700,7 @@ with tab_results:
                                 <!-- Weekly Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">📆 Weekly Δ:</span>
-                                   <span style="font-weight: bold; color: {row['base_weekly_color']};">{row['base_weekly_arrow']} {row['base_weekly_delta']:+.2f}</span>
-
+                                    <span style="font-weight: bold; color: {row['base_weekly_color']};">{row['base_weekly_arrow']} {row['base_weekly_delta']:+.2f}</span>
                                 </div>
                                 <!-- Monthly Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1656,7 +1711,7 @@ with tab_results:
                         </div>
                         
                         <!-- VS Separator -->
-                        <div style="display: flex; align-items: center; justify-content: center;">
+                        <div style="display: flex; align-items: center; justify-content: center; position: relative;">
                             <div style="background: #334155; width: 2px; height: 80%;"></div>
                             <div style="position: absolute; background: #1e293b; padding: 8px 4px; border-radius: 20px; border: 1px solid #475569;">
                                 <span style="color: #f1c40f; font-weight: bold; font-size: 14px;">VS</span>
@@ -1686,17 +1741,17 @@ with tab_results:
                                 <!-- Daily Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">📅 Daily Δ:</span>
-                                   <span style="font-weight: bold; color: {row['Quote_daily_color']};">{row['Quote_daily_arrow']} {row['Quote_daily_delta']:+.2f}</span>
+                                    <span style="font-weight: bold; color: {row['quote_daily_color']};">{row['quote_daily_arrow']} {row['quote_daily_delta']:+.2f}</span>
                                 </div>
                                 <!-- Weekly Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">📆 Weekly Δ:</span>
-                                   <span style="font-weight: bold; color: {row['Quote_weekly_color']};">{row['Quote_weekly_arrow']} {row['Quote_weekly_delta']:+.2f}</span>
+                                    <span style="font-weight: bold; color: {row['quote_weekly_color']};">{row['quote_weekly_arrow']} {row['quote_weekly_delta']:+.2f}</span>
                                 </div>
                                 <!-- Monthly Score Change -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 12px; color: #94a3b8;">🗓️ Monthly Δ:</span>
-                                   span style="font-weight: bold; color: {row['Quote_monthly_color']};">{row['Quote_monthly_arrow']} {row['Quote_monthly_delta']:+.2f}</span>
+                                    <span style="font-weight: bold; color: {row['quote_monthly_color']};">{row['quote_monthly_arrow']} {row['quote_monthly_delta']:+.2f}</span>
                                 </div>
                             </div>
                         </div>
