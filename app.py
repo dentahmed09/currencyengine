@@ -1856,16 +1856,16 @@ with tab_signal:
                     if yld_idx > 0:
                         yield_prev = db_yield.iloc[yld_idx - 1]
             
-            # Get Weekly data (current week and previous week)
+            # Get Weekly data
             selected_date_obj = pd.to_datetime(selected_date)
             week_start = (selected_date_obj - pd.Timedelta(days=selected_date_obj.weekday())).date()
             
             weekly_current = {}
             weekly_prev_val = {}
-            weekly_prev_pair_val = {}  # For pair diff comparison
             
             if not db_weekly.empty:
                 db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
+                weekly_sorted = db_weekly.sort_values('Week_Start')
                 weekly_current_row = db_weekly[db_weekly['Week_Start'] == week_start]
                 
                 if not weekly_current_row.empty:
@@ -1875,10 +1875,7 @@ with tab_signal:
                             weekly_current[curr] = weekly_current_row.iloc[0][curr]
                             if weekly_idx > 0:
                                 prev_week_val = db_weekly.iloc[weekly_idx - 1][curr]
-                                if pd.notna(prev_week_val):
-                                    weekly_prev_val[curr] = prev_week_val
-                                else:
-                                    weekly_prev_val[curr] = weekly_current[curr]
+                                weekly_prev_val[curr] = prev_week_val if pd.notna(prev_week_val) else weekly_current[curr]
                             else:
                                 weekly_prev_val[curr] = weekly_current[curr]
                         else:
@@ -1893,22 +1890,15 @@ with tab_signal:
                     weekly_current[curr] = latest[curr] if curr in latest.index else 0
                     weekly_prev_val[curr] = weekly_current[curr]
             
-            # Store previous pair diffs for weekly
-            for pair in pairs:
-                base, quote = pair[:3], pair[3:]
-                prev_base = weekly_prev_val.get(base, 0)
-                prev_quote = weekly_prev_val.get(quote, 0)
-                weekly_prev_pair_val[pair] = prev_base - prev_quote
-            
             # Get Monthly data
             month_start = selected_date_obj.replace(day=1).date()
             
             monthly_current = {}
             monthly_prev_val = {}
-            monthly_prev_pair_val = {}
             
             if not db_monthly.empty:
                 db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
+                monthly_sorted = db_monthly.sort_values('Month_Start')
                 monthly_current_row = db_monthly[db_monthly['Month_Start'] == month_start]
                 
                 if not monthly_current_row.empty:
@@ -1918,10 +1908,7 @@ with tab_signal:
                             monthly_current[curr] = monthly_current_row.iloc[0][curr]
                             if monthly_idx > 0:
                                 prev_month_val = db_monthly.iloc[monthly_idx - 1][curr]
-                                if pd.notna(prev_month_val):
-                                    monthly_prev_val[curr] = prev_month_val
-                                else:
-                                    monthly_prev_val[curr] = monthly_current[curr]
+                                monthly_prev_val[curr] = prev_month_val if pd.notna(prev_month_val) else monthly_current[curr]
                             else:
                                 monthly_prev_val[curr] = monthly_current[curr]
                         else:
@@ -1936,43 +1923,12 @@ with tab_signal:
                     monthly_current[curr] = latest[curr] if curr in latest.index else 0
                     monthly_prev_val[curr] = monthly_current[curr]
             
-            for pair in pairs:
-                base, quote = pair[:3], pair[3:]
-                prev_base = monthly_prev_val.get(base, 0)
-                prev_quote = monthly_prev_val.get(quote, 0)
-                monthly_prev_pair_val[pair] = prev_base - prev_quote
-            
-            # Previous daily pair diffs
-            daily_prev_pair_val = {}
-            if prev is not None:
-                for pair in pairs:
-                    base, quote = pair[:3], pair[3:]
-                    daily_prev_pair_val[pair] = prev[base] - prev[quote]
-            
-            # Previous economic pair diffs
-            eco_prev_pair_val = {}
-            if economy_prev is not None:
-                for pair in pairs:
-                    base, quote = pair[:3], pair[3:]
-                    if base in economy_prev.index and quote in economy_prev.index:
-                        if pd.notna(economy_prev[base]) and pd.notna(economy_prev[quote]):
-                            eco_prev_pair_val[pair] = economy_prev[base] - economy_prev[quote]
-            
-            # Previous yield pair diffs
-            yield_prev_pair_val = {}
-            if yield_prev is not None:
-                for pair in pairs:
-                    base, quote = pair[:3], pair[3:]
-                    if base in yield_prev.index and quote in yield_prev.index:
-                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
-                            yield_prev_pair_val[pair] = yield_prev[base] - yield_prev[quote]
-            
             # Helper functions
             def get_cell_color(value, threshold, is_positive_green=True):
                 if value is None or pd.isna(value):
                     return "#6b7280"
                 if abs(value) <= threshold:
-                    return "#f1c40f"  # Yellow for neutral
+                    return "#f1c40f"
                 if is_positive_green:
                     return "#10b981" if value > 0 else "#ef4444"
                 else:
@@ -2011,7 +1967,6 @@ with tab_signal:
                 "CHF": "🇨🇭", "CAD": "🇨🇦", "AUD": "🇦🇺", "NZD": "🇳🇿"
             }
             
-            # Currency order for cards
             currencies_list = ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]
             
             # ================== 1. Currency Snapshot Cards (4x2) ==================
@@ -2021,7 +1976,6 @@ with tab_signal:
             cols_row1 = st.columns(4)
             for idx, curr in enumerate(currencies_list[:4]):
                 with cols_row1[idx]:
-                    # Get values
                     curr_val = latest[curr] if curr in latest.index else 0
                     curr_prev = prev[curr] if prev is not None and curr in prev.index else curr_val
                     
@@ -2096,7 +2050,6 @@ with tab_signal:
             cols_row2 = st.columns(4)
             for idx, curr in enumerate(currencies_list[4:]):
                 with cols_row2[idx]:
-                    # Get values
                     curr_val = latest[curr] if curr in latest.index else 0
                     curr_prev = prev[curr] if prev is not None and curr in prev.index else curr_val
                     
@@ -2173,24 +2126,38 @@ with tab_signal:
             st.subheader("📈 Pairs Signal Matrix")
             st.caption("Color = Current Value | Arrow = Change vs Previous")
             
-            # Thresholds for neutral
+            # Thresholds
             ECO_THRESHOLD = 2.0
             YIELD_THRESHOLD = 0.2
             PRICE_THRESHOLD = 0.3
             
+            # Pairs order
+            pairs_ordered = [
+                "EURUSD", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF", "EURJPY",
+                "GBPUSD", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF", "GBPJPY",
+                "AUDUSD", "AUDNZD", "AUDCAD", "AUDCHF", "AUDJPY",
+                "NZDUSD", "NZDCAD", "NZDCHF", "NZDJPY",
+                "USDCAD", "USDCHF", "USDJPY",
+                "CADCHF", "CADJPY",
+                "CHFJPY"
+            ]
+            
             # Build table data
             table_data = []
             
-            for pair in pairs:
+            for pair in pairs_ordered:
                 base, quote = pair[:3], pair[3:]
                 
                 # === Economic ===
                 eco_current = None
-                eco_prev = eco_prev_pair_val.get(pair)
-                if economy_today is not None:
+                eco_prev = None
+                if economy_today is not None and economy_prev is not None:
                     if base in economy_today.index and quote in economy_today.index:
                         if pd.notna(economy_today[base]) and pd.notna(economy_today[quote]):
                             eco_current = economy_today[base] - economy_today[quote]
+                    if base in economy_prev.index and quote in economy_prev.index:
+                        if pd.notna(economy_prev[base]) and pd.notna(economy_prev[quote]):
+                            eco_prev = economy_prev[base] - economy_prev[quote]
                 
                 eco_color = get_cell_color(eco_current, ECO_THRESHOLD, True)
                 eco_arrow = get_arrow(eco_current, eco_prev)
@@ -2198,35 +2165,48 @@ with tab_signal:
                 
                 # === Yield ===
                 yield_current = None
-                yield_prev = yield_prev_pair_val.get(pair)
-                if yield_today is not None:
+                yield_prev = None
+                if yield_today is not None and yield_prev is not None:
                     if base in yield_today.index and quote in yield_today.index:
                         if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
                             yield_current = yield_today[base] - yield_today[quote]
+                    if base in yield_prev.index and quote in yield_prev.index:
+                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
+                            yield_prev = yield_prev[base] - yield_prev[quote]
                 
                 yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, True)
                 yield_arrow = get_arrow(yield_current, yield_prev)
                 yield_display = f"{yield_current:+.2f}" if yield_current is not None else "N/A"
                 
                 # === Monthly ===
-                monthly_current = monthly_current.get(base, 0) - monthly_current.get(quote, 0)
-                monthly_prev = monthly_prev_pair_val.get(pair, monthly_current)
+                monthly_base_curr = monthly_current.get(base, 0)
+                monthly_quote_curr = monthly_current.get(quote, 0)
+                monthly_pair_current = monthly_base_curr - monthly_quote_curr
                 
-                monthly_color = get_cell_color(monthly_current, PRICE_THRESHOLD, True)
-                monthly_arrow = get_arrow(monthly_current, monthly_prev)
-                monthly_display = f"{monthly_current:+.2f}"
+                monthly_base_prev = monthly_prev_val.get(base, monthly_base_curr)
+                monthly_quote_prev = monthly_prev_val.get(quote, monthly_quote_curr)
+                monthly_pair_prev = monthly_base_prev - monthly_quote_prev
+                
+                monthly_color = get_cell_color(monthly_pair_current, PRICE_THRESHOLD, True)
+                monthly_arrow = get_arrow(monthly_pair_current, monthly_pair_prev)
+                monthly_display = f"{monthly_pair_current:+.2f}"
                 
                 # === Weekly ===
-                weekly_current = weekly_current.get(base, 0) - weekly_current.get(quote, 0)
-                weekly_prev = weekly_prev_pair_val.get(pair, weekly_current)
+                weekly_base_curr = weekly_current.get(base, 0)
+                weekly_quote_curr = weekly_current.get(quote, 0)
+                weekly_pair_current = weekly_base_curr - weekly_quote_curr
                 
-                weekly_color = get_cell_color(weekly_current, PRICE_THRESHOLD, True)
-                weekly_arrow = get_arrow(weekly_current, weekly_prev)
-                weekly_display = f"{weekly_current:+.2f}"
+                weekly_base_prev = weekly_prev_val.get(base, weekly_base_curr)
+                weekly_quote_prev = weekly_prev_val.get(quote, weekly_quote_curr)
+                weekly_pair_prev = weekly_base_prev - weekly_quote_prev
+                
+                weekly_color = get_cell_color(weekly_pair_current, PRICE_THRESHOLD, True)
+                weekly_arrow = get_arrow(weekly_pair_current, weekly_pair_prev)
+                weekly_display = f"{weekly_pair_current:+.2f}"
                 
                 # === Daily ===
                 daily_current = latest[base] - latest[quote]
-                daily_prev = daily_prev_pair_val.get(pair, daily_current) if prev is not None else daily_current
+                daily_prev = prev[base] - prev[quote] if prev is not None else daily_current
                 
                 daily_color = get_cell_color(daily_current, PRICE_THRESHOLD, True)
                 daily_arrow = get_arrow(daily_current, daily_prev)
@@ -2251,7 +2231,7 @@ with tab_signal:
                     "Daily_Arrow": daily_arrow,
                 })
             
-            # Display table using custom HTML
+            # Display table
             st.markdown("""
             <style>
                 .signal-table {
@@ -2288,7 +2268,6 @@ with tab_signal:
             </style>
             """, unsafe_allow_html=True)
             
-            # Build HTML table
             table_html = """
             <table class="signal-table">
                 <thead>
