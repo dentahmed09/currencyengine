@@ -2163,21 +2163,33 @@ with tab_signal:
                 eco_arrow = get_arrow(eco_current, eco_prev)
                 eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
                 
-                # === Yield ===
-                yield_current = None
-                yield_prev = None
-                if yield_today is not None and yield_prev is not None:
-                    if base in yield_today.index and quote in yield_today.index:
-                        if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
-                            yield_current = yield_today[base] - yield_today[quote]
-                    if base in yield_prev.index and quote in yield_prev.index:
-                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
-                            yield_prev = yield_prev[base] - yield_prev[quote]
-                
+               # === Yield ===
+yield_current = None
+yield_prev = None
+
+# Try to get from yield table first
+if yield_today is not None:
+    if base in yield_today.index and quote in yield_today.index:
+        base_yield = yield_today[base] if pd.notna(yield_today[base]) else 0
+        quote_yield = yield_today[quote] if pd.notna(yield_today[quote]) else 0
+        yield_current = base_yield - quote_yield
+
+if yield_prev is not None:
+    if base in yield_prev.index and quote in yield_prev.index:
+        base_yield_prev = yield_prev[base] if pd.notna(yield_prev[base]) else 0
+        quote_yield_prev = yield_prev[quote] if pd.notna(yield_prev[quote]) else 0
+        yield_prev = base_yield_prev - quote_yield_prev
+
+# Fallback: if yield_current is None, use a default value or mark as N/A
+if yield_current is None:
+    yield_display = "N/A"
+    yield_color = "#6b7280"
+    yield_arrow = "●"
+else:
                 yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, True)
                 yield_arrow = get_arrow(yield_current, yield_prev)
-                yield_display = f"{yield_current:+.2f}" if yield_current is not None else "N/A"
-                
+                yield_display = f"{yield_current:+.2f}"
+    
                 # === Monthly ===
                 monthly_base_curr = monthly_current.get(base, 0)
                 monthly_quote_curr = monthly_current.get(quote, 0)
