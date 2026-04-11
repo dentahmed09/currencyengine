@@ -1835,7 +1835,7 @@ with tab_signal:
             else:
                 prev = None
             
-            # Get Economy data
+            # ================== Get Economy data ==================
             economy_today = None
             economy_prev = None
             if not db_economy.empty:
@@ -1847,7 +1847,7 @@ with tab_signal:
                     if eco_idx > 0:
                         economy_prev = db_economy.iloc[eco_idx - 1]
             
-            # Get Yield data - نفس لوجيك الاقتصاد بالضبط
+            # ================== Get Yield data ==================
             yield_today = None
             yield_prev = None
             if not db_yield.empty:
@@ -1947,17 +1947,7 @@ with tab_signal:
                 else:
                     return "●"
             
-            def get_delta_color_and_arrow(current_val, prev_val):
-                if current_val is None or prev_val is None or pd.isna(current_val) or pd.isna(prev_val):
-                    return "#6b7280", "●"
-                delta = current_val - prev_val
-                if delta > 0:
-                    return "#10b981", "▲"
-                elif delta < 0:
-                    return "#ef4444", "▼"
-                else:
-                    return "#f1c40f", "●"
-            
+            # Currency names and flags
             currency_full_names = {
                 "USD": "US Dollar", "EUR": "Euro", "GBP": "British Pound",
                 "JPY": "Japanese Yen", "CHF": "Swiss Franc", "CAD": "Canadian Dollar",
@@ -1987,25 +1977,28 @@ with tab_signal:
                     yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
                     
                     daily_delta = curr_val - curr_prev if prev is not None else 0
-                    daily_color, daily_arrow = get_delta_color_and_arrow(curr_val, curr_prev)
+                    daily_color = "#10b981" if daily_delta > 0 else ("#ef4444" if daily_delta < 0 else "#f1c40f")
+                    daily_arrow = "▲" if daily_delta > 0 else ("▼" if daily_delta < 0 else "●")
                     
                     weekly_curr = weekly_current.get(curr, curr_val)
                     weekly_prev_v = weekly_prev_val.get(curr, weekly_curr)
                     weekly_delta = weekly_curr - weekly_prev_v
-                    weekly_color, weekly_arrow = get_delta_color_and_arrow(weekly_curr, weekly_prev_v)
+                    weekly_color = "#10b981" if weekly_delta > 0 else ("#ef4444" if weekly_delta < 0 else "#f1c40f")
+                    weekly_arrow = "▲" if weekly_delta > 0 else ("▼" if weekly_delta < 0 else "●")
                     
                     monthly_curr = monthly_current.get(curr, curr_val)
                     monthly_prev_v = monthly_prev_val.get(curr, monthly_curr)
                     monthly_delta = monthly_curr - monthly_prev_v
-                    monthly_color, monthly_arrow = get_delta_color_and_arrow(monthly_curr, monthly_prev_v)
+                    monthly_color = "#10b981" if monthly_delta > 0 else ("#ef4444" if monthly_delta < 0 else "#f1c40f")
+                    monthly_arrow = "▲" if monthly_delta > 0 else ("▼" if monthly_delta < 0 else "●")
                     
                     eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
                     eco_arrow = get_arrow(eco_val, eco_prev)
-                    eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
+                    eco_color = "#10b981" if (eco_val is not None and eco_prev is not None and eco_val > eco_prev) else ("#ef4444" if (eco_val is not None and eco_prev is not None and eco_val < eco_prev) else "#f1c40f")
                     
                     yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
                     yld_arrow = get_arrow(yld_val, yld_prev)
-                    yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
+                    yld_color = "#10b981" if (yld_val is not None and yld_prev is not None and yld_val > yld_prev) else ("#ef4444" if (yld_val is not None and yld_prev is not None and yld_val < yld_prev) else "#f1c40f")
                     
                     flag = currency_flags.get(curr, "💰")
                     full_name = currency_full_names.get(curr, curr)
@@ -2060,25 +2053,28 @@ with tab_signal:
                     yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
                     
                     daily_delta = curr_val - curr_prev if prev is not None else 0
-                    daily_color, daily_arrow = get_delta_color_and_arrow(curr_val, curr_prev)
+                    daily_color = "#10b981" if daily_delta > 0 else ("#ef4444" if daily_delta < 0 else "#f1c40f")
+                    daily_arrow = "▲" if daily_delta > 0 else ("▼" if daily_delta < 0 else "●")
                     
                     weekly_curr = weekly_current.get(curr, curr_val)
                     weekly_prev_v = weekly_prev_val.get(curr, weekly_curr)
                     weekly_delta = weekly_curr - weekly_prev_v
-                    weekly_color, weekly_arrow = get_delta_color_and_arrow(weekly_curr, weekly_prev_v)
+                    weekly_color = "#10b981" if weekly_delta > 0 else ("#ef4444" if weekly_delta < 0 else "#f1c40f")
+                    weekly_arrow = "▲" if weekly_delta > 0 else ("▼" if weekly_delta < 0 else "●")
                     
                     monthly_curr = monthly_current.get(curr, curr_val)
                     monthly_prev_v = monthly_prev_val.get(curr, monthly_curr)
                     monthly_delta = monthly_curr - monthly_prev_v
-                    monthly_color, monthly_arrow = get_delta_color_and_arrow(monthly_curr, monthly_prev_v)
+                    monthly_color = "#10b981" if monthly_delta > 0 else ("#ef4444" if monthly_delta < 0 else "#f1c40f")
+                    monthly_arrow = "▲" if monthly_delta > 0 else ("▼" if monthly_delta < 0 else "●")
                     
                     eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
                     eco_arrow = get_arrow(eco_val, eco_prev)
-                    eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
+                    eco_color = "#10b981" if (eco_val is not None and eco_prev is not None and eco_val > eco_prev) else ("#ef4444" if (eco_val is not None and eco_prev is not None and eco_val < eco_prev) else "#f1c40f")
                     
                     yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
                     yld_arrow = get_arrow(yld_val, yld_prev)
-                    yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
+                    yld_color = "#10b981" if (yld_val is not None and yld_prev is not None and yld_val > yld_prev) else ("#ef4444" if (yld_val is not None and yld_prev is not None and yld_val < yld_prev) else "#f1c40f")
                     
                     flag = currency_flags.get(curr, "💰")
                     full_name = currency_full_names.get(curr, curr)
@@ -2122,7 +2118,7 @@ with tab_signal:
             
             st.markdown("---")
             
-            # ================== 2. Pairs Signal Matrix Table ==================
+            # ================== Pairs Signal Matrix ==================
             st.subheader("📈 Pairs Signal Matrix")
             st.caption("Color = Current Value | Arrow = Change vs Previous")
             
@@ -2136,8 +2132,7 @@ with tab_signal:
                 "AUDUSD", "AUDNZD", "AUDCAD", "AUDCHF", "AUDJPY",
                 "NZDUSD", "NZDCAD", "NZDCHF", "NZDJPY",
                 "USDCAD", "USDCHF", "USDJPY",
-                "CADCHF", "CADJPY",
-                "CHFJPY"
+                "CADCHF", "CADJPY", "CHFJPY"
             ]
             
             table_data = []
@@ -2148,64 +2143,56 @@ with tab_signal:
                 # Economic
                 eco_current = None
                 eco_prev = None
-                if economy_today is not None:
-                    if base in economy_today.index and quote in economy_today.index:
+                if economy_today is not None and economy_prev is not None:
+                    if base in economy_today.index and quote in economy_today.index and base in economy_prev.index and quote in economy_prev.index:
                         if pd.notna(economy_today[base]) and pd.notna(economy_today[quote]):
                             eco_current = economy_today[base] - economy_today[quote]
-                if economy_prev is not None:
-                    if base in economy_prev.index and quote in economy_prev.index:
-                        if pd.notna(economy_prev[base]) and pd.notna(economy_prev[quote]):
                             eco_prev = economy_prev[base] - economy_prev[quote]
                 
                 eco_color = get_cell_color(eco_current, ECO_THRESHOLD, True)
                 eco_arrow = get_arrow(eco_current, eco_prev)
                 eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
                 
-                # Yield
-                yield_current = None
-                yield_prev = None
-                if yield_today is not None:
-                    if base in yield_today.index and quote in yield_today.index:
+                # Yield (نفس اللوجيك تمامًا)
+                yld_current = None
+                yld_prev = None
+                if yield_today is not None and yield_prev is not None:
+                    if base in yield_today.index and quote in yield_today.index and base in yield_prev.index and quote in yield_prev.index:
                         if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
-                            yield_current = yield_today[base] - yield_today[quote]
-                if yield_prev is not None:
-                    if base in yield_prev.index and quote in yield_prev.index:
-                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
-                            yield_prev = yield_prev[base] - yield_prev[quote]
+                            yld_current = yield_today[base] - yield_today[quote]
+                            yld_prev = yield_prev[base] - yield_prev[quote]
                 
-                yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, True)
-                yield_arrow = get_arrow(yield_current, yield_prev)
-                yield_display = f"{yield_current:+.2f}" if yield_current is not None else "N/A"
+                yld_color = get_cell_color(yld_current, YIELD_THRESHOLD, True)
+                yld_arrow = get_arrow(yld_current, yld_prev)
+                yld_display = f"{yld_current:+.2f}" if yld_current is not None else "N/A"
                 
                 # Monthly
-                monthly_base_curr = monthly_current.get(base, 0)
-                monthly_quote_curr = monthly_current.get(quote, 0)
-                monthly_pair_current = monthly_base_curr - monthly_quote_curr
-                
-                monthly_base_prev = monthly_prev_val.get(base, monthly_base_curr)
-                monthly_quote_prev = monthly_prev_val.get(quote, monthly_quote_curr)
-                monthly_pair_prev = monthly_base_prev - monthly_quote_prev
+                m_base = monthly_current.get(base, 0)
+                m_quote = monthly_current.get(quote, 0)
+                m_base_prev = monthly_prev_val.get(base, m_base)
+                m_quote_prev = monthly_prev_val.get(quote, m_quote)
+                monthly_pair_current = m_base - m_quote
+                monthly_pair_prev = m_base_prev - m_quote_prev
                 
                 monthly_color = get_cell_color(monthly_pair_current, PRICE_THRESHOLD, True)
                 monthly_arrow = get_arrow(monthly_pair_current, monthly_pair_prev)
                 monthly_display = f"{monthly_pair_current:+.2f}"
                 
                 # Weekly
-                weekly_base_curr = weekly_current.get(base, 0)
-                weekly_quote_curr = weekly_current.get(quote, 0)
-                weekly_pair_current = weekly_base_curr - weekly_quote_curr
-                
-                weekly_base_prev = weekly_prev_val.get(base, weekly_base_curr)
-                weekly_quote_prev = weekly_prev_val.get(quote, weekly_quote_curr)
-                weekly_pair_prev = weekly_base_prev - weekly_quote_prev
+                w_base = weekly_current.get(base, 0)
+                w_quote = weekly_current.get(quote, 0)
+                w_base_prev = weekly_prev_val.get(base, w_base)
+                w_quote_prev = weekly_prev_val.get(quote, w_quote)
+                weekly_pair_current = w_base - w_quote
+                weekly_pair_prev = w_base_prev - w_quote_prev
                 
                 weekly_color = get_cell_color(weekly_pair_current, PRICE_THRESHOLD, True)
                 weekly_arrow = get_arrow(weekly_pair_current, weekly_pair_prev)
                 weekly_display = f"{weekly_pair_current:+.2f}"
                 
                 # Daily
-                daily_current = latest[base] - latest[quote]
-                daily_prev = prev[base] - prev[quote] if prev is not None else daily_current
+                daily_current = latest.get(base, 0) - latest.get(quote, 0)
+                daily_prev = (prev.get(base, 0) - prev.get(quote, 0)) if prev is not None else daily_current
                 
                 daily_color = get_cell_color(daily_current, PRICE_THRESHOLD, True)
                 daily_arrow = get_arrow(daily_current, daily_prev)
@@ -2213,28 +2200,19 @@ with tab_signal:
                 
                 table_data.append({
                     "Pair": pair,
-                    "Economic": eco_display,
-                    "Economic_Color": eco_color,
-                    "Economic_Arrow": eco_arrow,
-                    "Yield": yield_display,
-                    "Yield_Color": yield_color,
-                    "Yield_Arrow": yield_arrow,
-                    "Monthly": monthly_display,
-                    "Monthly_Color": monthly_color,
-                    "Monthly_Arrow": monthly_arrow,
-                    "Weekly": weekly_display,
-                    "Weekly_Color": weekly_color,
-                    "Weekly_Arrow": weekly_arrow,
-                    "Daily": daily_display,
-                    "Daily_Color": daily_color,
-                    "Daily_Arrow": daily_arrow,
+                    "Economic": eco_display, "Economic_Color": eco_color, "Economic_Arrow": eco_arrow,
+                    "Yield": yld_display, "Yield_Color": yld_color, "Yield_Arrow": yld_arrow,
+                    "Monthly": monthly_display, "Monthly_Color": monthly_color, "Monthly_Arrow": monthly_arrow,
+                    "Weekly": weekly_display, "Weekly_Color": weekly_color, "Weekly_Arrow": weekly_arrow,
+                    "Daily": daily_display, "Daily_Color": daily_color, "Daily_Arrow": daily_arrow,
                 })
             
-            # HTML Table
+            # ================== HTML Table كامل ==================
             table_html = """
             <!DOCTYPE html>
             <html>
             <head>
+            <meta charset="UTF-8">
             <style>
                 body {
                     margin: 0;
@@ -2259,14 +2237,14 @@ with tab_signal:
                     border-bottom: 2px solid #f1c40f;
                 }
                 .signal-table td {
-                    padding: 10px 8px;
+                    padding: 11px 8px;
                     text-align: center;
                     border-bottom: 1px solid #334155;
-                    font-size: 13px;
+                    font-size: 13.5px;
                     font-weight: 500;
                 }
                 .signal-table tr:hover {
-                    background: rgba(241, 196, 15, 0.05);
+                    background: rgba(241, 196, 15, 0.06);
                 }
                 .pair-cell {
                     font-weight: 700;
@@ -2308,7 +2286,7 @@ with tab_signal:
             </html>
             """
             
-            st.components.v1.html(table_html, height=650, scrolling=True)
+            st.components.v1.html(table_html, height=680, scrolling=True)
             
             # Legend
             st.markdown("---")
