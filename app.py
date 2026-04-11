@@ -1782,6 +1782,7 @@ with tab_signal:
             st.session_state.signal_selected_date = None
         
         # ================== Date List Creation ==================
+        # تأكد من أن التواريخ كلها date objects
         all_dates = db_daily['Date'].sort_values(ascending=False).tolist()
         
         date_options = []
@@ -1817,6 +1818,11 @@ with tab_signal:
         
         # ================== Calculate Data for Selected Date ==================
         selected_date = st.session_state.signal_selected_date
+        
+        # ✅ تحويل selected_date إلى date object
+        if isinstance(selected_date, pd.Timestamp):
+            selected_date = selected_date.date()
+        
         selected_row = db_daily[db_daily['Date'] == selected_date]
         
         if selected_row.empty:
@@ -1832,29 +1838,43 @@ with tab_signal:
             else:
                 prev = None
             
-            # ================== Get Economy data ==================
+            # ================== معالجة بيانات Economy ==================
             economy_today = None
             economy_prev = None
             if not db_economy.empty:
                 db_economy['Date'] = pd.to_datetime(db_economy['Date']).dt.date
+                
                 eco_today_row = db_economy[db_economy['Date'] == selected_date]
                 if not eco_today_row.empty:
                     economy_today = eco_today_row.iloc[0]
-                    eco_idx = db_economy[db_economy['Date'] == selected_date].index[0]
-                    if eco_idx > 0:
-                        economy_prev = db_economy.iloc[eco_idx - 1]
+                    
+                    # ابحث عن التاريخ السابق في economy
+                    all_eco_dates = sorted(db_economy['Date'].unique(), reverse=True)
+                    for eco_date in all_eco_dates:
+                        if eco_date < selected_date:
+                            economy_prev_row = db_economy[db_economy['Date'] == eco_date]
+                            if not economy_prev_row.empty:
+                                economy_prev = economy_prev_row.iloc[0]
+                            break
             
-            # ================== Get Yield data (نفس لوجيك الاقتصاد بالضبط) ==================
+            # ================== معالجة بيانات Yield ==================
             yield_today = None
             yield_prev = None
             if not db_yield.empty:
                 db_yield['Date'] = pd.to_datetime(db_yield['Date']).dt.date
+                
                 yld_today_row = db_yield[db_yield['Date'] == selected_date]
                 if not yld_today_row.empty:
                     yield_today = yld_today_row.iloc[0]
-                    yld_idx = db_yield[db_yield['Date'] == selected_date].index[0]
-                    if yld_idx > 0:
-                        yield_prev = db_yield.iloc[yld_idx - 1]
+                    
+                    # ✅ إصلاح: ابحث عن التاريخ السابق في yield
+                    all_yld_dates = sorted(db_yield['Date'].unique(), reverse=True)
+                    for yld_date in all_yld_dates:
+                        if yld_date < selected_date:
+                            yield_prev_row = db_yield[db_yield['Date'] == yld_date]
+                            if not yield_prev_row.empty:
+                                yield_prev = yield_prev_row.iloc[0]
+                            break
             
             # Get Weekly data
             selected_date_obj = pd.to_datetime(selected_date)
@@ -1865,6 +1885,7 @@ with tab_signal:
             
             if not db_weekly.empty:
                 db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
+                weekly_sorted = db_weekly.sort_values('Week_Start')
                 weekly_current_row = db_weekly[db_weekly['Week_Start'] == week_start]
                 
                 if not weekly_current_row.empty:
@@ -1897,6 +1918,7 @@ with tab_signal:
             
             if not db_monthly.empty:
                 db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
+                monthly_sorted = db_monthly.sort_values('Month_Start')
                 monthly_current_row = db_monthly[db_monthly['Month_Start'] == month_start]
                 
                 if not monthly_current_row.empty:
@@ -1996,13 +2018,20 @@ with tab_signal:
                     monthly_delta = monthly_curr - monthly_prev_v
                     monthly_color, monthly_arrow = get_delta_color_and_arrow(monthly_curr, monthly_prev_v)
                     
+                    # Economic
                     eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
                     eco_arrow = get_arrow(eco_val, eco_prev)
                     eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
                     
-                    yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
-                    yld_arrow = get_arrow(yld_val, yld_prev)
-                    yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
+                    # ✅ Yield - معالجة كاملة زي الاقتصاد بالظبط
+                    if yld_val is not None:
+                        yld_str = f"{yld_val:.2f}%"
+                        yld_arrow = get_arrow(yld_val, yld_prev)
+                        yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
+                    else:
+                        yld_str = "N/A"
+                        yld_color = "#6b7280"
+                        yld_arrow = "●"
                     
                     flag = currency_flags.get(curr, "💰")
                     full_name = currency_full_names.get(curr, curr)
@@ -2070,13 +2099,20 @@ with tab_signal:
                     monthly_delta = monthly_curr - monthly_prev_v
                     monthly_color, monthly_arrow = get_delta_color_and_arrow(monthly_curr, monthly_prev_v)
                     
+                    # Economic
                     eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
                     eco_arrow = get_arrow(eco_val, eco_prev)
                     eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
                     
-                    yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
-                    yld_arrow = get_arrow(yld_val, yld_prev)
-                    yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
+                    # ✅ Yield - معالجة كاملة زي الاقتصاد بالظبط
+                    if yld_val is not None:
+                        yld_str = f"{yld_val:.2f}%"
+                        yld_arrow = get_arrow(yld_val, yld_prev)
+                        yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
+                    else:
+                        yld_str = "N/A"
+                        yld_color = "#6b7280"
+                        yld_arrow = "●"
                     
                     flag = currency_flags.get(curr, "💰")
                     full_name = currency_full_names.get(curr, curr)
@@ -2162,7 +2198,7 @@ with tab_signal:
                 eco_arrow = get_arrow(eco_current, eco_prev)
                 eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
                 
-                # === Yield (نفس لوجيك الاقتصاد بالضبط) ===
+                # === Yield ===
                 yield_current = None
                 yield_prev = None
                 if yield_today is not None:
@@ -2231,20 +2267,125 @@ with tab_signal:
                     "Daily_Arrow": daily_arrow,
                 })
             
-            # Display as dataframe
-            df_display = pd.DataFrame(table_data)
-            df_display = df_display[['Pair', 'Economic', 'Yield', 'Monthly', 'Weekly', 'Daily']]
+            # Display table using HTML for proper rendering
+            st.markdown("""
+            <style>
+                .signal-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                    border-radius: 12px;
+                    overflow: hidden;
+                    font-family: 'Inter', sans-serif;
+                }
+                .signal-table th {
+                    background: #1e293b;
+                    color: #f1c40f;
+                    padding: 14px 8px;
+                    text-align: center;
+                    font-weight: 600;
+                    font-size: 13px;
+                    border-bottom: 2px solid #f1c40f;
+                }
+                .signal-table td {
+                    padding: 10px 8px;
+                    text-align: center;
+                    border-bottom: 1px solid #334155;
+                    font-size: 13px;
+                    font-weight: 500;
+                }
+                .signal-table tr:hover {
+                    background: rgba(241, 196, 15, 0.05);
+                }
+                .pair-cell {
+                    font-weight: 700;
+                    color: #e2e8f0;
+                }
+            </style>
+            """, unsafe_allow_html=True)
             
-            st.dataframe(
-                df_display,
-                use_container_width=True,
-                hide_index=True,
-                height=650
-            )
+            table_html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                }
+                .signal-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                    border-radius: 12px;
+                    overflow: hidden;
+                }
+                .signal-table th {
+                    background: #1e293b;
+                    color: #f1c40f;
+                    padding: 14px 8px;
+                    text-align: center;
+                    font-weight: 600;
+                    font-size: 13px;
+                    border-bottom: 2px solid #f1c40f;
+                }
+                .signal-table td {
+                    padding: 10px 8px;
+                    text-align: center;
+                    border-bottom: 1px solid #334155;
+                    font-size: 13px;
+                    font-weight: 500;
+                }
+                .signal-table tr:hover {
+                    background: rgba(241, 196, 15, 0.05);
+                }
+                .pair-cell {
+                    font-weight: 700;
+                    color: #e2e8f0;
+                }
+            </style>
+            </head>
+            <body>
+            <table class="signal-table">
+                <thead>
+                    <tr>
+                        <th>Pair</th>
+                        <th>🏭 Economic</th>
+                        <th>📈 Yield</th>
+                        <th>🗓️ Monthly</th>
+                        <th>📆 Weekly</th>
+                        <th>📅 Daily</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
+            
+            for row in table_data:
+                table_html += f"""
+                    <tr>
+                        <td class="pair-cell">{row['Pair']}</td>
+                        <td style="color: {row['Economic_Color']};">{row['Economic_Arrow']} {row['Economic']}</td>
+                        <td style="color: {row['Yield_Color']};">{row['Yield_Arrow']} {row['Yield']}</td>
+                        <td style="color: {row['Monthly_Color']};">{row['Monthly_Arrow']} {row['Monthly']}</td>
+                        <td style="color: {row['Weekly_Color']};">{row['Weekly_Arrow']} {row['Weekly']}</td>
+                        <td style="color: {row['Daily_Color']};">{row['Daily_Arrow']} {row['Daily']}</td>
+                    </tr>
+                """
+            
+            table_html += """
+                </tbody>
+            </table>
+            </body>
+            </html>
+            """
+            
+            st.components.v1.html(table_html, height=650, scrolling=True)
             
             # Legend
             st.markdown("---")
-            legend_html = """
+            st.markdown("""
             <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; padding: 10px;">
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #10b981; font-size: 20px;">▲</span> <span style="color: #94a3b8;">Increasing</span></div>
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #ef4444; font-size: 20px;">▼</span> <span style="color: #94a3b8;">Decreasing</span></div>
@@ -2253,5 +2394,4 @@ with tab_signal:
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #ef4444; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Negative</span></div>
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #f1c40f; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Neutral (± threshold)</span></div>
             </div>
-            """
-            st.markdown(legend_html, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
