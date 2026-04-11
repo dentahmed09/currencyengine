@@ -1819,7 +1819,7 @@ with tab_signal:
         # ================== Calculate Data for Selected Date ==================
         selected_date = st.session_state.signal_selected_date
         
-        # ✅ إصلاح: تحويل selected_date إلى date object
+        # ✅ تحويل selected_date إلى date object
         if isinstance(selected_date, pd.Timestamp):
             selected_date = selected_date.date()
         
@@ -1842,16 +1842,14 @@ with tab_signal:
             economy_today = None
             economy_prev = None
             if not db_economy.empty:
-                # تأكد من أن تاريخ economy هو date object
                 db_economy['Date'] = pd.to_datetime(db_economy['Date']).dt.date
                 
-                # ابحث عن تاريخ مطابق تماماً
                 eco_today_row = db_economy[db_economy['Date'] == selected_date]
                 if not eco_today_row.empty:
                     economy_today = eco_today_row.iloc[0]
                     
                     # ابحث عن التاريخ السابق في economy
-                    all_eco_dates = db_economy['Date'].sort_values(ascending=False).unique()
+                    all_eco_dates = sorted(db_economy['Date'].unique(), reverse=True)
                     for eco_date in all_eco_dates:
                         if eco_date < selected_date:
                             economy_prev_row = db_economy[db_economy['Date'] == eco_date]
@@ -1863,16 +1861,14 @@ with tab_signal:
             yield_today = None
             yield_prev = None
             if not db_yield.empty:
-                # تأكد من أن تاريخ yield هو date object
                 db_yield['Date'] = pd.to_datetime(db_yield['Date']).dt.date
                 
-                # ابحث عن تاريخ مطابق تماماً
                 yld_today_row = db_yield[db_yield['Date'] == selected_date]
                 if not yld_today_row.empty:
                     yield_today = yld_today_row.iloc[0]
                     
-                    # ابحث عن التاريخ السابق في yield
-                    all_yld_dates = db_yield['Date'].sort_values(ascending=False).unique()
+                    # ✅ إصلاح: ابحث عن التاريخ السابق في yield
+                    all_yld_dates = sorted(db_yield['Date'].unique(), reverse=True)
                     for yld_date in all_yld_dates:
                         if yld_date < selected_date:
                             yield_prev_row = db_yield[db_yield['Date'] == yld_date]
@@ -2022,15 +2018,16 @@ with tab_signal:
                     monthly_delta = monthly_curr - monthly_prev_v
                     monthly_color, monthly_arrow = get_delta_color_and_arrow(monthly_curr, monthly_prev_v)
                     
+                    # Economic
                     eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
                     eco_arrow = get_arrow(eco_val, eco_prev)
                     eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
                     
-                    # ✅ إصلاح: عرض العائد كنسبة مئوية
+                    # ✅ Yield - معالجة كاملة زي الاقتصاد بالظبط
                     if yld_val is not None:
                         yld_str = f"{yld_val:.2f}%"
-                        yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
                         yld_arrow = get_arrow(yld_val, yld_prev)
+                        yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
                     else:
                         yld_str = "N/A"
                         yld_color = "#6b7280"
@@ -2102,15 +2099,16 @@ with tab_signal:
                     monthly_delta = monthly_curr - monthly_prev_v
                     monthly_color, monthly_arrow = get_delta_color_and_arrow(monthly_curr, monthly_prev_v)
                     
+                    # Economic
                     eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
                     eco_arrow = get_arrow(eco_val, eco_prev)
                     eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
                     
-                    # ✅ إصلاح: عرض العائد كنسبة مئوية
+                    # ✅ Yield - معالجة كاملة زي الاقتصاد بالظبط
                     if yld_val is not None:
                         yld_str = f"{yld_val:.2f}%"
-                        yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
                         yld_arrow = get_arrow(yld_val, yld_prev)
+                        yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
                     else:
                         yld_str = "N/A"
                         yld_color = "#6b7280"
@@ -2187,7 +2185,6 @@ with tab_signal:
                 # === Economic ===
                 eco_current = None
                 eco_prev = None
-                # ✅ فحص منفصل - مش شرط الاتنين موجودين مع بعض
                 if economy_today is not None:
                     if base in economy_today.index and quote in economy_today.index:
                         if pd.notna(economy_today[base]) and pd.notna(economy_today[quote]):
@@ -2204,7 +2201,6 @@ with tab_signal:
                 # === Yield ===
                 yield_current = None
                 yield_prev = None
-                # ✅ فحص منفصل - مش شرط الاتنين موجودين مع بعض
                 if yield_today is not None:
                     if base in yield_today.index and quote in yield_today.index:
                         if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
