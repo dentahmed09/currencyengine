@@ -1230,18 +1230,19 @@ with tab_dashboard:
                         st.info(f"📊 No data available for {currency_full}")
             
             st.markdown("---")
-# ──── Pair Matrix Tab ─────────────────────
+
+# ──── تبويب Pair Matrix ─────────────────────
 with tab_results:
     if db_daily.empty or len(db_daily) < 2:
-        st.info("📊 Please enter at least two days of data to view results")
+        st.info("📊 أدخل بيانات يومين على الأقل لعرض النتائج")
     else:
-        st.header("🎯 28 Pairs Matrix")
+        st.header("🎯 28 Pairs Results")
         
-        # ================== Session State Init ==================
+        # ================== تهيئة Session State ==================
         if 'selected_date' not in st.session_state:
             st.session_state.selected_date = None
         
-        # ================== Date List Creation ==================
+        # ================== إنشاء قائمة التواريخ ==================
         all_dates = db_daily['Date'].sort_values(ascending=False).tolist()
         
         date_options = []
@@ -1250,15 +1251,15 @@ with tab_results:
         for date in all_dates:
             date_str = date.strftime("%Y-%m-%d")
             if date == all_dates[0]:
-                date_str = f"📅 {date_str} (Latest)"
+                date_str = f"📅 {date_str} (الأحدث)"
             date_options.append(date_str)
             date_map[date_str] = date
         
-        # ================== Date Selector ==================
+        # ================== عرض القائمة المنسدلة ==================
         col_date1, col_date2, col_date3 = st.columns([1, 2, 1])
         with col_date2:
             selected_date_str = st.selectbox(
-                "📆 Select Date to View Analysis:",
+                "📆 اختر التاريخ لعرض النتائج:",
                 options=date_options,
                 index=0,
                 key="date_selector"
@@ -1269,505 +1270,232 @@ with tab_results:
             st.markdown(f"""
             <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
                         border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
-                <span style="color: #f1c40f; font-weight: bold;">📅 Selected Date: {selected_date_str}</span>
+                <span style="color: #f1c40f; font-weight: bold;">📅 التاريخ المختار: {selected_date_str}</span>
             </div>
             """, unsafe_allow_html=True)
         
         st.markdown("---")
         
-        # ================== Calculate Data for Selected Date ==================
+        # ================== حساب البيانات للتاريخ المختار ==================
         selected_date = st.session_state.selected_date
         selected_row = db_daily[db_daily['Date'] == selected_date]
         
         if selected_row.empty:
-            st.error(f"❌ No data found for {selected_date_str}")
+            st.error(f"❌ لا توجد بيانات للتاريخ {selected_date_str}")
         else:
             latest = selected_row.iloc[0]
             
-            # Get previous daily data
             date_index = db_daily[db_daily['Date'] == selected_date].index[0]
             if date_index > 0:
                 prev_row = db_daily.iloc[date_index - 1]
                 prev = prev_row
             else:
                 prev = None
-                st.warning("⚠️ This is the first day in data, no previous data for delta calculations")
+                st.warning("⚠️ هذا هو أول يوم في البيانات، لا توجد بيانات سابقة لحساب التغيرات")
             
-            # Get Economy data for selected date and previous
-            economy_today = None
-            economy_prev = None
-            if not db_economy.empty:
-                db_economy['Date'] = pd.to_datetime(db_economy['Date']).dt.date
-                eco_today_row = db_economy[db_economy['Date'] == selected_date]
-                if not eco_today_row.empty:
-                    economy_today = eco_today_row.iloc[0]
-                    eco_idx = db_economy[db_economy['Date'] == selected_date].index[0]
-                    if eco_idx > 0:
-                        economy_prev = db_economy.iloc[eco_idx - 1]
-            
-            # Get Yield data for selected date and previous
-            yield_today = None
-            yield_prev = None
-            if not db_yield.empty:
-                db_yield['Date'] = pd.to_datetime(db_yield['Date']).dt.date
-                yld_today_row = db_yield[db_yield['Date'] == selected_date]
-                if not yld_today_row.empty:
-                    yield_today = yld_today_row.iloc[0]
-                    yld_idx = db_yield[db_yield['Date'] == selected_date].index[0]
-                    if yld_idx > 0:
-                        yield_prev = db_yield.iloc[yld_idx - 1]
-            
-            # ================== Get Weekly Current & Previous ==================
-            selected_date_obj = pd.to_datetime(selected_date)
-            
-            # Weekly data preparation
-            week_start = (selected_date_obj - pd.Timedelta(days=selected_date_obj.weekday())).date()
-            weekly_current = {}
-            weekly_delta = {}
-            
-            if not db_weekly.empty:
-                db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
-                weekly_current_row = db_weekly[db_weekly['Week_Start'] == week_start]
-                weekly_sorted = db_weekly.sort_values('Week_Start')
-                
-                if not weekly_current_row.empty:
-                    weekly_idx = db_weekly[db_weekly['Week_Start'] == week_start].index[0]
-                    for curr in currencies:
-                        if curr in weekly_current_row.columns and pd.notna(weekly_current_row.iloc[0][curr]):
-                            weekly_current[curr] = weekly_current_row.iloc[0][curr]
-                            if weekly_idx > 0:
-                                prev_weekly_val = db_weekly.iloc[weekly_idx - 1][curr]
-                                if pd.notna(prev_weekly_val):
-                                    weekly_delta[curr] = weekly_current[curr] - prev_weekly_val
-                                else:
-                                    weekly_delta[curr] = 0
-                            else:
-                                weekly_delta[curr] = 0
-                        else:
-                            weekly_current[curr] = latest[curr] if curr in latest.index else 0
-                            weekly_delta[curr] = 0
-                else:
-                    for curr in currencies:
-                        weekly_current[curr] = latest[curr] if curr in latest.index else 0
-                        weekly_delta[curr] = 0
-            else:
-                for curr in currencies:
-                    weekly_current[curr] = latest[curr] if curr in latest.index else 0
-                    weekly_delta[curr] = 0
-            
-            # Monthly data preparation
-            month_start = selected_date_obj.replace(day=1).date()
-            monthly_current = {}
-            monthly_delta = {}
-            
-            if not db_monthly.empty:
-                db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
-                monthly_current_row = db_monthly[db_monthly['Month_Start'] == month_start]
-                monthly_sorted = db_monthly.sort_values('Month_Start')
-                
-                if not monthly_current_row.empty:
-                    monthly_idx = db_monthly[db_monthly['Month_Start'] == month_start].index[0]
-                    for curr in currencies:
-                        if curr in monthly_current_row.columns and pd.notna(monthly_current_row.iloc[0][curr]):
-                            monthly_current[curr] = monthly_current_row.iloc[0][curr]
-                            if monthly_idx > 0:
-                                prev_monthly_val = db_monthly.iloc[monthly_idx - 1][curr]
-                                if pd.notna(prev_monthly_val):
-                                    monthly_delta[curr] = monthly_current[curr] - prev_monthly_val
-                                else:
-                                    monthly_delta[curr] = 0
-                            else:
-                                monthly_delta[curr] = 0
-                        else:
-                            monthly_current[curr] = latest[curr] if curr in latest.index else 0
-                            monthly_delta[curr] = 0
-                else:
-                    for curr in currencies:
-                        monthly_current[curr] = latest[curr] if curr in latest.index else 0
-                        monthly_delta[curr] = 0
-            else:
-                for curr in currencies:
-                    monthly_current[curr] = latest[curr] if curr in latest.index else 0
-                    monthly_delta[curr] = 0
-            
-            # Delta calculations for daily
             delta = {}
             if prev is not None:
                 delta = {c: latest[c] - prev[c] for c in currencies}
             
-            # Helper function for color based on change (new version for delta)
-            def get_delta_color(delta_val):
-                if delta_val > 0:
-                    return "#10b981"
-                elif delta_val < 0:
-                    return "#ef4444"
-                else:
-                    return "#f1c40f"
-            
-            def get_delta_arrow(delta_val):
-                if delta_val > 0:
-                    return "▲"
-                elif delta_val < 0:
-                    return "▼"
-                else:
-                    return "●"
-            
-            # Helper function for comparing two values
-            def get_change_color(new_val, old_val):
-                if old_val is None or pd.isna(old_val) or new_val is None or pd.isna(new_val):
-                    return "#6b7280"
-                if new_val > old_val:
-                    return "#10b981"
-                elif new_val < old_val:
-                    return "#ef4444"
-                else:
-                    return "#f1c40f"
-            
-            def get_change_arrow(new_val, old_val):
-                if old_val is None or pd.isna(old_val) or new_val is None or pd.isna(new_val):
-                    return ""
-                if new_val > old_val:
-                    return "▲"
-                elif new_val < old_val:
-                    return "▼"
-                else:
-                    return "●"
-            
-            # Currency full names and flags
-            currency_full_names = {
-                "USD": "US Dollar", "EUR": "Euro", "GBP": "British Pound",
-                "JPY": "Japanese Yen", "CHF": "Swiss Franc", "CAD": "Canadian Dollar",
-                "AUD": "Australian Dollar", "NZD": "New Zealand Dollar"
-            }
-            
-            currency_flags = {
-                "USD": "🇺🇸", "EUR": "🇪🇺", "GBP": "🇬🇧", "JPY": "🇯🇵",
-                "CHF": "🇨🇭", "CAD": "🇨🇦", "AUD": "🇦🇺", "NZD": "🇳🇿"
-            }
-            
-            # ================== Build Results ==================
             results = []
             
             for pair in pairs:
                 base, quote = pair[:3], pair[3:]
                 
-                # === Strength Calculations ===
                 strength_today = latest[base] - latest[quote]
                 
+                if strength_today > 0:
+                    signal = "BUY"
+                    signal_color = "🟢"
+                elif strength_today < 0:
+                    signal = "SELL"
+                    signal_color = "🔴"
+                else:
+                    signal = "WAIT"
+                    signal_color = "🟡"
+                
+                max_strength = 5.0
+                strength_percent = min(abs(strength_today) / max_strength * 100, 100)
+                
                 if prev is not None:
-                    health_delta = strength_today - (prev[base] - prev[quote])
-                    base_delta = delta.get(base, 0)
-                    quote_delta = delta.get(quote, 0)
-                    volatility = abs(base_delta - quote_delta)
+                    health_delta = (latest[base] - latest[quote]) - (prev[base] - prev[quote])
+                    base_delta = delta[base]
+                    quote_delta = delta[quote]
                     
-                    # Confirmation logic
                     if base_delta > health_delta and quote_delta > health_delta:
-                        confirmation = "UP TREND"
+                        confirmation = "Up Trend"
+                        conf_icon = "📈"
                         conf_color = "#10b981"
                     elif base_delta < health_delta and quote_delta < health_delta:
-                        confirmation = "DOWN TREND"
+                        confirmation = "Down Trend"
+                        conf_icon = "📉"
                         conf_color = "#ef4444"
                     else:
-                        confirmation = "RANGE"
+                        confirmation = "Range"
+                        conf_icon = "🔄"
                         conf_color = "#f59e0b"
+                    
+                    volatility = abs(base_delta - quote_delta)
                 else:
                     health_delta = 0
                     base_delta = 0
                     quote_delta = 0
-                    volatility = 0
-                    confirmation = "NO DATA"
+                    confirmation = "No Data"
+                    conf_icon = "❓"
                     conf_color = "#6b7280"
-                
-                # === Economic Power of Pair ===
-                eco_pair = None
-                if economy_today is not None:
-                    if base in economy_today.index and quote in economy_today.index:
-                        if pd.notna(economy_today[base]) and pd.notna(economy_today[quote]):
-                            eco_pair = economy_today[base] - economy_today[quote]
-                
-                # === Yield Power of Pair ===
-                yield_pair = None
-                if yield_today is not None:
-                    if base in yield_today.index and quote in yield_today.index:
-                        if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
-                            yield_pair = yield_today[base] - yield_today[quote]
-                
-                # === Individual Currency Changes ===
-                # Economic change for Base
-                base_eco_val = economy_today[base] if economy_today is not None and base in economy_today.index and pd.notna(economy_today[base]) else None
-                base_eco_prev = economy_prev[base] if economy_prev is not None and base in economy_prev.index and pd.notna(economy_prev[base]) else None
-                base_eco_color = get_change_color(base_eco_val, base_eco_prev)
-                base_eco_arrow = get_change_arrow(base_eco_val, base_eco_prev)
-                
-                # Economic change for Quote
-                quote_eco_val = economy_today[quote] if economy_today is not None and quote in economy_today.index and pd.notna(economy_today[quote]) else None
-                quote_eco_prev = economy_prev[quote] if economy_prev is not None and quote in economy_prev.index and pd.notna(economy_prev[quote]) else None
-                quote_eco_color = get_change_color(quote_eco_val, quote_eco_prev)
-                quote_eco_arrow = get_change_arrow(quote_eco_val, quote_eco_prev)
-                
-                # Yield change for Base
-                base_yield_val = yield_today[base] if yield_today is not None and base in yield_today.index and pd.notna(yield_today[base]) else None
-                base_yield_prev = yield_prev[base] if yield_prev is not None and base in yield_prev.index and pd.notna(yield_prev[base]) else None
-                base_yield_color = get_change_color(base_yield_val, base_yield_prev)
-                base_yield_arrow = get_change_arrow(base_yield_val, base_yield_prev)
-                
-                # Yield change for Quote
-                quote_yield_val = yield_today[quote] if yield_today is not None and quote in yield_today.index and pd.notna(yield_today[quote]) else None
-                quote_yield_prev = yield_prev[quote] if yield_prev is not None and quote in yield_prev.index and pd.notna(yield_prev[quote]) else None
-                quote_yield_color = get_change_color(quote_yield_val, quote_yield_prev)
-                quote_yield_arrow = get_change_arrow(quote_yield_val, quote_yield_prev)
-                
-                # Daily delta for Base
-                base_daily_delta = latest[base] - prev[base] if prev is not None else 0
-                base_daily_color = get_delta_color(base_daily_delta)
-                base_daily_arrow = get_delta_arrow(base_daily_delta)
-                
-                # Daily delta for Quote
-                quote_daily_delta = latest[quote] - prev[quote] if prev is not None else 0
-                quote_daily_color = get_delta_color(quote_daily_delta)
-                quote_daily_arrow = get_delta_arrow(quote_daily_delta)
-                
-                # Weekly delta for Base
-                base_weekly_delta = weekly_delta.get(base, 0)
-                base_weekly_color = get_delta_color(base_weekly_delta)
-                base_weekly_arrow = get_delta_arrow(base_weekly_delta)
-                
-                # Weekly delta for Quote
-                quote_weekly_delta = weekly_delta.get(quote, 0)
-                quote_weekly_color = get_delta_color(quote_weekly_delta)
-                quote_weekly_arrow = get_delta_arrow(quote_weekly_delta)
-                
-                # Monthly delta for Base
-                base_monthly_delta = monthly_delta.get(base, 0)
-                base_monthly_color = get_delta_color(base_monthly_delta)
-                base_monthly_arrow = get_delta_arrow(base_monthly_delta)
-                
-                # Monthly delta for Quote
-                quote_monthly_delta = monthly_delta.get(quote, 0)
-                quote_monthly_color = get_delta_color(quote_monthly_delta)
-                quote_monthly_arrow = get_delta_arrow(quote_monthly_delta)
+                    volatility = 0
                 
                 results.append({
-                    "pair": pair,
-                    "base": base,
-                    "quote": quote,
-                    "strength": strength_today,
-                    "health_delta": health_delta,
-                    "volatility": volatility,
-                    "eco_pair": eco_pair,
-                    "yield_pair": yield_pair,
-                    "confirmation": confirmation,
+                    "الزوج": pair,
+                    "قوة الزوج": round(strength_today, 2),
+                    "الإشارة": f"{signal_color} {signal}",
+                    "القوة %": round(strength_percent, 0),
+                    "Base Δ": round(base_delta, 2),
+                    "Quote Δ": round(quote_delta, 2),
+                    "Health Δ": round(health_delta, 2),
+                    "Confirmation": confirmation,
+                    "conf_icon": conf_icon,
                     "conf_color": conf_color,
-                    # Base data
-                    "base_flag": currency_flags.get(base, "💰"),
-                    "base_name": currency_full_names.get(base, base),
-                    "base_eco_val": base_eco_val,
-                    "base_eco_color": base_eco_color,
-                    "base_eco_arrow": base_eco_arrow,
-                    "base_yield_val": base_yield_val,
-                    "base_yield_color": base_yield_color,
-                    "base_yield_arrow": base_yield_arrow,
-                    "base_daily_delta": base_daily_delta,
-                    "base_daily_color": base_daily_color,
-                    "base_daily_arrow": base_daily_arrow,
-                    "base_weekly_delta": base_weekly_delta,
-                    "base_weekly_color": base_weekly_color,
-                    "base_weekly_arrow": base_weekly_arrow,
-                    "base_monthly_delta": base_monthly_delta,
-                    "base_monthly_color": base_monthly_color,
-                    "base_monthly_arrow": base_monthly_arrow,
-                    # Quote data
-                    "quote_flag": currency_flags.get(quote, "💰"),
-                    "quote_name": currency_full_names.get(quote, quote),
-                    "quote_eco_val": quote_eco_val,
-                    "quote_eco_color": quote_eco_color,
-                    "quote_eco_arrow": quote_eco_arrow,
-                    "quote_yield_val": quote_yield_val,
-                    "quote_yield_color": quote_yield_color,
-                    "quote_yield_arrow": quote_yield_arrow,
-                    "quote_daily_delta": quote_daily_delta,
-                    "quote_daily_color": quote_daily_color,
-                    "quote_daily_arrow": quote_daily_arrow,
-                    "quote_weekly_delta": quote_weekly_delta,
-                    "quote_weekly_color": quote_weekly_color,
-                    "quote_weekly_arrow": quote_weekly_arrow,
-                    "quote_monthly_delta": quote_monthly_delta,
-                    "quote_monthly_color": quote_monthly_color,
-                    "quote_monthly_arrow": quote_monthly_arrow,
+                    "Volatility": round(volatility, 2),
                 })
             
-            # Sort by absolute strength
             df_results = pd.DataFrame(results)
-            df_results = df_results.sort_values("strength", key=abs, ascending=False).reset_index(drop=True)
+            df_results = df_results.sort_values("قوة الزوج", ascending=False).reset_index(drop=True)
             
-            # ================== Display 28 Cards ==================
-            for i in range(0, len(df_results), 1):
-                row = df_results.iloc[i]
+            # ================== عرض 28 كرت ==================
+            for i in range(0, len(df_results), 2):
+                col1, col2 = st.columns(2, gap="large")
                 
-                # Card border color based on strength
-                if row['strength'] > 0:
-                    border_color = "#10b981"
-                    bg_gradient = "linear-gradient(135deg, #0a2f1f 0%, #0a1a2f 100%)"
-                elif row['strength'] < 0:
-                    border_color = "#ef4444"
-                    bg_gradient = "linear-gradient(135deg, #2f1a1a 0%, #0a1a2f 100%)"
-                else:
-                    border_color = "#f59e0b"
-                    bg_gradient = "linear-gradient(135deg, #2d2a1a 0%, #0a1a2f 100%)"
-                
-                # Format values
-                eco_pair_str = f"{row['eco_pair']:+.2f}" if row['eco_pair'] is not None else "N/A"
-                yield_pair_str = f"{row['yield_pair']:+.2f}" if row['yield_pair'] is not None else "N/A"
-                
-                base_eco_str = f"{row['base_eco_val']:.2f}" if row['base_eco_val'] is not None else "N/A"
-                quote_eco_str = f"{row['quote_eco_val']:.2f}" if row['quote_eco_val'] is not None else "N/A"
-                
-                base_yield_str = f"{row['base_yield_val']:.2f}%" if row['base_yield_val'] is not None else "N/A"
-                quote_yield_str = f"{row['quote_yield_val']:.2f}%" if row['quote_yield_val'] is not None else "N/A"
-                
-                card_html = f'''
-                <div style="background: {bg_gradient}; padding: 20px; border-radius: 16px; margin: 15px 0; 
-                            border: 2px solid {border_color}; box-shadow: 0 8px 20px rgba(0,0,0,0.4);">
+                # ================== الكرت الأول ==================
+                with col1:
+                    row = df_results.iloc[i]
+                    pair = row["الزوج"]
                     
-                    <!-- Header: Pair Name -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2 style="margin:0; color: {border_color}; font-size: 32px; font-weight: 700;">{row['pair']}</h2>
-                        <div style="background: {border_color}20; padding: 6px 16px; border-radius: 20px; border: 1px solid {border_color};">
-                            <span style="color: {border_color}; font-size: 14px; font-weight: bold;">PAIR STRENGTH</span>
-                        </div>
-                    </div>
+                    if "BUY" in row["الإشارة"]:
+                        bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
+                        border_color = "#10b981"
+                    elif "SELL" in row["الإشارة"]:
+                        bg_gradient = "linear-gradient(135deg, #2f1a1a, #1a0a0a)"
+                        border_color = "#ef4444"
+                    else:
+                        bg_gradient = "linear-gradient(135deg, #2d2a1a, #1f1c0f)"
+                        border_color = "#f59e0b"
                     
-                    <!-- Row 1: Three Power Boxes -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
-                        <!-- Economic Power -->
-                        <div style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 14px 8px; text-align: center; border: 1px solid #334155;">
-                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 6px;">🏭 ECONOMIC POWER</div>
-                            <div style="font-size: 26px; font-weight: bold; color: #f1c40f;">{eco_pair_str}</div>
-                            <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Base - Quote</div>
+                    base_delta_color = "#10b981" if row['Base Δ'] >= 0 else "#ef4444"
+                    quote_delta_color = "#10b981" if row['Quote Δ'] >= 0 else "#ef4444"
+                    health_delta_color = "#10b981" if row['Health Δ'] >= 0 else "#ef4444"
+                    
+                    card_html = f'''
+                    <div style="background: {bg_gradient}; padding: 20px; border-radius: 20px; margin: 10px 0; border: 2px solid {border_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2 style="margin:0; color: {border_color}; font-size: 28px;">{pair}</h2>
+                            <h1 style="margin:0; font-size: 42px;">{row['الإشارة']}</h1>
                         </div>
-                        <!-- Financial Power (Yield) -->
-                        <div style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 14px 8px; text-align: center; border: 1px solid #334155;">
-                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 6px;">📈 FINANCIAL POWER</div>
-                            <div style="font-size: 26px; font-weight: bold; color: #f1c40f;">{yield_pair_str}</div>
-                            <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Yield Base - Quote</div>
+                        <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="font-size: 18px;">📊 قوة الزوج:</span>
+                                <span style="font-size: 24px; font-weight: bold; color: {border_color};">{row['قوة الزوج']:+.2f}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="font-size: 18px;">⚡ قوة الإشارة:</span>
+                                <span style="font-size: 20px; font-weight: bold;">{row['القوة %']:.0f}%</span>
+                            </div>
                         </div>
-                        <!-- Price Power (Strength Metrics) -->
-                        <div style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 14px 8px; text-align: center; border: 1px solid #334155;">
-                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 6px;">💪 PRICE POWER</div>
-                            <div style="display: flex; justify-content: center; gap: 16px;">
-                                <div>
-                                    <div style="font-size: 10px; color: #64748b;">Strength</div>
-                                    <div style="font-size: 18px; font-weight: bold; color: {border_color};">{row['strength']:+.2f}</div>
+                        <div style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="font-size: 14px; color: #9ca3af;">📈 BASE Δ</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: {base_delta_color};">{row['Base Δ']:+.2f}</div>
                                 </div>
-                                <div>
-                                    <div style="font-size: 10px; color: #64748b;">Health Δ</div>
-                                    <div style="font-size: 18px; font-weight: bold; color: {'#10b981' if row['health_delta'] >= 0 else '#ef4444'};">{row['health_delta']:+.2f}</div>
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="font-size: 14px; color: #9ca3af;">📉 QUOTE Δ</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: {quote_delta_color};">{row['Quote Δ']:+.2f}</div>
                                 </div>
-                                <div>
-                                    <div style="font-size: 10px; color: #64748b;">Volatility</div>
-                                    <div style="font-size: 18px; font-weight: bold; color: #f59e0b;">{row['volatility']:.2f}</div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="font-size: 14px; color: #9ca3af;">💚 HEALTH Δ</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: {health_delta_color};">{row['Health Δ']:+.2f}</div>
                                 </div>
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="font-size: 14px; color: #9ca3af;">📊 VOLATILITY</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: #f59e0b;">{row['Volatility']:.2f}</div>
+                                </div>
+                            </div>
+                            <div style="text-align: center; padding: 8px; background: {row['conf_color']}20; border-radius: 10px; border: 1px solid {row['conf_color']};">
+                                <span style="font-size: 18px;">{row['conf_icon']}</span>
+                                <span style="font-size: 16px; font-weight: bold; color: {row['conf_color']};"> {row['Confirmation']}</span>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Row 2: Three Columns for Base vs Quote -->
-                    <div style="display: grid; grid-template-columns: 1fr 0.15fr 1fr; gap: 8px; margin-bottom: 16px;">
-                        <!-- Base Column -->
-                        <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 14px 10px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #334155; padding-bottom: 8px;">
-                                <span style="font-size: 28px;">{row['base_flag']}</span>
-                                <div>
-                                    <div style="font-weight: bold; color: #f1c40f; font-size: 16px;">{row['base']}</div>
-                                    <div style="font-size: 10px; color: #64748b;">{row['base_name']}</div>
-                                </div>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <!-- Economic Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">🏭 Economic:</span>
-                                    <span style="font-weight: bold; color: {row['base_eco_color']};">{row['base_eco_arrow']} {base_eco_str}</span>
-                                </div>
-                                <!-- Yield Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">📈 Yield:</span>
-                                    <span style="font-weight: bold; color: {row['base_yield_color']};">{row['base_yield_arrow']} {base_yield_str}</span>
-                                </div>
-                                <!-- Daily Score Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">📅 Daily Δ:</span>
-                                    <span style="font-weight: bold; color: {row['base_daily_color']};">{row['base_daily_arrow']} {row['base_daily_delta']:+.2f}</span>
-                                </div>
-                                <!-- Weekly Score Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">📆 Weekly Δ:</span>
-                                    <span style="font-weight: bold; color: {row['base_weekly_color']};">{row['base_weekly_arrow']} {row['base_weekly_delta']:+.2f}</span>
-                                </div>
-                                <!-- Monthly Score Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">🗓️ Monthly Δ:</span>
-                                    <span style="font-weight: bold; color: {row['base_monthly_color']};">{row['base_monthly_arrow']} {row['base_monthly_delta']:+.2f}</span>
-                                </div>
-                            </div>
-                        </div>
+                    '''
+                    st.markdown(card_html, unsafe_allow_html=True)
+                
+                # ================== الكرت الثاني ==================
+                with col2:
+                    if i + 1 < len(df_results):
+                        row = df_results.iloc[i + 1]
+                        pair = row["الزوج"]
                         
-                        <!-- VS Separator -->
-                        <div style="display: flex; align-items: center; justify-content: center; position: relative;">
-                            <div style="background: #334155; width: 2px; height: 80%;"></div>
-                            <div style="position: absolute; background: #1e293b; padding: 8px 4px; border-radius: 20px; border: 1px solid #475569;">
-                                <span style="color: #f1c40f; font-weight: bold; font-size: 14px;">VS</span>
-                            </div>
-                        </div>
+                        if "BUY" in row["الإشارة"]:
+                            bg_gradient = "linear-gradient(135deg, #0a2f1f, #051a0f)"
+                            border_color = "#10b981"
+                        elif "SELL" in row["الإشارة"]:
+                            bg_gradient = "linear-gradient(135deg, #2f1a1a, #1a0a0a)"
+                            border_color = "#ef4444"
+                        else:
+                            bg_gradient = "linear-gradient(135deg, #2d2a1a, #1f1c0f)"
+                            border_color = "#f59e0b"
                         
-                        <!-- Quote Column -->
-                        <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 14px 10px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #334155; padding-bottom: 8px;">
-                                <span style="font-size: 28px;">{row['quote_flag']}</span>
-                                <div>
-                                    <div style="font-weight: bold; color: #f1c40f; font-size: 16px;">{row['quote']}</div>
-                                    <div style="font-size: 10px; color: #64748b;">{row['quote_name']}</div>
+                        base_delta_color = "#10b981" if row['Base Δ'] >= 0 else "#ef4444"
+                        quote_delta_color = "#10b981" if row['Quote Δ'] >= 0 else "#ef4444"
+                        health_delta_color = "#10b981" if row['Health Δ'] >= 0 else "#ef4444"
+                        
+                        card_html = f'''
+                        <div style="background: {bg_gradient}; padding: 20px; border-radius: 20px; margin: 10px 0; border: 2px solid {border_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h2 style="margin:0; color: {border_color}; font-size: 28px;">{pair}</h2>
+                                <h1 style="margin:0; font-size: 42px;">{row['الإشارة']}</h1>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.5); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span style="font-size: 18px;">📊 قوة الزوج:</span>
+                                    <span style="font-size: 24px; font-weight: bold; color: {border_color};">{row['قوة الزوج']:+.2f}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="font-size: 18px;">⚡ قوة الإشارة:</span>
+                                    <span style="font-size: 20px; font-weight: bold;">{row['القوة %']:.0f}%</span>
                                 </div>
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <!-- Economic Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">🏭 Economic:</span>
-                                    <span style="font-weight: bold; color: {row['quote_eco_color']};">{row['quote_eco_arrow']} {quote_eco_str}</span>
+                            <div style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 15px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <div style="flex: 1; text-align: center;">
+                                        <div style="font-size: 14px; color: #9ca3af;">📈 BASE Δ</div>
+                                        <div style="font-size: 20px; font-weight: bold; color: {base_delta_color};">{row['Base Δ']:+.2f}</div>
+                                    </div>
+                                    <div style="flex: 1; text-align: center;">
+                                        <div style="font-size: 14px; color: #9ca3af;">📉 QUOTE Δ</div>
+                                        <div style="font-size: 20px; font-weight: bold; color: {quote_delta_color};">{row['Quote Δ']:+.2f}</div>
+                                    </div>
                                 </div>
-                                <!-- Yield Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">📈 Yield:</span>
-                                    <span style="font-weight: bold; color: {row['quote_yield_color']};">{row['quote_yield_arrow']} {quote_yield_str}</span>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <div style="flex: 1; text-align: center;">
+                                        <div style="font-size: 14px; color: #9ca3af;">💚 HEALTH Δ</div>
+                                        <div style="font-size: 20px; font-weight: bold; color: {health_delta_color};">{row['Health Δ']:+.2f}</div>
+                                    </div>
+                                    <div style="flex: 1; text-align: center;">
+                                        <div style="font-size: 14px; color: #9ca3af;">📊 VOLATILITY</div>
+                                        <div style="font-size: 20px; font-weight: bold; color: #f59e0b;">{row['Volatility']:.2f}</div>
+                                    </div>
                                 </div>
-                                <!-- Daily Score Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">📅 Daily Δ:</span>
-                                    <span style="font-weight: bold; color: {row['quote_daily_color']};">{row['quote_daily_arrow']} {row['quote_daily_delta']:+.2f}</span>
-                                </div>
-                                <!-- Weekly Score Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">📆 Weekly Δ:</span>
-                                    <span style="font-weight: bold; color: {row['quote_weekly_color']};">{row['quote_weekly_arrow']} {row['quote_weekly_delta']:+.2f}</span>
-                                </div>
-                                <!-- Monthly Score Change -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 12px; color: #94a3b8;">🗓️ Monthly Δ:</span>
-                                    <span style="font-weight: bold; color: {row['quote_monthly_color']};">{row['quote_monthly_arrow']} {row['quote_monthly_delta']:+.2f}</span>
+                                <div style="text-align: center; padding: 8px; background: {row['conf_color']}20; border-radius: 10px; border: 1px solid {row['conf_color']};">
+                                    <span style="font-size: 18px;">{row['conf_icon']}</span>
+                                    <span style="font-size: 16px; font-weight: bold; color: {row['conf_color']};"> {row['Confirmation']}</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <!-- Row 3: Confirmation Box -->
-                    <div style="background: {row['conf_color']}15; border-radius: 12px; padding: 12px; 
-                                text-align: center; border: 1.5px solid {row['conf_color']}; margin-top: 8px;">
-                        <span style="font-size: 20px; font-weight: bold; color: {row['conf_color']};">
-                            {row['confirmation']}
-                        </span>
-                    </div>
-                </div>
-                '''
-                st.components.v1.html(card_html, height=580, scrolling=False)
+                        '''
+                        st.markdown(card_html, unsafe_allow_html=True)
 
 # ──── Signal Matrix Tab ─────────────────────
 with tab_signal:
