@@ -1819,7 +1819,7 @@ with tab_signal:
         # ================== Calculate Data for Selected Date ==================
         selected_date = st.session_state.signal_selected_date
         
-        # ✅ إصلاح 1: تحويل selected_date إلى date object
+        # ✅ إصلاح: تحويل selected_date إلى date object
         if isinstance(selected_date, pd.Timestamp):
             selected_date = selected_date.date()
         
@@ -1838,7 +1838,7 @@ with tab_signal:
             else:
                 prev = None
             
-            # ================== ✅ إصلاح 2: معالجة بيانات Economy ==================
+            # ================== معالجة بيانات Economy ==================
             economy_today = None
             economy_prev = None
             if not db_economy.empty:
@@ -1851,7 +1851,6 @@ with tab_signal:
                     economy_today = eco_today_row.iloc[0]
                     
                     # ابحث عن التاريخ السابق في economy
-                    # نرتب التواريخ تنازلياً ونجد التاريخ الأقل من selected_date مباشرة
                     all_eco_dates = db_economy['Date'].sort_values(ascending=False).unique()
                     for eco_date in all_eco_dates:
                         if eco_date < selected_date:
@@ -1860,7 +1859,7 @@ with tab_signal:
                                 economy_prev = economy_prev_row.iloc[0]
                             break
             
-            # ================== ✅ إصلاح 3: معالجة بيانات Yield ==================
+            # ================== معالجة بيانات Yield ==================
             yield_today = None
             yield_prev = None
             if not db_yield.empty:
@@ -2027,7 +2026,7 @@ with tab_signal:
                     eco_arrow = get_arrow(eco_val, eco_prev)
                     eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
                     
-                    # ✅ إصلاح 4: عرض العائد كنسبة مئوية
+                    # ✅ إصلاح: عرض العائد كنسبة مئوية
                     if yld_val is not None:
                         yld_str = f"{yld_val:.2f}%"
                         yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
@@ -2107,7 +2106,7 @@ with tab_signal:
                     eco_arrow = get_arrow(eco_val, eco_prev)
                     eco_color, _ = get_delta_color_and_arrow(eco_val, eco_prev)
                     
-                    # ✅ إصلاح 4: عرض العائد كنسبة مئوية
+                    # ✅ إصلاح: عرض العائد كنسبة مئوية
                     if yld_val is not None:
                         yld_str = f"{yld_val:.2f}%"
                         yld_color, _ = get_delta_color_and_arrow(yld_val, yld_prev)
@@ -2188,10 +2187,12 @@ with tab_signal:
                 # === Economic ===
                 eco_current = None
                 eco_prev = None
-                if economy_today is not None and economy_prev is not None:
+                # ✅ فحص منفصل - مش شرط الاتنين موجودين مع بعض
+                if economy_today is not None:
                     if base in economy_today.index and quote in economy_today.index:
                         if pd.notna(economy_today[base]) and pd.notna(economy_today[quote]):
                             eco_current = economy_today[base] - economy_today[quote]
+                if economy_prev is not None:
                     if base in economy_prev.index and quote in economy_prev.index:
                         if pd.notna(economy_prev[base]) and pd.notna(economy_prev[quote]):
                             eco_prev = economy_prev[base] - economy_prev[quote]
@@ -2200,15 +2201,22 @@ with tab_signal:
                 eco_arrow = get_arrow(eco_current, eco_prev)
                 eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
                 
-               # === Yield ===
-yield_current = None
-yield_prev = None
-if yield_today is not None:  # ✅ شرط مرن - بيكتفي بوجود yield_today فقط
-    if base in yield_today.index and quote in yield_today.index:
-        # ... حساب القيمة
-if yield_prev is not None:  # ✅ فحص منفصل للقيمة السابقة
-    if base in yield_prev.index and quote in yield_prev.index:
-        # ... حساب القيمة السابقة
+                # === Yield ===
+                yield_current = None
+                yield_prev = None
+                # ✅ فحص منفصل - مش شرط الاتنين موجودين مع بعض
+                if yield_today is not None:
+                    if base in yield_today.index and quote in yield_today.index:
+                        if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
+                            yield_current = yield_today[base] - yield_today[quote]
+                if yield_prev is not None:
+                    if base in yield_prev.index and quote in yield_prev.index:
+                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
+                            yield_prev = yield_prev[base] - yield_prev[quote]
+                
+                yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, True)
+                yield_arrow = get_arrow(yield_current, yield_prev)
+                yield_display = f"{yield_current:+.2f}" if yield_current is not None else "N/A"
                 
                 # === Monthly ===
                 monthly_base_curr = monthly_current.get(base, 0)
@@ -2263,7 +2271,7 @@ if yield_prev is not None:  # ✅ فحص منفصل للقيمة السابقة
                     "Daily_Arrow": daily_arrow,
                 })
             
-            # Display table
+            # Display table using HTML for proper rendering
             st.markdown("""
             <style>
                 .signal-table {
@@ -2300,7 +2308,6 @@ if yield_prev is not None:  # ✅ فحص منفصل للقيمة السابقة
             </style>
             """, unsafe_allow_html=True)
             
-            # Display table using st.components.v1.html for proper rendering
             table_html = """
             <!DOCTYPE html>
             <html>
