@@ -2198,19 +2198,21 @@ with tab_signal:
                 eco_arrow = get_arrow(eco_current, eco_prev)
                 eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
                 
-                # === Yield ===
+                               # === Yield ===
                 yield_current = None
                 yield_prev = None
                 if yield_today is not None:
-                    if base in yield_today.index and quote in yield_today.index:
-                        if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
-                            yield_current = yield_today[base] - yield_today[quote]
-                if yield_prev is not None:
-                    if base in yield_prev.index and quote in yield_prev.index:
-                        if pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote]):
-                            yield_prev = yield_prev[base] - yield_prev[quote]
+                    if (base in yield_today.index and quote in yield_today.index and 
+                        pd.notna(yield_today[base]) and pd.notna(yield_today[quote])):
+                        yield_current = yield_today[base] - yield_today[quote]
                 
-                yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, True)
+                if yield_prev is not None:   # yield_prev من الـ previous row
+                    if (base in yield_prev.index and quote in yield_prev.index and 
+                        pd.notna(yield_prev[base]) and pd.notna(yield_prev[quote])):
+                        yield_prev = yield_prev[base] - yield_prev[quote]
+                
+                # تطبيق نفس اللوجيك الخاص بالـ Economic
+                yield_color = get_cell_color(yield_current, YIELD_THRESHOLD, is_positive_green=True)
                 yield_arrow = get_arrow(yield_current, yield_prev)
                 yield_display = f"{yield_current:+.2f}" if yield_current is not None else "N/A"
                 
