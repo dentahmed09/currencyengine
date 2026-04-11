@@ -1500,7 +1500,7 @@ with tab_results:
 # ──── Signal Matrix Tab ─────────────────────
 with tab_signal:
     st.header("📊 Signal Matrix - Multi-Timeframe Currency Strength")
-    st.caption("Economic • Yield • Monthly • Weekly • Daily — Color = Current Value, Arrow = Change vs Previous")
+    st.caption("Economic • Yield • Monthly • Weekly • Daily — White = Current Value, Arrow = Change vs Previous")
     
     if db_daily.empty:
         st.info("📊 Please enter daily data first")
@@ -1655,17 +1655,18 @@ with tab_signal:
                     monthly_prev_val[curr] = monthly_current[curr]
             
             # Helper functions
-            def get_cell_color(value, threshold, is_positive_green=True):
-                if value is None or pd.isna(value):
-                    return "#6b7280"
-                if abs(value) <= threshold:
-                    return "#f1c40f"
-                if is_positive_green:
-                    return "#10b981" if value > 0 else "#ef4444"
+            def get_arrow_color(current_val, prev_val):
+                """Return color for arrow based on direction of change"""
+                if current_val is None or prev_val is None or pd.isna(current_val) or pd.isna(prev_val):
+                    return "#f1c40f"  # Yellow for no data
+                if current_val > prev_val:
+                    return "#10b981"  # Green for up
+                elif current_val < prev_val:
+                    return "#ef4444"  # Red for down
                 else:
-                    return "#ef4444" if value > 0 else "#10b981"
+                    return "#f1c40f"  # Yellow for unchanged
             
-            def get_arrow(current_val, prev_val):
+            def get_arrow_symbol(current_val, prev_val):
                 if current_val is None or prev_val is None or pd.isna(current_val) or pd.isna(prev_val):
                     return "●"
                 if current_val > prev_val:
@@ -1705,28 +1706,28 @@ with tab_signal:
                     yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
                     
                     daily_delta = curr_val - curr_prev if prev is not None else 0
-                    daily_color = "#10b981" if daily_delta > 0 else ("#ef4444" if daily_delta < 0 else "#f1c40f")
-                    daily_arrow = "▲" if daily_delta > 0 else ("▼" if daily_delta < 0 else "●")
+                    daily_arrow = get_arrow_symbol(daily_delta, 0)
+                    daily_arrow_color = get_arrow_color(daily_delta, 0)
                     
                     weekly_curr = weekly_current.get(curr, curr_val)
                     weekly_prev_v = weekly_prev_val.get(curr, weekly_curr)
                     weekly_delta = weekly_curr - weekly_prev_v
-                    weekly_color = "#10b981" if weekly_delta > 0 else ("#ef4444" if weekly_delta < 0 else "#f1c40f")
-                    weekly_arrow = "▲" if weekly_delta > 0 else ("▼" if weekly_delta < 0 else "●")
+                    weekly_arrow = get_arrow_symbol(weekly_delta, 0)
+                    weekly_arrow_color = get_arrow_color(weekly_delta, 0)
                     
                     monthly_curr = monthly_current.get(curr, curr_val)
                     monthly_prev_v = monthly_prev_val.get(curr, monthly_curr)
                     monthly_delta = monthly_curr - monthly_prev_v
-                    monthly_color = "#10b981" if monthly_delta > 0 else ("#ef4444" if monthly_delta < 0 else "#f1c40f")
-                    monthly_arrow = "▲" if monthly_delta > 0 else ("▼" if monthly_delta < 0 else "●")
+                    monthly_arrow = get_arrow_symbol(monthly_delta, 0)
+                    monthly_arrow_color = get_arrow_color(monthly_delta, 0)
                     
                     eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
-                    eco_arrow = get_arrow(eco_val, eco_prev)
-                    eco_color = "#10b981" if (eco_val is not None and eco_prev is not None and eco_val > eco_prev) else ("#ef4444" if (eco_val is not None and eco_prev is not None and eco_val < eco_prev) else "#f1c40f")
+                    eco_arrow = get_arrow_symbol(eco_val, eco_prev)
+                    eco_arrow_color = get_arrow_color(eco_val, eco_prev)
                     
                     yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
-                    yld_arrow = get_arrow(yld_val, yld_prev)
-                    yld_color = "#10b981" if (yld_val is not None and yld_prev is not None and yld_val > yld_prev) else ("#ef4444" if (yld_val is not None and yld_prev is not None and yld_val < yld_prev) else "#f1c40f")
+                    yld_arrow = get_arrow_symbol(yld_val, yld_prev)
+                    yld_arrow_color = get_arrow_color(yld_val, yld_prev)
                     
                     flag = currency_flags.get(curr, "💰")
                     full_name = currency_full_names.get(curr, curr)
@@ -1745,23 +1746,23 @@ with tab_signal:
                         <div style="display: flex; flex-direction: column; gap: 5px;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">🏭 Economic:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {eco_color};">{eco_arrow} {eco_str}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {eco_arrow_color};">{eco_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{eco_str}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">📈 Yield:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {yld_color};">{yld_arrow} {yld_str}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {yld_arrow_color};">{yld_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{yld_str}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">📅 Daily Δ:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {daily_color};">{daily_arrow} {daily_delta:+.2f}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {daily_arrow_color};">{daily_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{daily_delta:+.2f}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">📆 Weekly Δ:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {weekly_color};">{weekly_arrow} {weekly_delta:+.2f}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {weekly_arrow_color};">{weekly_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{weekly_delta:+.2f}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">🗓️ Monthly Δ:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {monthly_color};">{monthly_arrow} {monthly_delta:+.2f}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {monthly_arrow_color};">{monthly_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{monthly_delta:+.2f}</span></span>
                             </div>
                         </div>
                     </div>
@@ -1781,28 +1782,28 @@ with tab_signal:
                     yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
                     
                     daily_delta = curr_val - curr_prev if prev is not None else 0
-                    daily_color = "#10b981" if daily_delta > 0 else ("#ef4444" if daily_delta < 0 else "#f1c40f")
-                    daily_arrow = "▲" if daily_delta > 0 else ("▼" if daily_delta < 0 else "●")
+                    daily_arrow = get_arrow_symbol(daily_delta, 0)
+                    daily_arrow_color = get_arrow_color(daily_delta, 0)
                     
                     weekly_curr = weekly_current.get(curr, curr_val)
                     weekly_prev_v = weekly_prev_val.get(curr, weekly_curr)
                     weekly_delta = weekly_curr - weekly_prev_v
-                    weekly_color = "#10b981" if weekly_delta > 0 else ("#ef4444" if weekly_delta < 0 else "#f1c40f")
-                    weekly_arrow = "▲" if weekly_delta > 0 else ("▼" if weekly_delta < 0 else "●")
+                    weekly_arrow = get_arrow_symbol(weekly_delta, 0)
+                    weekly_arrow_color = get_arrow_color(weekly_delta, 0)
                     
                     monthly_curr = monthly_current.get(curr, curr_val)
                     monthly_prev_v = monthly_prev_val.get(curr, monthly_curr)
                     monthly_delta = monthly_curr - monthly_prev_v
-                    monthly_color = "#10b981" if monthly_delta > 0 else ("#ef4444" if monthly_delta < 0 else "#f1c40f")
-                    monthly_arrow = "▲" if monthly_delta > 0 else ("▼" if monthly_delta < 0 else "●")
+                    monthly_arrow = get_arrow_symbol(monthly_delta, 0)
+                    monthly_arrow_color = get_arrow_color(monthly_delta, 0)
                     
                     eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
-                    eco_arrow = get_arrow(eco_val, eco_prev)
-                    eco_color = "#10b981" if (eco_val is not None and eco_prev is not None and eco_val > eco_prev) else ("#ef4444" if (eco_val is not None and eco_prev is not None and eco_val < eco_prev) else "#f1c40f")
+                    eco_arrow = get_arrow_symbol(eco_val, eco_prev)
+                    eco_arrow_color = get_arrow_color(eco_val, eco_prev)
                     
                     yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
-                    yld_arrow = get_arrow(yld_val, yld_prev)
-                    yld_color = "#10b981" if (yld_val is not None and yld_prev is not None and yld_val > yld_prev) else ("#ef4444" if (yld_val is not None and yld_prev is not None and yld_val < yld_prev) else "#f1c40f")
+                    yld_arrow = get_arrow_symbol(yld_val, yld_prev)
+                    yld_arrow_color = get_arrow_color(yld_val, yld_prev)
                     
                     flag = currency_flags.get(curr, "💰")
                     full_name = currency_full_names.get(curr, curr)
@@ -1821,23 +1822,23 @@ with tab_signal:
                         <div style="display: flex; flex-direction: column; gap: 5px;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">🏭 Economic:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {eco_color};">{eco_arrow} {eco_str}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {eco_arrow_color};">{eco_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{eco_str}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">📈 Yield:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {yld_color};">{yld_arrow} {yld_str}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {yld_arrow_color};">{yld_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{yld_str}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">📅 Daily Δ:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {daily_color};">{daily_arrow} {daily_delta:+.2f}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {daily_arrow_color};">{daily_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{daily_delta:+.2f}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">📆 Weekly Δ:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {weekly_color};">{weekly_arrow} {weekly_delta:+.2f}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {weekly_arrow_color};">{weekly_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{weekly_delta:+.2f}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 11px; color: #94a3b8;">🗓️ Monthly Δ:</span>
-                                <span style="font-weight: bold; font-size: 12px; color: {monthly_color};">{monthly_arrow} {monthly_delta:+.2f}</span>
+                                <span><span style="font-weight: bold; font-size: 12px; color: {monthly_arrow_color};">{monthly_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{monthly_delta:+.2f}</span></span>
                             </div>
                         </div>
                     </div>
@@ -1848,7 +1849,7 @@ with tab_signal:
             
             # ================== Pairs Signal Matrix ==================
             st.subheader("📈 Pairs Signal Matrix")
-            st.caption("Color = Current Value | Arrow = Change vs Previous")
+            st.caption("Economic • Yield • Monthly • Weekly • Daily — White = Current Value, Arrow = Change vs Previous")
             
             ECO_THRESHOLD = 2.0
             YIELD_THRESHOLD = 0.2
@@ -1877,11 +1878,11 @@ with tab_signal:
                             eco_current = economy_today[base] - economy_today[quote]
                             eco_prev = economy_prev[base] - economy_prev[quote]
                 
-                eco_color = get_cell_color(eco_current, ECO_THRESHOLD, True)
-                eco_arrow = get_arrow(eco_current, eco_prev)
+                eco_arrow = get_arrow_symbol(eco_current, eco_prev)
+                eco_arrow_color = get_arrow_color(eco_current, eco_prev)
                 eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
                 
-                # Yield (نفس اللوجيك تمامًا)
+                # Yield
                 yld_current = None
                 yld_prev = None
                 if yield_today is not None and yield_prev is not None:
@@ -1890,8 +1891,8 @@ with tab_signal:
                             yld_current = yield_today[base] - yield_today[quote]
                             yld_prev = yield_prev[base] - yield_prev[quote]
                 
-                yld_color = get_cell_color(yld_current, YIELD_THRESHOLD, True)
-                yld_arrow = get_arrow(yld_current, yld_prev)
+                yld_arrow = get_arrow_symbol(yld_current, yld_prev)
+                yld_arrow_color = get_arrow_color(yld_current, yld_prev)
                 yld_display = f"{yld_current:+.2f}" if yld_current is not None else "N/A"
                 
                 # Monthly
@@ -1902,8 +1903,8 @@ with tab_signal:
                 monthly_pair_current = m_base - m_quote
                 monthly_pair_prev = m_base_prev - m_quote_prev
                 
-                monthly_color = get_cell_color(monthly_pair_current, PRICE_THRESHOLD, True)
-                monthly_arrow = get_arrow(monthly_pair_current, monthly_pair_prev)
+                monthly_arrow = get_arrow_symbol(monthly_pair_current, monthly_pair_prev)
+                monthly_arrow_color = get_arrow_color(monthly_pair_current, monthly_pair_prev)
                 monthly_display = f"{monthly_pair_current:+.2f}"
                 
                 # Weekly
@@ -1914,25 +1915,25 @@ with tab_signal:
                 weekly_pair_current = w_base - w_quote
                 weekly_pair_prev = w_base_prev - w_quote_prev
                 
-                weekly_color = get_cell_color(weekly_pair_current, PRICE_THRESHOLD, True)
-                weekly_arrow = get_arrow(weekly_pair_current, weekly_pair_prev)
+                weekly_arrow = get_arrow_symbol(weekly_pair_current, weekly_pair_prev)
+                weekly_arrow_color = get_arrow_color(weekly_pair_current, weekly_pair_prev)
                 weekly_display = f"{weekly_pair_current:+.2f}"
                 
                 # Daily
                 daily_current = latest.get(base, 0) - latest.get(quote, 0)
                 daily_prev = (prev.get(base, 0) - prev.get(quote, 0)) if prev is not None else daily_current
                 
-                daily_color = get_cell_color(daily_current, PRICE_THRESHOLD, True)
-                daily_arrow = get_arrow(daily_current, daily_prev)
+                daily_arrow = get_arrow_symbol(daily_current, daily_prev)
+                daily_arrow_color = get_arrow_color(daily_current, daily_prev)
                 daily_display = f"{daily_current:+.2f}"
                 
                 table_data.append({
                     "Pair": pair,
-                    "Economic": eco_display, "Economic_Color": eco_color, "Economic_Arrow": eco_arrow,
-                    "Yield": yld_display, "Yield_Color": yld_color, "Yield_Arrow": yld_arrow,
-                    "Monthly": monthly_display, "Monthly_Color": monthly_color, "Monthly_Arrow": monthly_arrow,
-                    "Weekly": weekly_display, "Weekly_Color": weekly_color, "Weekly_Arrow": weekly_arrow,
-                    "Daily": daily_display, "Daily_Color": daily_color, "Daily_Arrow": daily_arrow,
+                    "Economic": eco_display, "Economic_Arrow": eco_arrow, "Economic_Arrow_Color": eco_arrow_color,
+                    "Yield": yld_display, "Yield_Arrow": yld_arrow, "Yield_Arrow_Color": yld_arrow_color,
+                    "Monthly": monthly_display, "Monthly_Arrow": monthly_arrow, "Monthly_Arrow_Color": monthly_arrow_color,
+                    "Weekly": weekly_display, "Weekly_Arrow": weekly_arrow, "Weekly_Arrow_Color": weekly_arrow_color,
+                    "Daily": daily_display, "Daily_Arrow": daily_arrow, "Daily_Arrow_Color": daily_arrow_color,
                 })
             
             # ================== HTML Table كامل ==================
@@ -1999,11 +2000,11 @@ with tab_signal:
                 table_html += f"""
                     <tr>
                         <td class="pair-cell">{row['Pair']}</td>
-                        <td style="color: {row['Economic_Color']};">{row['Economic_Arrow']} {row['Economic']}</td>
-                        <td style="color: {row['Yield_Color']};">{row['Yield_Arrow']} {row['Yield']}</td>
-                        <td style="color: {row['Monthly_Color']};">{row['Monthly_Arrow']} {row['Monthly']}</td>
-                        <td style="color: {row['Weekly_Color']};">{row['Weekly_Arrow']} {row['Weekly']}</td>
-                        <td style="color: {row['Daily_Color']};">{row['Daily_Arrow']} {row['Daily']}</td>
+                        <td><span style="font-weight: bold; color: {row['Economic_Arrow_Color']};">{row['Economic_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Economic']}</span></td>
+                        <td><span style="font-weight: bold; color: {row['Yield_Arrow_Color']};">{row['Yield_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Yield']}</span></td>
+                        <td><span style="font-weight: bold; color: {row['Monthly_Arrow_Color']};">{row['Monthly_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Monthly']}</span></td>
+                        <td><span style="font-weight: bold; color: {row['Weekly_Arrow_Color']};">{row['Weekly_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Weekly']}</span></td>
+                        <td><span style="font-weight: bold; color: {row['Daily_Arrow_Color']};">{row['Daily_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Daily']}</span></td>
                     </tr>
                 """
             
@@ -2020,11 +2021,9 @@ with tab_signal:
             st.markdown("---")
             st.markdown("""
             <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; padding: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #10b981; font-size: 20px;">▲</span> <span style="color: #94a3b8;">Increasing</span></div>
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #ef4444; font-size: 20px;">▼</span> <span style="color: #94a3b8;">Decreasing</span></div>
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #f1c40f; font-size: 20px;">●</span> <span style="color: #94a3b8;">Unchanged / Neutral</span></div>
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #10b981; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Positive</span></div>
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #ef4444; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Negative</span></div>
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="background: #f1c40f; width: 16px; height: 16px; border-radius: 4px;"></span> <span style="color: #94a3b8;">Neutral (± threshold)</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #10b981; font-size: 20px;">▲</span> <span style="color: #94a3b8;">Increasing (Up Arrow)</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #ef4444; font-size: 20px;">▼</span> <span style="color: #94a3b8;">Decreasing (Down Arrow)</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #f1c40f; font-size: 20px;">●</span> <span style="color: #94a3b8;">Unchanged / No Change</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: white; font-size: 16px; font-weight: bold;">+2.45</span> <span style="color: #94a3b8;">Value (always white)</span></div>
             </div>
             """, unsafe_allow_html=True)
