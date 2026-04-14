@@ -2427,9 +2427,9 @@ with tab_signal_engine:
 
                 # Daily alignment
                 if aligned is True:
-                    align_html = '<span style="color:#10b981;font-size:11px;">✓ متوافق</span>'
+                    align_html = '<span style="color:#10b981;font-size:11px;">✓ Yes</span>'
                 elif aligned is False:
-                    align_html = '<span style="color:#ef4444;font-size:11px;">✗ معاكس</span>'
+                    align_html = '<span style="color:#ef4444;font-size:11px;">✗ NO</span>'
                 else:
                     align_html = '<span style="color:#64748b;font-size:11px;">—</span>'
 
