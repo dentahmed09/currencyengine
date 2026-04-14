@@ -2301,7 +2301,7 @@ with tab_signal_engine:
         aligned     = len(df_se[df_se['daily_aligned']==True])
 
         st.markdown("---")
-        st.subheader("📊 ملخص اليوم")
+        st.subheader("📊 Daily Signals")
 
         c1,c2,c3,c4 = st.columns(4)
         with c1:
