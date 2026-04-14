@@ -2344,13 +2344,13 @@ with tab_signal_engine:
         st.markdown("---")
 
         # ══════════════════════════════════════════
-        # 7. فلتر
+        # 7. Filter
         # ══════════════════════════════════════════
         col_f1, col_f2 = st.columns([2,1])
         with col_f1:
             filter_opt = st.radio(
-                "فلتر:",
-                ["الكل", "STRONG فقط (77%)", "BUY فقط", "SELL فقط", "Daily Aligned"],
+                "Filter:",
+                ["ALL", "STRONG", "BUY", "SELL", "Daily Aligned"],
                 horizontal=True,
                 key="se_filter"
             )
@@ -2358,11 +2358,11 @@ with tab_signal_engine:
             show_wait = st.checkbox("إظهار WAIT", value=False, key="se_show_wait")
 
         df_filtered = df_se.copy()
-        if filter_opt == "STRONG فقط (77%)":
+        if filter_opt == "STRONG":
             df_filtered = df_filtered[df_filtered['strength'] == 'STRONG']
-        elif filter_opt == "BUY فقط":
+        elif filter_opt == "BUY":
             df_filtered = df_filtered[df_filtered['signal'] == 'BUY']
-        elif filter_opt == "SELL فقط":
+        elif filter_opt == "SELL":
             df_filtered = df_filtered[df_filtered['signal'] == 'SELL']
         elif filter_opt == "Daily Aligned":
             df_filtered = df_filtered[df_filtered['daily_aligned'] == True]
