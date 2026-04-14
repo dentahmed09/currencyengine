@@ -1699,11 +1699,26 @@ with tab_signal:
                     curr_val = latest[curr] if curr in latest.index else 0
                     curr_prev = prev[curr] if prev is not None and curr in prev.index else curr_val
                     
+                    # === تعديل الاقتصاد والعوائد لعرض التغير فقط ===
                     eco_val = economy_today[curr] if economy_today is not None and curr in economy_today.index and pd.notna(economy_today[curr]) else None
                     eco_prev = economy_prev[curr] if economy_prev is not None and curr in economy_prev.index and pd.notna(economy_prev[curr]) else eco_val
                     
                     yld_val = yield_today[curr] if yield_today is not None and curr in yield_today.index and pd.notna(yield_today[curr]) else None
                     yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
+                    
+                    # ===== تعديل النص ليكون التغير =====
+                    if eco_val is not None and eco_prev is not None:
+                        eco_delta = eco_val - eco_prev
+                        eco_str = f"{eco_delta:+.2f}"
+                    else:
+                        eco_str = "N/A"
+                        
+                    if yld_val is not None and yld_prev is not None:
+                        yld_delta = yld_val - yld_prev
+                        yld_str = f"{yld_delta:+.2f}%"
+                    else:
+                        yld_str = "N/A"
+                    # =================================
                     
                     daily_delta = curr_val - curr_prev if prev is not None else 0
                     daily_arrow = get_arrow_symbol(daily_delta, 0)
@@ -1721,11 +1736,9 @@ with tab_signal:
                     monthly_arrow = get_arrow_symbol(monthly_delta, 0)
                     monthly_arrow_color = get_arrow_color(monthly_delta, 0)
                     
-                    eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
                     eco_arrow = get_arrow_symbol(eco_val, eco_prev)
                     eco_arrow_color = get_arrow_color(eco_val, eco_prev)
                     
-                    yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
                     yld_arrow = get_arrow_symbol(yld_val, yld_prev)
                     yld_arrow_color = get_arrow_color(yld_val, yld_prev)
                     
@@ -1745,11 +1758,11 @@ with tab_signal:
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 5px;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 11px; color: #94a3b8;">🏭 Economic:</span>
+                                <span style="font-size: 11px; color: #94a3b8;">🏭 Economic Δ:</span>
                                 <span><span style="font-weight: bold; font-size: 12px; color: {eco_arrow_color};">{eco_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{eco_str}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 11px; color: #94a3b8;">📈 Yield:</span>
+                                <span style="font-size: 11px; color: #94a3b8;">📈 Yield Δ:</span>
                                 <span><span style="font-weight: bold; font-size: 12px; color: {yld_arrow_color};">{yld_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{yld_str}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1775,11 +1788,26 @@ with tab_signal:
                     curr_val = latest[curr] if curr in latest.index else 0
                     curr_prev = prev[curr] if prev is not None and curr in prev.index else curr_val
                     
+                    # === تعديل الاقتصاد والعوائد لعرض التغير فقط ===
                     eco_val = economy_today[curr] if economy_today is not None and curr in economy_today.index and pd.notna(economy_today[curr]) else None
                     eco_prev = economy_prev[curr] if economy_prev is not None and curr in economy_prev.index and pd.notna(economy_prev[curr]) else eco_val
                     
                     yld_val = yield_today[curr] if yield_today is not None and curr in yield_today.index and pd.notna(yield_today[curr]) else None
                     yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
+                    
+                    # ===== تعديل النص ليكون التغير =====
+                    if eco_val is not None and eco_prev is not None:
+                        eco_delta = eco_val - eco_prev
+                        eco_str = f"{eco_delta:+.2f}"
+                    else:
+                        eco_str = "N/A"
+                        
+                    if yld_val is not None and yld_prev is not None:
+                        yld_delta = yld_val - yld_prev
+                        yld_str = f"{yld_delta:+.2f}%"
+                    else:
+                        yld_str = "N/A"
+                    # =================================
                     
                     daily_delta = curr_val - curr_prev if prev is not None else 0
                     daily_arrow = get_arrow_symbol(daily_delta, 0)
@@ -1797,11 +1825,9 @@ with tab_signal:
                     monthly_arrow = get_arrow_symbol(monthly_delta, 0)
                     monthly_arrow_color = get_arrow_color(monthly_delta, 0)
                     
-                    eco_str = f"{eco_val:.2f}" if eco_val is not None else "N/A"
                     eco_arrow = get_arrow_symbol(eco_val, eco_prev)
                     eco_arrow_color = get_arrow_color(eco_val, eco_prev)
                     
-                    yld_str = f"{yld_val:.2f}%" if yld_val is not None else "N/A"
                     yld_arrow = get_arrow_symbol(yld_val, yld_prev)
                     yld_arrow_color = get_arrow_color(yld_val, yld_prev)
                     
@@ -1821,11 +1847,11 @@ with tab_signal:
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 5px;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 11px; color: #94a3b8;">🏭 Economic:</span>
+                                <span style="font-size: 11px; color: #94a3b8;">🏭 Economic Δ:</span>
                                 <span><span style="font-weight: bold; font-size: 12px; color: {eco_arrow_color};">{eco_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{eco_str}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 11px; color: #94a3b8;">📈 Yield:</span>
+                                <span style="font-size: 11px; color: #94a3b8;">📈 Yield Δ:</span>
                                 <span><span style="font-weight: bold; font-size: 12px; color: {yld_arrow_color};">{yld_arrow}</span> <span style="font-weight: bold; font-size: 12px; color: white;">{yld_str}</span></span>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
