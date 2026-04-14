@@ -2355,7 +2355,7 @@ with tab_signal_engine:
                 key="se_filter"
             )
         with col_f2:
-            show_wait = st.checkbox("إظهار WAIT", value=False, key="se_show_wait")
+            show_wait = st.checkbox("WAIT", value=False, key="se_show_wait")
 
         df_filtered = df_se.copy()
         if filter_opt == "STRONG":
