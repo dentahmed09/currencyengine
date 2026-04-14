@@ -2416,7 +2416,7 @@ with tab_signal_engine:
                     str_label = '◇ WEAK'
                 elif strength == 'ENTRY':
                     str_color = '#94a3b8'
-                    str_label = '↗ ENTRY'
+                    str_label = 'SCALP'
                 else:
                     str_color = '#475569'
                     str_label = '— NONE'
