@@ -2056,9 +2056,6 @@ with tab_signal:
             """, unsafe_allow_html=True)
 
 # ──── Signal Engine Tab ─────────────────────
-# أضف "📡 Signal Engine" لقائمة التبويبات الموجودة:
-# tab_dashboard, tab_results, tab_signal, tab_signal_engine = st.tabs([...])
-
 with tab_signal_engine:
     st.header("📡 Signal Engine")
     st.caption("نظام الإشارات المبني على الأولوية: Economic → Yield → Daily")
@@ -2113,10 +2110,6 @@ with tab_signal_engine:
         # 3. دوال الاتجاه
         # ══════════════════════════════════════════
         def get_direction(curr_row, prev_row, col):
-            """
-            يرجع: 'up' / 'down' / 'flat' / None
-            بناءً على مقارنة القيمة الحالية بالسابقة
-            """
             if curr_row is None or prev_row is None:
                 return None
             if col not in curr_row.index or col not in prev_row.index:
@@ -2132,28 +2125,16 @@ with tab_signal_engine:
             else:
                 return 'flat'
 
-        def direction_symbol(d):
-            if d == 'up':   return '▲', '#10b981'
-            if d == 'down': return '▼', '#ef4444'
-            if d == 'flat': return '●', '#f1c40f'
-            return '—', '#64748b'
-
         # ══════════════════════════════════════════
-        # 4. منطق الإشارة لكل زوج
+        # 4. منطق الإشارة لكل زوج (النظام الخماسي الجديد)
         # ══════════════════════════════════════════
         def get_pair_signal(base, quote):
-            """
-            Priority Waterfall:
-            1. Economic base UP  + Economic quote DOWN  → STRONG BUY  (77%)
-            2. Economic base DOWN + Economic quote UP   → STRONG SELL (77%)
-            3. Economic base UP/DOWN (بدون تعاكس)       → BUY/SELL    (70%)
-            4. Economic flat → شوف Yield               → BUY/SELL    (61%)
-            5. كل حاجة flat → Daily فقط               → ENTRY ONLY
-            """
             eco_base  = get_direction(eco_curr,   eco_prev,   base)
             eco_quote = get_direction(eco_curr,   eco_prev,   quote)
             yld_base  = get_direction(yield_curr, yield_prev, base)  if yield_curr is not None else None
             yld_quote = get_direction(yield_curr, yield_prev, quote) if yield_curr is not None else None
+            
+            # Daily alignment
             daily_val = None
             if daily_curr is not None:
                 b = daily_curr.get(base,  0)
@@ -2162,109 +2143,57 @@ with tab_signal_engine:
                     diff = b - q
                     daily_val = 'up' if diff > 0 else 'down' if diff < 0 else 'flat'
 
-            signal    = None
-            source    = None
-            strength  = None
+            signal     = None
             confidence = None
 
-            # ── Case 1 & 2: Economic تعاكس واضح ──
+            # ── 1️⃣ تقاطع اقتصادي كامل (80% مع Daily - 75% بدون Daily) ──
             if eco_base == 'up' and eco_quote == 'down':
-                signal     = 'BUY'
-                source     = 'Economic ↑↓'
-                strength   = 'STRONG'
-                confidence = 77
+                signal = 'BUY'
+                confidence = 80 if daily_val == 'up' else 75
 
             elif eco_base == 'down' and eco_quote == 'up':
-                signal     = 'SELL'
-                source     = 'Economic ↓↑'
-                strength   = 'STRONG'
-                confidence = 77
+                signal = 'SELL'
+                confidence = 80 if daily_val == 'down' else 75
 
-            # ── Case 3: Economic اتجاه بدون تعاكس ──
-            elif eco_base == 'up' and eco_quote != 'down':
-                signal     = 'BUY'
-                source     = 'Economic ↑'
-                strength   = 'MODERATE'
-                confidence = 70
+            # ── 2️⃣ حركة من طرف واحد (70% مع Daily - 65% بدون Daily) ──
+            elif (eco_base == 'up' and eco_quote != 'down') or \
+                 (eco_quote == 'down' and eco_base != 'up'):
+                signal = 'BUY'
+                confidence = 70 if daily_val == 'up' else 65
 
-            elif eco_base == 'down' and eco_quote != 'up':
-                signal     = 'SELL'
-                source     = 'Economic ↓'
-                strength   = 'MODERATE'
-                confidence = 70
+            elif (eco_base == 'down' and eco_quote != 'up') or \
+                 (eco_quote == 'up' and eco_base != 'down'):
+                signal = 'SELL'
+                confidence = 70 if daily_val == 'down' else 65
 
-            elif eco_quote == 'down' and eco_base != 'up':
-                signal     = 'BUY'
-                source     = 'Economic (Q↓)'
-                strength   = 'MODERATE'
-                confidence = 70
-
-            elif eco_quote == 'up' and eco_base != 'down':
-                signal     = 'SELL'
-                source     = 'Economic (Q↑)'
-                strength   = 'MODERATE'
-                confidence = 70
-
-            # ── Case 4: Economic ثبات → Yield ──
-            elif eco_base == 'flat' or eco_quote == 'flat' or eco_base is None:
+            # ── 3️⃣ اقتصاد ثابت + Yield + Daily متوافق (60% SCALP) ──
+            elif (eco_base == 'flat' or eco_quote == 'flat') or (eco_base is None):
+                yld_signal = None
                 if yld_base is not None and yld_quote is not None:
-                    if yld_base == 'up' and yld_quote != 'up':
-                        signal     = 'BUY'
-                        source     = 'Yield ↑'
-                        strength   = 'WEAK'
-                        confidence = 61
-                    elif yld_base == 'down' and yld_quote != 'down':
-                        signal     = 'SELL'
-                        source     = 'Yield ↓'
-                        strength   = 'WEAK'
-                        confidence = 61
-                    elif yld_quote == 'down' and yld_base != 'down':
-                        signal     = 'BUY'
-                        source     = 'Yield (Q↓)'
-                        strength   = 'WEAK'
-                        confidence = 61
-                    elif yld_quote == 'up' and yld_base != 'up':
-                        signal     = 'SELL'
-                        source     = 'Yield (Q↑)'
-                        strength   = 'WEAK'
-                        confidence = 61
-
-            # ── Case 5: Daily فقط للدخول ──
-            if signal is None:
-                if daily_val == 'up':
-                    signal     = 'BUY'
-                    source     = 'Daily Entry'
-                    strength   = 'ENTRY'
-                    confidence = 83  # هدف فقط، مش إغلاق
-                elif daily_val == 'down':
-                    signal     = 'SELL'
-                    source     = 'Daily Entry'
-                    strength   = 'ENTRY'
-                    confidence = 83
+                    if (yld_base == 'up' and yld_quote != 'up') or (yld_quote == 'down' and yld_base != 'down'):
+                        yld_signal = 'BUY'
+                    elif (yld_base == 'down' and yld_quote != 'down') or (yld_quote == 'up' and yld_base != 'up'):
+                        yld_signal = 'SELL'
+                
+                # لازم Yield + Daily متوافقين
+                if yld_signal == 'BUY' and daily_val == 'up':
+                    signal = 'BUY'
+                    confidence = 60
+                elif yld_signal == 'SELL' and daily_val == 'down':
+                    signal = 'SELL'
+                    confidence = 60
                 else:
-                    signal     = 'WAIT'
-                    source     = '—'
-                    strength   = 'NONE'
+                    signal = 'WAIT'
                     confidence = 0
 
-            # ── Daily Entry Alignment ──
-            daily_aligned = None
-            if daily_val is not None and daily_val != 'flat' and signal in ['BUY','SELL']:
-                if (signal == 'BUY'  and daily_val == 'up') or \
-                   (signal == 'SELL' and daily_val == 'down'):
-                    daily_aligned = True
-                else:
-                    daily_aligned = False
+            # ── 4️⃣ لا توجد إشارة ──
+            else:
+                signal = 'WAIT'
+                confidence = 0
 
             return {
-                'signal':        signal,
-                'source':        source,
-                'strength':      strength,
-                'confidence':    confidence,
-                'eco_base':      eco_base,
-                'eco_quote':     eco_quote,
-                'daily_aligned': daily_aligned,
-                'daily_dir':     daily_val,
+                'signal':     signal,
+                'confidence': confidence,
             }
 
         # ══════════════════════════════════════════
@@ -2289,184 +2218,154 @@ with tab_signal_engine:
         df_se = pd.DataFrame(results_se)
 
         # ══════════════════════════════════════════
-        # 6. ملخص الإشارات (metric cards)
+        # 6. ملخص الإشارات (5 metric cards)
         # ══════════════════════════════════════════
-        strong_buy  = len(df_se[(df_se['signal']=='BUY')  & (df_se['strength']=='STRONG')])
-        strong_sell = len(df_se[(df_se['signal']=='SELL') & (df_se['strength']=='STRONG')])
-        mod_buy     = len(df_se[(df_se['signal']=='BUY')  & (df_se['strength']=='MODERATE')])
-        mod_sell    = len(df_se[(df_se['signal']=='SELL') & (df_se['strength']=='MODERATE')])
-        weak        = len(df_se[df_se['strength']=='WEAK'])
-        entry_only  = len(df_se[df_se['strength']=='ENTRY'])
-        wait        = len(df_se[df_se['signal']=='WAIT'])
-        aligned     = len(df_se[df_se['daily_aligned']==True])
+        count_80 = len(df_se[df_se['confidence'] == 80])
+        count_75 = len(df_se[df_se['confidence'] == 75])
+        count_70 = len(df_se[df_se['confidence'] == 70])
+        count_65 = len(df_se[df_se['confidence'] == 65])
+        count_60 = len(df_se[df_se['confidence'] == 60])
 
         st.markdown("---")
         st.subheader("📊 Daily Signals")
 
-        c1,c2,c3,c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         with c1:
             st.markdown(f"""
-            <div style='background:rgba(16,185,129,0.1); border:1px solid #10b981;
-                        border-radius:12px; padding:14px; text-align:center;'>
-                <div style='font-size:11px;color:#94a3b8;'>STRONG BUY / SELL</div>
-                <div style='font-size:28px;font-weight:bold;color:#10b981;'>{strong_buy}</div>
-                <div style='font-size:11px;color:#ef4444;font-weight:bold;'>{strong_sell} SELL</div>
-                <div style='font-size:10px;color:#f1c40f;'>77% confidence</div>
+            <div style='background:rgba(5,150,105,0.15); border:1px solid #059669;
+                        border-radius:12px; padding:16px; text-align:center;'>
+                <div style='font-size:12px;color:#94a3b8;'>STRONG+</div>
+                <div style='font-size:32px;font-weight:bold;color:#059669;'>{count_80}</div>
+                <div style='font-size:11px;color:#059669;font-weight:bold;'>80%</div>
+                <div style='font-size:10px;color:#64748b;'>Cross + Daily</div>
             </div>""", unsafe_allow_html=True)
         with c2:
             st.markdown(f"""
-            <div style='background:rgba(241,196,15,0.1); border:1px solid #f1c40f;
-                        border-radius:12px; padding:14px; text-align:center;'>
-                <div style='font-size:11px;color:#94a3b8;'>MODERATE BUY / SELL</div>
-                <div style='font-size:28px;font-weight:bold;color:#f1c40f;'>{mod_buy}</div>
-                <div style='font-size:11px;color:#f1c40f;font-weight:bold;'>{mod_sell} SELL</div>
-                <div style='font-size:10px;color:#f1c40f;'>70% confidence</div>
+            <div style='background:rgba(16,185,129,0.15); border:1px solid #10b981;
+                        border-radius:12px; padding:16px; text-align:center;'>
+                <div style='font-size:12px;color:#94a3b8;'>STRONG</div>
+                <div style='font-size:32px;font-weight:bold;color:#10b981;'>{count_75}</div>
+                <div style='font-size:11px;color:#10b981;font-weight:bold;'>75%</div>
+                <div style='font-size:10px;color:#64748b;'>Cross Only</div>
             </div>""", unsafe_allow_html=True)
         with c3:
             st.markdown(f"""
-            <div style='background:rgba(99,102,241,0.1); border:1px solid #818cf8;
-                        border-radius:12px; padding:14px; text-align:center;'>
-                <div style='font-size:11px;color:#94a3b8;'>YIELD / ENTRY</div>
-                <div style='font-size:28px;font-weight:bold;color:#818cf8;'>{weak + entry_only}</div>
-                <div style='font-size:11px;color:#94a3b8;'>{weak} Yield • {entry_only} Entry</div>
-                <div style='font-size:10px;color:#f1c40f;'>61% / 83% target</div>
+            <div style='background:rgba(241,196,15,0.15); border:1px solid #f1c40f;
+                        border-radius:12px; padding:16px; text-align:center;'>
+                <div style='font-size:12px;color:#94a3b8;'>MODERATE</div>
+                <div style='font-size:32px;font-weight:bold;color:#f1c40f;'>{count_70}</div>
+                <div style='font-size:11px;color:#f1c40f;font-weight:bold;'>70%</div>
+                <div style='font-size:10px;color:#64748b;'>One-Side + Daily</div>
             </div>""", unsafe_allow_html=True)
         with c4:
             st.markdown(f"""
-            <div style='background:rgba(148,163,184,0.1); border:1px solid #475569;
-                        border-radius:12px; padding:14px; text-align:center;'>
-                <div style='font-size:11px;color:#94a3b8;'>Daily Aligned</div>
-                <div style='font-size:28px;font-weight:bold;color:#e2e8f0;'>{aligned}</div>
-                <div style='font-size:11px;color:#94a3b8;'>{wait} WAIT</div>
-                <div style='font-size:10px;color:#94a3b8;'>إشارة + دخول متوافقين</div>
+            <div style='background:rgba(249,115,22,0.15); border:1px solid #f97316;
+                        border-radius:12px; padding:16px; text-align:center;'>
+                <div style='font-size:12px;color:#94a3b8;'>WEAK</div>
+                <div style='font-size:32px;font-weight:bold;color:#f97316;'>{count_65}</div>
+                <div style='font-size:11px;color:#f97316;font-weight:bold;'>65%</div>
+                <div style='font-size:10px;color:#64748b;'>One-Side Only</div>
+            </div>""", unsafe_allow_html=True)
+        with c5:
+            st.markdown(f"""
+            <div style='background:rgba(139,92,246,0.15); border:1px solid #8b5cf6;
+                        border-radius:12px; padding:16px; text-align:center;'>
+                <div style='font-size:12px;color:#94a3b8;'>SCALP</div>
+                <div style='font-size:32px;font-weight:bold;color:#8b5cf6;'>{count_60}</div>
+                <div style='font-size:11px;color:#8b5cf6;font-weight:bold;'>60%</div>
+                <div style='font-size:10px;color:#64748b;'>Flat + Yield + Daily</div>
             </div>""", unsafe_allow_html=True)
 
         st.markdown("---")
 
         # ══════════════════════════════════════════
-        # 7. Filter
+        # 7. ترتيب الجدول حسب النسبة
         # ══════════════════════════════════════════
-        col_f1, col_f2 = st.columns([2,1])
-        with col_f1:
-            filter_opt = st.radio(
-                "Filter:",
-                ["ALL", "STRONG", "BUY", "SELL", "Daily Aligned"],
-                horizontal=True,
-                key="se_filter"
-            )
-        with col_f2:
-            show_wait = st.checkbox("WAIT", value=False, key="se_show_wait")
-
-        df_filtered = df_se.copy()
-        if filter_opt == "STRONG":
-            df_filtered = df_filtered[df_filtered['strength'] == 'STRONG']
-        elif filter_opt == "BUY":
-            df_filtered = df_filtered[df_filtered['signal'] == 'BUY']
-        elif filter_opt == "SELL":
-            df_filtered = df_filtered[df_filtered['signal'] == 'SELL']
-        elif filter_opt == "Daily Aligned":
-            df_filtered = df_filtered[df_filtered['daily_aligned'] == True]
-
-        if not show_wait:
-            df_filtered = df_filtered[df_filtered['signal'] != 'WAIT']
+        # ترتيب مخصص: WAIT في الآخر
+        df_se['_sort'] = df_se['confidence'].replace(0, -1)
+        df_filtered = df_se.sort_values('_sort', ascending=False).drop('_sort', axis=1)
 
         # ══════════════════════════════════════════
-        # 8. الجدول الرئيسي
+        # 8. الجدول الرئيسي (3 أعمدة فقط)
         # ══════════════════════════════════════════
-        strength_order = {'STRONG': 0, 'MODERATE': 1, 'WEAK': 2, 'ENTRY': 3, 'NONE': 4}
-        df_filtered['_order'] = df_filtered['strength'].map(strength_order)
-        df_filtered = df_filtered.sort_values(['_order', 'confidence'], ascending=[True, False])
-
         def build_signal_table(df):
             rows_html = ""
             for _, row in df.iterrows():
                 pair      = row['pair']
                 signal    = row['signal']
-                source    = row['source']
-                strength  = row['strength']
                 conf      = row['confidence']
-                eco_b     = row['eco_base']
-                eco_q     = row['eco_quote']
-                daily_dir = row['daily_dir']
-                aligned   = row['daily_aligned']
 
-                # ألوان الإشارة
+                # تحديد الألوان حسب الإشارة والنسبة
                 if signal == 'BUY':
-                    sig_color = '#10b981'
-                    sig_bg    = 'rgba(16,185,129,0.15)'
-                    border_c  = '#10b981'
+                    if conf == 80:
+                        sig_color = '#059669'
+                        sig_bg    = 'rgba(5,150,105,0.2)'
+                        border_c  = '#059669'
+                    elif conf == 75:
+                        sig_color = '#10b981'
+                        sig_bg    = 'rgba(16,185,129,0.2)'
+                        border_c  = '#10b981'
+                    elif conf == 70:
+                        sig_color = '#f1c40f'
+                        sig_bg    = 'rgba(241,196,15,0.2)'
+                        border_c  = '#f1c40f'
+                    elif conf == 65:
+                        sig_color = '#f97316'
+                        sig_bg    = 'rgba(249,115,22,0.2)'
+                        border_c  = '#f97316'
+                    elif conf == 60:
+                        sig_color = '#8b5cf6'
+                        sig_bg    = 'rgba(139,92,246,0.2)'
+                        border_c  = '#8b5cf6'
+                    else:
+                        sig_color = '#64748b'
+                        sig_bg    = 'rgba(100,116,139,0.1)'
+                        border_c  = '#64748b'
                 elif signal == 'SELL':
                     sig_color = '#ef4444'
-                    sig_bg    = 'rgba(239,68,68,0.15)'
+                    sig_bg    = 'rgba(239,68,68,0.2)'
                     border_c  = '#ef4444'
+                else:  # WAIT
+                    sig_color = '#64748b'
+                    sig_bg    = 'rgba(100,116,139,0.1)'
+                    border_c  = '#475569'
+
+                # شريط الثقة
+                if conf > 0:
+                    if conf == 80:
+                        bar_color = '#059669'
+                    elif conf == 75:
+                        bar_color = '#10b981'
+                    elif conf == 70:
+                        bar_color = '#f1c40f'
+                    elif conf == 65:
+                        bar_color = '#f97316'
+                    elif conf == 60:
+                        bar_color = '#8b5cf6'
+                    else:
+                        bar_color = '#64748b'
+                    
+                    conf_display = f"""
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="background:#1e293b;border-radius:4px;height:6px;width:50px;overflow:hidden;">
+                            <div style="background:{bar_color};height:100%;width:{conf}%;border-radius:4px;"></div>
+                        </div>
+                        <span style="font-size:13px;color:{bar_color};font-weight:700;">{conf}%</span>
+                    </div>
+                    """
                 else:
-                    sig_color = '#f1c40f'
-                    sig_bg    = 'rgba(241,196,15,0.1)'
-                    border_c  = '#f1c40f'
-
-                # قوة الإشارة
-                if strength == 'STRONG':
-                    str_color = '#10b981'
-                    str_label = '⚡ STRONG'
-                elif strength == 'MODERATE':
-                    str_color = '#f1c40f'
-                    str_label = '◆ MODERATE'
-                elif strength == 'WEAK':
-                    str_color = '#818cf8'
-                    str_label = '◇ WEAK'
-                elif strength == 'ENTRY':
-                    str_color = '#94a3b8'
-                    str_label = 'SCALP'
-                else:
-                    str_color = '#475569'
-                    str_label = '— NONE'
-
-                # اتجاه Economic
-                eb_sym, eb_col = direction_symbol(eco_b)
-                eq_sym, eq_col = direction_symbol(eco_q)
-
-                # Daily alignment
-                if aligned is True:
-                    align_html = '<span style="color:#10b981;font-size:11px;">✓ Yes</span>'
-                elif aligned is False:
-                    align_html = '<span style="color:#ef4444;font-size:11px;">✗ NO</span>'
-                else:
-                    align_html = '<span style="color:#64748b;font-size:11px;">—</span>'
-
-                # Daily direction
-                dd_sym, dd_col = direction_symbol(daily_dir)
-
-                # Confidence bar
-                bar_color = '#10b981' if conf >= 75 else '#f1c40f' if conf >= 60 else '#94a3b8'
+                    conf_display = '<span style="font-size:13px;color:#64748b;">—</span>'
 
                 rows_html += f"""
                 <tr style="border-bottom:1px solid #1e293b;">
-                    <td style="padding:10px 8px;font-weight:700;color:#e2e8f0;font-size:13px;">{pair}</td>
-                    <td style="padding:10px 8px;">
+                    <td style="padding:12px 10px;font-weight:700;color:#e2e8f0;font-size:14px;">{pair}</td>
+                    <td style="padding:12px 10px;">
                         <span style="background:{sig_bg};color:{sig_color};border:1px solid {border_c};
-                                     padding:3px 10px;border-radius:20px;font-weight:700;font-size:12px;">
+                                     padding:5px 14px;border-radius:20px;font-weight:700;font-size:13px;">
                             {signal}
                         </span>
                     </td>
-                    <td style="padding:10px 8px;font-size:11px;color:{str_color};font-weight:600;">{str_label}</td>
-                    <td style="padding:10px 8px;text-align:center;">
-                        <span style="color:{eb_col};font-weight:bold;">{eb_sym}</span>
-                        <span style="color:#64748b;font-size:10px;"> vs </span>
-                        <span style="color:{eq_col};font-weight:bold;">{eq_sym}</span>
-                    </td>
-                    <td style="padding:10px 8px;font-size:11px;color:#94a3b8;">{source}</td>
-                    <td style="padding:10px 8px;">
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <div style="background:#1e293b;border-radius:4px;height:6px;width:60px;overflow:hidden;">
-                                <div style="background:{bar_color};height:100%;width:{conf}%;border-radius:4px;"></div>
-                            </div>
-                            <span style="font-size:11px;color:{bar_color};font-weight:600;">{conf}%</span>
-                        </div>
-                    </td>
-                    <td style="padding:10px 8px;text-align:center;">
-                        <span style="color:{dd_col};font-weight:bold;">{dd_sym}</span>
-                    </td>
-                    <td style="padding:10px 8px;text-align:center;">{align_html}</td>
+                    <td style="padding:12px 10px;">{conf_display}</td>
                 </tr>"""
             return rows_html
 
@@ -2478,8 +2377,8 @@ with tab_signal_engine:
             table {{ width:100%; border-collapse:collapse;
                     background:linear-gradient(135deg,#0f172a,#1e293b);
                     border-radius:12px; overflow:hidden; }}
-            th {{ background:#1e293b; color:#f1c40f; padding:10px 8px;
-                 text-align:left; font-size:11px; font-weight:600;
+            th {{ background:#1e293b; color:#f1c40f; padding:12px 10px;
+                 text-align:left; font-size:12px; font-weight:600;
                  border-bottom:2px solid #f1c40f; white-space:nowrap; }}
             tr:hover {{ background:rgba(241,196,15,0.04); }}
         </style></head><body>
@@ -2487,18 +2386,13 @@ with tab_signal_engine:
             <thead><tr>
                 <th>Pair</th>
                 <th>Signal</th>
-                <th>Strength</th>
-                <th>Eco B vs Q</th>
-                <th>Source</th>
                 <th>Confidence</th>
-                <th>Daily</th>
-                <th>Aligned</th>
             </tr></thead>
             <tbody>{build_signal_table(df_filtered)}</tbody>
         </table></body></html>"""
 
         row_count   = len(df_filtered)
-        table_height = max(200, row_count * 44 + 60)
+        table_height = max(200, row_count * 52 + 60)
         st.components.v1.html(table_html, height=table_height, scrolling=True)
 
         # ══════════════════════════════════════════
@@ -2507,10 +2401,10 @@ with tab_signal_engine:
         st.markdown("---")
         st.markdown("""
         <div style="display:flex;flex-wrap:wrap;gap:20px;padding:10px;font-size:12px;">
-            <span style="color:#10b981;">⚡ STRONG = اقتصادين متعاكسين (77%)</span>
-            <span style="color:#f1c40f;">◆ MODERATE = اقتصاد واتجاه واحد (70%)</span>
-            <span style="color:#818cf8;">◇ WEAK = Yield فقط (61%)</span>
-            <span style="color:#94a3b8;">↗ ENTRY = Daily فقط — هدف 83% مش إغلاق</span>
-            <span style="color:#10b981;">✓ Aligned = إشارة ودخول في نفس الاتجاه</span>
+            <span style="color:#059669;">⬤ 80% = تقاطع اقتصادي + Daily متوافق</span>
+            <span style="color:#10b981;">⬤ 75% = تقاطع اقتصادي فقط</span>
+            <span style="color:#f1c40f;">⬤ 70% = حركة طرف واحد + Daily متوافق</span>
+            <span style="color:#f97316;">⬤ 65% = حركة طرف واحد فقط</span>
+            <span style="color:#8b5cf6;">⬤ 60% = اقتصاد ثابت + Yield + Daily (SCALP)</span>
         </div>
         """, unsafe_allow_html=True)
