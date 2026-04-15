@@ -2295,32 +2295,11 @@ with tab_signal_engine:
                 signal    = row['signal']
                 conf      = row['confidence']
 
-                # تحديد الألوان حسب الإشارة والنسبة
+                # لون الإشارة ثابت: BUY = أخضر / SELL = أحمر / WAIT = رمادي
                 if signal == 'BUY':
-                    if conf == 80:
-                        sig_color = '#059669'
-                        sig_bg    = 'rgba(5,150,105,0.2)'
-                        border_c  = '#059669'
-                    elif conf == 75:
-                        sig_color = '#10b981'
-                        sig_bg    = 'rgba(16,185,129,0.2)'
-                        border_c  = '#10b981'
-                    elif conf == 70:
-                        sig_color = '#f1c40f'
-                        sig_bg    = 'rgba(241,196,15,0.2)'
-                        border_c  = '#f1c40f'
-                    elif conf == 65:
-                        sig_color = '#f97316'
-                        sig_bg    = 'rgba(249,115,22,0.2)'
-                        border_c  = '#f97316'
-                    elif conf == 60:
-                        sig_color = '#8b5cf6'
-                        sig_bg    = 'rgba(139,92,246,0.2)'
-                        border_c  = '#8b5cf6'
-                    else:
-                        sig_color = '#64748b'
-                        sig_bg    = 'rgba(100,116,139,0.1)'
-                        border_c  = '#64748b'
+                    sig_color = '#10b981'
+                    sig_bg    = 'rgba(16,185,129,0.2)'
+                    border_c  = '#10b981'
                 elif signal == 'SELL':
                     sig_color = '#ef4444'
                     sig_bg    = 'rgba(239,68,68,0.2)'
@@ -2330,27 +2309,33 @@ with tab_signal_engine:
                     sig_bg    = 'rgba(100,116,139,0.1)'
                     border_c  = '#475569'
 
-                # شريط الثقة
+                # لون شريط الثقة يتغير حسب النسبة
                 if conf > 0:
                     if conf == 80:
                         bar_color = '#059669'
+                        conf_color = '#059669'
                     elif conf == 75:
                         bar_color = '#10b981'
+                        conf_color = '#10b981'
                     elif conf == 70:
                         bar_color = '#f1c40f'
+                        conf_color = '#f1c40f'
                     elif conf == 65:
                         bar_color = '#f97316'
+                        conf_color = '#f97316'
                     elif conf == 60:
                         bar_color = '#8b5cf6'
+                        conf_color = '#8b5cf6'
                     else:
                         bar_color = '#64748b'
+                        conf_color = '#64748b'
                     
                     conf_display = f"""
                     <div style="display:flex;align-items:center;gap:8px;">
                         <div style="background:#1e293b;border-radius:4px;height:6px;width:50px;overflow:hidden;">
                             <div style="background:{bar_color};height:100%;width:{conf}%;border-radius:4px;"></div>
                         </div>
-                        <span style="font-size:13px;color:{bar_color};font-weight:700;">{conf}%</span>
+                        <span style="font-size:13px;color:{conf_color};font-weight:700;">{conf}%</span>
                     </div>
                     """
                 else:
@@ -2368,32 +2353,6 @@ with tab_signal_engine:
                     <td style="padding:12px 10px;">{conf_display}</td>
                 </tr>"""
             return rows_html
-
-        table_html = f"""
-        <!DOCTYPE html><html><head><meta charset="UTF-8">
-        <style>
-            body {{ margin:0; padding:0; background:transparent;
-                   font-family: -apple-system, BlinkMacSystemFont, sans-serif; }}
-            table {{ width:100%; border-collapse:collapse;
-                    background:linear-gradient(135deg,#0f172a,#1e293b);
-                    border-radius:12px; overflow:hidden; }}
-            th {{ background:#1e293b; color:#f1c40f; padding:12px 10px;
-                 text-align:left; font-size:12px; font-weight:600;
-                 border-bottom:2px solid #f1c40f; white-space:nowrap; }}
-            tr:hover {{ background:rgba(241,196,15,0.04); }}
-        </style></head><body>
-        <table>
-            <thead><tr>
-                <th>Pair</th>
-                <th>Signal</th>
-                <th>Confidence</th>
-            </tr></thead>
-            <tbody>{build_signal_table(df_filtered)}</tbody>
-        </table></body></html>"""
-
-        row_count   = len(df_filtered)
-        table_height = max(200, row_count * 52 + 60)
-        st.components.v1.html(table_html, height=table_height, scrolling=True)
 
         # ══════════════════════════════════════════
         # 9. Legend
