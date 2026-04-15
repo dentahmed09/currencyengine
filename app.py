@@ -2354,6 +2354,32 @@ with tab_signal_engine:
                 </tr>"""
             return rows_html
 
+        table_html = f"""
+        <!DOCTYPE html><html><head><meta charset="UTF-8">
+        <style>
+            body {{ margin:0; padding:0; background:transparent;
+                   font-family: -apple-system, BlinkMacSystemFont, sans-serif; }}
+            table {{ width:100%; border-collapse:collapse;
+                    background:linear-gradient(135deg,#0f172a,#1e293b);
+                    border-radius:12px; overflow:hidden; }}
+            th {{ background:#1e293b; color:#f1c40f; padding:12px 10px;
+                 text-align:left; font-size:12px; font-weight:600;
+                 border-bottom:2px solid #f1c40f; white-space:nowrap; }}
+            tr:hover {{ background:rgba(241,196,15,0.04); }}
+        </style></head><body>
+        <table>
+            <thead><tr>
+                <th>Pair</th>
+                <th>Signal</th>
+                <th>Confidence</th>
+            </tr></thead>
+            <tbody>{build_signal_table(df_filtered)}</tbody>
+        </table></body></html>"""
+
+        row_count   = len(df_filtered)
+        table_height = max(200, row_count * 52 + 60)
+        st.components.v1.html(table_html, height=table_height, scrolling=True)
+
         # ══════════════════════════════════════════
         # 9. Legend
         # ══════════════════════════════════════════
