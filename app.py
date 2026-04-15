@@ -2278,12 +2278,14 @@ with tab_signal_engine:
 
         st.markdown("---")
 
+              # ══════════════════════════════════════════
+        # 7. ترتيب الجدول حسب النسبة + حذف WAIT
         # ══════════════════════════════════════════
-        # 7. ترتيب الجدول حسب النسبة
-        # ══════════════════════════════════════════
-        # ترتيب مخصص: WAIT في الآخر
         df_se['_sort'] = df_se['confidence'].replace(0, -1)
         df_filtered = df_se.sort_values('_sort', ascending=False).drop('_sort', axis=1)
+        
+        # حذف صفوف WAIT من الجدول
+        df_filtered = df_filtered[df_filtered['signal'] != 'WAIT']
 
         # ══════════════════════════════════════════
         # 8. الجدول الرئيسي (3 أعمدة فقط)
@@ -2379,17 +2381,3 @@ with tab_signal_engine:
         row_count   = len(df_filtered)
         table_height = max(200, row_count * 52 + 60)
         st.components.v1.html(table_html, height=table_height, scrolling=True)
-
-        # ══════════════════════════════════════════
-        # 9. Legend
-        # ══════════════════════════════════════════
-        st.markdown("---")
-        st.markdown("""
-        <div style="display:flex;flex-wrap:wrap;gap:20px;padding:10px;font-size:12px;">
-            <span style="color:#059669;">⬤ 80% = تقاطع اقتصادي + Daily متوافق</span>
-            <span style="color:#10b981;">⬤ 75% = تقاطع اقتصادي فقط</span>
-            <span style="color:#f1c40f;">⬤ 70% = حركة طرف واحد + Daily متوافق</span>
-            <span style="color:#f97316;">⬤ 65% = حركة طرف واحد فقط</span>
-            <span style="color:#8b5cf6;">⬤ 60% = اقتصاد ثابت + Yield + Daily (SCALP)</span>
-        </div>
-        """, unsafe_allow_html=True)
