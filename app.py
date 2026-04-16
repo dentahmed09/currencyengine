@@ -364,7 +364,7 @@ def render_unified_date_selector(db_daily):
                 display:flex; align-items:center; gap:8px;'>
         <span style='color:#f1c40f; font-size:13px; font-weight:600;'>DATE</span>
         <span style='color:#334155; font-size:11px;'>|</span>
-        <span style='color:#64748b; font-size:11px;'>اختر التاريخ لعرض التحليل في جميع التبويبات</span>
+        <span style='color:#64748b; font-size:11px;'>Choose The date</span>
     </div>
     """, unsafe_allow_html=True)
 
