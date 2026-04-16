@@ -19,106 +19,146 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(credentials)
 
-# ──── Custom CSS for Professional Design ──────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# ✅ CSS جديد تماماً - شكل احترافي وألوان محسّنة
+# ══════════════════════════════════════════════════════════════
 def inject_custom_css():
     st.markdown("""
     <style>
-        /* Main container styling */
-        .main-header {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            padding: 1.5rem 2rem;
-            border-radius: 20px;
-            margin-bottom: 2rem;
-            border: 1px solid rgba(241, 196, 15, 0.3);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+        
+        /* ── Global ── */
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
         }
         
+        /* ── Main Header ── */
+        .main-header {
+            background: #0f172a;
+            padding: 1.5rem 2rem;
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(241,196,15,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .main-header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #f1c40f, #e67e22, #f1c40f);
+        }
         .main-header h1 {
             color: #f1c40f;
             margin: 0;
-            font-size: 2rem;
+            font-size: 1.6rem;
             font-weight: 700;
+            letter-spacing: -0.02em;
         }
-        
         .main-header p {
-            color: #94a3b8;
-            margin: 0.5rem 0 0 0;
-            font-size: 0.9rem;
+            color: #64748b;
+            margin: 0.4rem 0 0;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
-        
-        /* Currency Cards */
-        .currency-card {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 15px;
-            padding: 1rem;
-            text-align: center;
-            border: 1px solid #334155;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-        
-        .currency-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-            border-color: #f1c40f;
-        }
-        
-        .currency-symbol {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
-        }
-        
-        .currency-strength {
-            font-size: 1.8rem;
-            font-weight: bold;
-            margin: 0.5rem 0;
-        }
-        
-        .positive {
-            color: #10b981;
-        }
-        
-        .negative {
-            color: #ef4444;
-        }
-        
-        .neutral {
-            color: #f1c40f;
-        }
-        
-        .currency-change {
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-        }
-        
-        .currency-metrics {
+
+        /* ── Date Selector Banner ── */
+        .date-banner {
+            background: #0f172a;
+            border: 1px solid rgba(241,196,15,0.3);
+            border-radius: 12px;
+            padding: 0.8rem 1.2rem;
+            margin-bottom: 1.5rem;
             display: flex;
-            justify-content: space-between;
-            margin-top: 0.5rem;
-            font-size: 0.7rem;
-            color: #94a3b8;
+            align-items: center;
+            gap: 1rem;
         }
-        
-        /* Analytics Box */
-        .analytics-box {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 15px;
-            padding: 1.2rem;
-            border: 1px solid #334155;
-            margin-bottom: 1rem;
+
+        /* ── Tabs ── */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0;
+            background: #0f172a;
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid #1e293b;
         }
-        
-        .analytics-title {
-            color: #f1c40f;
-            font-size: 1rem;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            border-bottom: 2px solid #f1c40f;
-            display: inline-block;
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 8px;
+            padding: 0.5rem 1.2rem;
+            font-size: 13px;
+            font-weight: 500;
+            color: #64748b;
+            border: none;
         }
+        .stTabs [aria-selected="true"] {
+            background: #1e293b !important;
+            color: #f1c40f !important;
+        }
+
+        /* ── Metric Cards ── */
+        .metric-card {
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 1rem 1.2rem;
+            border: 1px solid #1e293b;
+            transition: border-color 0.2s;
+        }
+        .metric-card:hover {
+            border-color: rgba(241,196,15,0.3);
+        }
+
+        /* ── Section Headers ── */
+        .section-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: #475569;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin: 1.5rem 0 0.75rem;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        /* ── Tables ── */
+        [data-testid="stMetric"] {
+            background: #0f172a;
+            border-radius: 10px;
+            padding: 0.8rem;
+            border: 1px solid #1e293b;
+        }
+
+        /* ── Buttons ── */
+        .stButton button {
+            background: #f1c40f;
+            color: #0f172a;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            transition: all 0.15s;
+        }
+        .stButton button:hover {
+            background: #e67e22;
+            transform: translateY(-1px);
+        }
+
+        /* ── Selectbox ── */
+        .stSelectbox > div > div {
+            background: #0f172a;
+            border-color: #1e293b;
+            border-radius: 8px;
+        }
+
+        /* ── Dividers ── */
+        hr { border-color: #1e293b; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
         
-        /* Pair Cards */
+        /* ── Pair Cards ── */
         .pair-card {
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
             border-radius: 15px;
@@ -208,21 +248,7 @@ def inject_custom_css():
             transition: width 0.3s;
         }
         
-        /* Tab styling */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 2rem;
-            background-color: #0f172a;
-            padding: 0.5rem;
-            border-radius: 12px;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-        }
-        
-        /* Form styling */
+        /* ── Form styling ── */
         .stForm {
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
             border-radius: 15px;
@@ -230,30 +256,22 @@ def inject_custom_css():
             border: 1px solid #334155;
         }
         
-        /* Button styling */
-        .stButton button {
-            background: linear-gradient(135deg, #f1c40f, #e67e22);
-            color: #0f172a;
-            font-weight: bold;
-            border: none;
-            transition: all 0.2s;
-        }
-        
-        .stButton button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(241, 196, 15, 0.3);
-        }
-        
-        /* Metric styling */
-        [data-testid="stMetric"] {
+        /* ── Analytics Box ── */
+        .analytics-box {
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 12px;
-            padding: 0.8rem;
+            border-radius: 15px;
+            padding: 1.2rem;
             border: 1px solid #334155;
+            margin-bottom: 1rem;
         }
         
-        hr {
-            border-color: #334155;
+        .analytics-title {
+            color: #f1c40f;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #f1c40f;
+            display: inline-block;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -318,971 +336,474 @@ db_monthly = load_data(MONTHLY_WS, "Month_Start")
 db_yield   = load_data(YIELD_WS, "Date")
 db_economy = load_data(ECONOMY_WS, "Date")
 
-tab_dashboard, tab_results, tab_signal, tab_signal_engine = st.tabs([
-    "📊 Daily Dashboard",
-    "🔍 Pair Matrix", 
-    "📊 Signal Matrix",
-    "📡 Signal Engine"
-])
+# ══════════════════════════════════════════════════════════════
+# ✅ 1. Date Selector موحد في أعلى الصفحة (قبل التبويبات)
+# ══════════════════════════════════════════════════════════════
+def render_unified_date_selector(db_daily):
+    """
+    يرجع التاريخ المختار ويخزنه في session_state['selected_date']
+    استخدمه في كل التبويبات بدل ما كل تبويب يعمل selector منفصل
+    """
+    if db_daily.empty:
+        return None
 
-# ──── Daily Dashboard Tab ─────────────────────────────────
-with tab_dashboard:
+    db_daily['Date'] = pd.to_datetime(db_daily['Date']).dt.date
+    all_dates = db_daily['Date'].sort_values(ascending=False).tolist()
+
+    date_options = []
+    date_map = {}
+    for d in all_dates:
+        ds = d.strftime("%Y-%m-%d")
+        label = f"📅 {ds}  ·  Latest" if d == all_dates[0] else f"📅 {ds}"
+        date_options.append(label)
+        date_map[label] = d
+
+    st.markdown("""
+    <div style='background:#0f172a; border:1px solid rgba(241,196,15,0.25);
+                border-radius:10px; padding:10px 16px; margin-bottom:1.2rem;
+                display:flex; align-items:center; gap:8px;'>
+        <span style='color:#f1c40f; font-size:13px; font-weight:600;'>DATE</span>
+        <span style='color:#334155; font-size:11px;'>|</span>
+        <span style='color:#64748b; font-size:11px;'>اختر التاريخ لعرض التحليل في جميع التبويبات</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        selected_label = st.selectbox(
+            "",
+            options=date_options,
+            index=0,
+            key="global_date_selector",
+            label_visibility="collapsed"
+        )
+
+    selected_date = date_map[selected_label]
+    st.session_state['selected_date'] = selected_date
+    return selected_date
+
+# استدعاء الـ Unified Date Selector
+selected_date = render_unified_date_selector(db_daily)
+if selected_date is None:
+    st.stop()
+
+# ══════════════════════════════════════════════════════════════
+# ✅ 3 & 4. ألوان جديدة للشارتات + عرض الشارتات فوق بعض
+# ══════════════════════════════════════════════════════════════
+CURRENCY_COLORS = {
+    'USD': '#3b82f6',   # أزرق
+    'EUR': '#f1c40f',   # ذهبي
+    'GBP': '#a78bfa',   # بنفسجي فاتح
+    'JPY': '#f43f5e',   # وردي أحمر
+    'CHF': '#e2e8f0',   # أبيض فضي
+    'CAD': '#fb923c',   # برتقالي
+    'AUD': '#34d399',   # أخضر زمردي
+    'NZD': '#22d3ee',   # سماوي
+}
+
+currencies_list = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD']
+
+def render_stacked_charts(db_economy, db_yield):
+    """
+    يرسم شارت الاقتصاد وشارت العوائد فوق بعض
+    بعرض كامل للصفحة وبألوان مختلفة تماماً
+    """
+
+    # ── شارت الاقتصاد ──
+    st.markdown('<div class="section-header">🏭 Economic Strength — All Currencies</div>',
+                unsafe_allow_html=True)
+
+    if not db_economy.empty:
+        econ_data = db_economy.copy()
+        econ_data['Date'] = pd.to_datetime(econ_data['Date'])
+        econ_data = econ_data.sort_values('Date')
+
+        fig_econ = go.Figure()
+
+        for currency in currencies_list:
+            if currency in econ_data.columns:
+                cd = econ_data[['Date', currency]].dropna()
+                if not cd.empty:
+                    fig_econ.add_trace(go.Scatter(
+                        x=cd['Date'],
+                        y=cd[currency],
+                        mode='lines',
+                        name=currency,
+                        line=dict(
+                            color=CURRENCY_COLORS.get(currency, '#94a3b8'),
+                            width=2
+                        ),
+                        hovertemplate=f'<b>{currency}</b>: %{{y:.2f}}<extra></extra>'
+                    ))
+
+        fig_econ.update_layout(
+            height=380,
+            template="plotly_dark",
+            hovermode='x unified',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(15,23,42,0.8)',
+            margin=dict(l=0, r=0, t=10, b=0),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom", y=1.01,
+                xanchor="center", x=0.5,
+                font=dict(size=11),
+                bgcolor='rgba(0,0,0,0)'
+            ),
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(30,41,59,0.8)',
+                tickfont=dict(size=10),
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(30,41,59,0.8)',
+                tickfont=dict(size=10),
+                zeroline=True,
+                zerolinecolor='rgba(241,196,15,0.4)',
+                zerolinewidth=1.5,
+            ),
+        )
+        fig_econ.add_hline(y=0, line_dash="dot",
+                           line_color="rgba(241,196,15,0.3)",
+                           line_width=1)
+
+        st.plotly_chart(fig_econ, use_container_width=True, key="econ_chart_full")
+    else:
+        st.info("📊 لا توجد بيانات اقتصادية")
+
+    # ── مسافة ──
+    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+
+    # ── شارت العوائد ──
+    st.markdown('<div class="section-header">📈 Real Yield — All Currencies</div>',
+                unsafe_allow_html=True)
+
+    if not db_yield.empty:
+        yield_data = db_yield.copy()
+        yield_data['Date'] = pd.to_datetime(yield_data['Date'])
+        yield_data = yield_data.sort_values('Date')
+
+        fig_yield = go.Figure()
+
+        for currency in currencies_list:
+            if currency in yield_data.columns:
+                cd = yield_data[['Date', currency]].dropna()
+                if not cd.empty:
+                    fig_yield.add_trace(go.Scatter(
+                        x=cd['Date'],
+                        y=cd[currency],
+                        mode='lines',
+                        name=currency,
+                        line=dict(
+                            color=CURRENCY_COLORS.get(currency, '#94a3b8'),
+                            width=2
+                        ),
+                        hovertemplate=f'<b>{currency}</b>: %{{y:.2f}}%<extra></extra>'
+                    ))
+
+        fig_yield.update_layout(
+            height=380,
+            template="plotly_dark",
+            hovermode='x unified',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(15,23,42,0.8)',
+            margin=dict(l=0, r=0, t=10, b=0),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom", y=1.01,
+                xanchor="center", x=0.5,
+                font=dict(size=11),
+                bgcolor='rgba(0,0,0,0)'
+            ),
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(30,41,59,0.8)',
+                tickfont=dict(size=10),
+            ),
+            yaxis=dict(
+                title=dict(text="Yield %", font=dict(size=10)),
+                showgrid=True,
+                gridcolor='rgba(30,41,59,0.8)',
+                tickfont=dict(size=10),
+                zeroline=True,
+                zerolinecolor='rgba(241,196,15,0.4)',
+                zerolinewidth=1.5,
+            ),
+        )
+        fig_yield.add_hline(y=0, line_dash="dot",
+                            line_color="rgba(241,196,15,0.3)",
+                            line_width=1)
+
+        st.plotly_chart(fig_yield, use_container_width=True, key="yield_chart_full")
+    else:
+        st.info("📊 لا توجد بيانات عوائد")
+
+# ══════════════════════════════════════════════════════════════
+# ✅ 2. Daily Dashboard الجديد (بدون Currency Cards)
+# ══════════════════════════════════════════════════════════════
+def render_dashboard_tab(db_daily, db_economy, db_yield, db_weekly, db_monthly, selected_date):
+
     if db_daily.empty:
         st.info("📊 Please enter daily data first")
-    else:
-        st.header("🌙 Daily Dashboard")
-        
-        # ========== Date Dropdown ==========
-        if 'Date' not in db_daily.columns:
-            st.error("Date column not found in data")
-        else:
-            # Convert dates properly
-            db_daily['Date'] = pd.to_datetime(db_daily['Date']).dt.date
-            date_options = db_daily['Date'].tolist()
-            date_options_str = [d.strftime('%Y-%m-%d') for d in date_options]
-            
-            selected_date_str = st.selectbox(
-                "📅 Select Date to View Analysis:",
-                options=date_options_str,
-                index=len(date_options_str)-1
-            )
-            
-            # Get selected date
-            selected_date = pd.to_datetime(selected_date_str).date()
-            selected_row = db_daily[db_daily['Date'] == selected_date]
-            
-            if selected_row.empty:
-                st.error(f"❌ No data found for {selected_date_str}")
-                current_data = db_daily.iloc[-1]
-                selected_date = current_data['Date']
-            else:
-                current_data = selected_row.iloc[0]
-            
-            # Get previous data if available
-            date_index = db_daily[db_daily['Date'] == selected_date].index[0]
-            if date_index > 0:
-                prev_data = db_daily.iloc[date_index - 1]
-            else:
-                prev_data = None
-            
-            st.markdown("---")
-            
-            # ========== Regional Power (3 separate boxes) ==========
-            st.subheader("🌍 Regional Power")
-            
-            # Define currencies by region
-            us_currencies_codes = ['USD', 'CAD']
-            europe_currencies_codes = ['GBP', 'EUR', 'CHF']
-            asia_currencies_codes = ['AUD', 'NZD', 'JPY']
-            
-            # Calculate averages based on selected date
-            us_power = current_data[us_currencies_codes].mean() if all(c in current_data.index for c in us_currencies_codes) else 0
-            europe_power = current_data[europe_currencies_codes].mean() if all(c in current_data.index for c in europe_currencies_codes) else 0
-            asia_power = current_data[asia_currencies_codes].mean() if all(c in current_data.index for c in asia_currencies_codes) else 0
-            
-            # Function to determine color
-            def get_color(value):
-                if value > 0:
-                    return "#10b981"
-                elif value < 0:
-                    return "#ef4444"
-                else:
-                    return "#6b7280"
-            
-            # Display three boxes in a row
-            col_r1, col_r2, col_r3 = st.columns(3)
-            
-            with col_r1:
-                st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 20px; text-align: center;
-                            border: 2px solid {get_color(us_power)};'>
-                    <div style='font-size: 40px; margin-bottom: 10px;'>🇺🇸</div>
-                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>America</div>
-                    <div style='font-size: 32px; font-weight: bold; color: {get_color(us_power)};'>{us_power:+.2f}</div>
-                    <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
-                        USD, CAD
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col_r2:
-                st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 20px; text-align: center;
-                            border: 2px solid {get_color(europe_power)};'>
-                    <div style='font-size: 40px; margin-bottom: 10px;'>🇪🇺</div>
-                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Europe</div>
-                    <div style='font-size: 32px; font-weight: bold; color: {get_color(europe_power)};'>{europe_power:+.2f}</div>
-                    <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
-                        GBP, EUR, CHF
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col_r3:
-                st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 20px; text-align: center;
-                            border: 2px solid {get_color(asia_power)};'>
-                    <div style='font-size: 40px; margin-bottom: 10px;'>🇯🇵</div>
-                    <div style='font-size: 20px; font-weight: bold; margin-bottom: 10px;'>Asia</div>
-                    <div style='font-size: 32px; font-weight: bold; color: {get_color(asia_power)};'>{asia_power:+.2f}</div>
-                    <div style='font-size: 12px; color: #94a3b8; margin-top: 10px;'>
-                        AUD, NZD, JPY
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Strongest region
-            powers = {'Americas': us_power, 'Europe': europe_power, 'Asia': asia_power}
-            strongest_region = max(powers, key=powers.get)
-            strongest_value_region = powers[strongest_region]
-            
+        return
+
+    db_daily['Date'] = pd.to_datetime(db_daily['Date']).dt.date
+    selected_row = db_daily[db_daily['Date'] == selected_date]
+    if selected_row.empty:
+        st.error(f"❌ No data for {selected_date}")
+        return
+
+    current_data = selected_row.iloc[0]
+    date_index = selected_row.index[0]
+    prev_data = db_daily.iloc[date_index - 1] if date_index > 0 else None
+
+    # Economy & Yield للتاريخ المختار
+    economy_data_today = None
+    yield_data_today = None
+    if not db_economy.empty:
+        db_economy['Date'] = pd.to_datetime(db_economy['Date']).dt.date
+        eco_row = db_economy[db_economy['Date'] == selected_date]
+        if not eco_row.empty:
+            economy_data_today = eco_row.iloc[0]
+    if not db_yield.empty:
+        db_yield['Date'] = pd.to_datetime(db_yield['Date']).dt.date
+        yld_row = db_yield[db_yield['Date'] == selected_date]
+        if not yld_row.empty:
+            yield_data_today = yld_row.iloc[0]
+
+    def get_color(value):
+        if value > 0: return "#10b981"
+        elif value < 0: return "#ef4444"
+        return "#475569"
+
+    currency_flags = {
+        "USD":"🇺🇸","EUR":"🇪🇺","GBP":"🇬🇧","JPY":"🇯🇵",
+        "CHF":"🇨🇭","CAD":"🇨🇦","AUD":"🇦🇺","NZD":"🇳🇿"
+    }
+    currency_full_names = {
+        "USD":"US Dollar","EUR":"Euro","GBP":"British Pound",
+        "JPY":"Japanese Yen","CHF":"Swiss Franc","CAD":"Canadian Dollar",
+        "AUD":"Australian Dollar","NZD":"New Zealand Dollar"
+    }
+
+    # ── Regional Power ──
+    st.markdown('<div class="section-header">🌍 Regional Power</div>', unsafe_allow_html=True)
+
+    us_power  = current_data[['USD','CAD']].mean()
+    eu_power  = current_data[['GBP','EUR','CHF']].mean()
+    asi_power = current_data[['AUD','NZD','JPY']].mean()
+
+    r1, r2, r3 = st.columns(3)
+    for col, label, emoji, power, members in [
+        (r1, "Americas", "🇺🇸", us_power,  "USD · CAD"),
+        (r2, "Europe",   "🇪🇺", eu_power,  "GBP · EUR · CHF"),
+        (r3, "Asia-Pac", "🇯🇵", asi_power, "AUD · NZD · JPY"),
+    ]:
+        c = get_color(power)
+        with col:
             st.markdown(f"""
-            <div style='background: #1e2a3a; border-radius: 10px; padding: 10px; text-align: center; margin: 20px 0;'>
-                <span style='color: #f1c40f;'>🏆 Strongest Region Currently:</span>
-                <span style='font-weight: bold; color: #10b981;'>{strongest_region}</span>
-                <span style='color: #f1c40f;'> ({strongest_value_region:+.2f})</span>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("---")
-            
-            # ========== Currency Rankings (Economic Power & Yield) ==========
-            st.subheader("📊 Currency Rankings")
-            
-            # Full names for display
-            currency_full_names = {
-                "USD": "US Dollar",
-                "EUR": "Euro",
-                "GBP": "British Pound",
-                "JPY": "Japanese Yen",
-                "CHF": "Swiss Franc",
-                "CAD": "Canadian Dollar",
-                "AUD": "Australian Dollar",
-                "NZD": "New Zealand Dollar"
-            }
-            
-            currency_flags = {
-                "USD": "🇺🇸",
-                "EUR": "🇪🇺",
-                "GBP": "🇬🇧",
-                "JPY": "🇯🇵",
-                "CHF": "🇨🇭",
-                "CAD": "🇨🇦",
-                "AUD": "🇦🇺",
-                "NZD": "🇳🇿"
-            }
-            
-            # جلب بيانات الاقتصاد والعوائد لليوم المختار
-            economy_data_today = None
-            yield_data_today = None
-            
-            if not db_economy.empty:
-                economy_row = db_economy[db_economy['Date'] == selected_date]
-                if not economy_row.empty:
-                    economy_data_today = economy_row.iloc[0]
-            
-            if not db_yield.empty:
-                yield_row = db_yield[db_yield['Date'] == selected_date]
-                if not yield_row.empty:
-                    yield_data_today = yield_row.iloc[0]
-            
-            # Create two columns for side-by-side rankings
-            col_rank1, col_rank2 = st.columns(2)
-            
-            # ===== Column 1: Economic Power Ranking =====
-            with col_rank1:
-                st.markdown("""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 15px; 
-                            border: 1px solid #334155;'>
-                    <div style='text-align: center; margin-bottom: 15px;'>
-                        <span style='font-size: 24px;'>🏭</span>
-                        <h4 style='color: #f1c40f; margin: 0;'>Economic Power Ranking</h4>
-                        <span style='font-size: 12px; color: #94a3b8;'>Strongest → Weakest</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Collect economic strength data for all currencies
-                economic_ranking = []
-                currencies_list = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD']
-                
-                if economy_data_today is not None:
-                    for currency_code in currencies_list:
-                        if currency_code in economy_data_today.index:
-                            eco_val = economy_data_today[currency_code]
-                            if pd.notna(eco_val):
-                                full_name = currency_full_names.get(currency_code, currency_code)
-                                flag = currency_flags.get(currency_code, "💰")
-                                economic_ranking.append({
-                                    'currency': currency_code,
-                                    'name': full_name,
-                                    'flag': flag,
-                                    'value': eco_val
-                                })
-                
-                # Sort from largest to smallest
-                economic_ranking.sort(key=lambda x: x['value'], reverse=True)
-                
-                if economic_ranking:
-                    for idx, item in enumerate(economic_ranking, 1):
-                        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
-                        value_color = "#10b981" if item['value'] >= 0 else "#ef4444"
-                        
-                        st.markdown(f"""
-                        <div style='display: flex; align-items: center; justify-content: space-between; 
-                                    padding: 10px 12px; margin: 8px 0; 
-                                    background: rgba(0,0,0,0.3); border-radius: 10px;
-                                    border-left: 3px solid {value_color};'>
-                            <div style='display: flex; align-items: center; gap: 12px;'>
-                                <span style='font-size: 18px; font-weight: bold; width: 35px;'>{medal}</span>
-                                <span style='font-size: 28px;'>{item['flag']}</span>
-                                <div>
-                                    <span style='font-weight: bold;'>{item['currency']}</span>
-                                    <span style='font-size: 11px; color: #94a3b8; margin-left: 5px;'>{item['name']}</span>
-                                </div>
-                            </div>
-                            <span style='font-weight: bold; font-size: 18px; color: {value_color};'>{item['value']:+.2f}</span>
+            <div style='background:#0f172a; border:1px solid {c}40;
+                        border-radius:14px; padding:20px; text-align:center;
+                        border-top:2px solid {c};'>
+                <div style='font-size:36px; margin-bottom:8px;'>{emoji}</div>
+                <div style='font-size:13px; font-weight:600; color:#94a3b8;
+                            letter-spacing:0.08em; text-transform:uppercase;'>{label}</div>
+                <div style='font-size:30px; font-weight:700; color:{c};
+                            margin:8px 0; font-family:"JetBrains Mono",monospace;'>{power:+.2f}</div>
+                <div style='font-size:11px; color:#475569;'>{members}</div>
+            </div>""", unsafe_allow_html=True)
+
+    # Strongest Region
+    powers = {'Americas': us_power, 'Europe': eu_power, 'Asia-Pac': asi_power}
+    strongest = max(powers, key=powers.get)
+    st.markdown(f"""
+    <div style='background:#0f172a; border:1px solid #1e293b; border-radius:8px;
+                padding:8px 16px; text-align:center; margin:12px 0;'>
+        <span style='color:#475569; font-size:12px;'>Strongest Region</span>
+        <span style='color:#f1c40f; font-weight:700; font-size:13px; margin-left:8px;'>
+            {strongest} · {powers[strongest]:+.2f}
+        </span>
+    </div>""", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ── Currency Rankings ──
+    st.markdown('<div class="section-header">📊 Currency Rankings</div>', unsafe_allow_html=True)
+
+    col_eco, col_yld = st.columns(2)
+
+    def render_ranking(col, title, icon, data_today, unit=""):
+        with col:
+            st.markdown(f"""
+            <div style='background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:16px;'>
+                <div style='text-align:center; margin-bottom:12px;'>
+                    <span style='font-size:18px;'>{icon}</span>
+                    <span style='color:#f1c40f; font-size:13px; font-weight:600;
+                                 margin-left:6px; text-transform:uppercase;
+                                 letter-spacing:0.06em;'>{title}</span>
+                </div>""", unsafe_allow_html=True)
+
+            if data_today is not None:
+                ranking = []
+                for curr in currencies_list:
+                    if curr in data_today.index:
+                        v = data_today[curr]
+                        if pd.notna(v):
+                            ranking.append({'curr': curr, 'val': v})
+                ranking.sort(key=lambda x: x['val'], reverse=True)
+
+                for idx, item in enumerate(ranking, 1):
+                    medal = ["🥇","🥈","🥉"][idx-1] if idx <= 3 else f"{idx}."
+                    vc = "#10b981" if item['val'] > 0 else "#ef4444"
+                    flag = currency_flags.get(item['curr'], "")
+                    st.markdown(f"""
+                    <div style='display:flex; align-items:center; justify-content:space-between;
+                                padding:8px 10px; margin:4px 0;
+                                background:rgba(0,0,0,0.3); border-radius:8px;
+                                border-left:2px solid {vc};'>
+                        <div style='display:flex; align-items:center; gap:10px;'>
+                            <span style='font-size:15px; min-width:28px;'>{medal}</span>
+                            <span style='font-size:20px;'>{flag}</span>
+                            <span style='font-weight:600; font-size:13px;'>{item['curr']}</span>
                         </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("📊 No economic data available")
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-            
-            # ===== Column 2: Yield Ranking =====
-            with col_rank2:
-                st.markdown("""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 15px; 
-                            border: 1px solid #334155;'>
-                    <div style='text-align: center; margin-bottom: 15px;'>
-                        <span style='font-size: 24px;'>📈</span>
-                        <h4 style='color: #f1c40f; margin: 0;'>Yield Ranking</h4>
-                        <span style='font-size: 12px; color: #94a3b8;'>Highest → Lowest</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Collect yield data for all currencies
-                yield_ranking = []
-                
-                if yield_data_today is not None:
-                    for currency_code in currencies_list:
-                        if currency_code in yield_data_today.index:
-                            y_val = yield_data_today[currency_code]
-                            if pd.notna(y_val):
-                                full_name = currency_full_names.get(currency_code, currency_code)
-                                flag = currency_flags.get(currency_code, "💰")
-                                yield_ranking.append({
-                                    'currency': currency_code,
-                                    'name': full_name,
-                                    'flag': flag,
-                                    'value': y_val
-                                })
-                
-                # Sort from largest to smallest
-                yield_ranking.sort(key=lambda x: x['value'], reverse=True)
-                
-                if yield_ranking:
-                    for idx, item in enumerate(yield_ranking, 1):
-                        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
-                        # Yield color: green for positive, red for negative, yellow for near zero
-                        if item['value'] > 0.5:
-                            value_color = "#10b981"
-                        elif item['value'] < 0:
-                            value_color = "#ef4444"
-                        else:
-                            value_color = "#f1c40f"
-                        
-                        st.markdown(f"""
-                        <div style='display: flex; align-items: center; justify-content: space-between; 
-                                    padding: 10px 12px; margin: 8px 0; 
-                                    background: rgba(0,0,0,0.3); border-radius: 10px;
-                                    border-left: 3px solid {value_color};'>
-                            <div style='display: flex; align-items: center; gap: 12px;'>
-                                <span style='font-size: 18px; font-weight: bold; width: 35px;'>{medal}</span>
-                                <span style='font-size: 28px;'>{item['flag']}</span>
-                                <div>
-                                    <span style='font-weight: bold;'>{item['currency']}</span>
-                                    <span style='font-size: 11px; color: #94a3b8; margin-left: 5px;'>{item['name']}</span>
-                                </div>
-                            </div>
-                            <span style='font-weight: bold; font-size: 18px; color: {value_color};'>{item['value']:.2f}%</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("📊 No yield data available")
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-            
-            st.markdown("---")
-                        # ========== Economic & Yield Charts ==========
-            st.markdown("---")
-            
-            # Create two columns for charts
-            col_chart1, col_chart2 = st.columns(2)
-            
-            # ===== Chart 1: Economic Strength Timeline =====
-            with col_chart1:
-                st.markdown("""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 15px; 
-                            border: 1px solid #334155;'>
-                    <div style='text-align: center; margin-bottom: 15px;'>
-                        <span style='font-size: 24px;'>🏭</span>
-                        <h4 style='color: #f1c40f; margin: 0;'>Economic Strength Timeline</h4>
-                        <span style='font-size: 12px; color: #94a3b8;'>All Currencies - Historical Data</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Prepare economic data for chart
-                if not db_economy.empty:
-                    # Get all economic data
-                    econ_chart_data = db_economy.copy()
-                    econ_chart_data['Date'] = pd.to_datetime(econ_chart_data['Date'])
-                    econ_chart_data = econ_chart_data.sort_values('Date')
-                    
-                    # Create figure
-                    fig_econ = go.Figure()
-                    
-                    # Colors for each currency
-                    econ_colors = {
-                        'USD': '#3498db', 'EUR': '#2ecc71', 'GBP': '#e74c3c', 'JPY': '#f39c12',
-                        'CHF': '#9b59b6', 'CAD': '#1abc9c', 'AUD': '#e67e22', 'NZD': '#e84393'
-                    }
-                    
-                    # Add line for each currency
-                    for currency in currencies_list:
-                        if currency in econ_chart_data.columns:
-                            currency_data = econ_chart_data[['Date', currency]].dropna()
-                            if not currency_data.empty:
-                                fig_econ.add_trace(go.Scatter(
-                                    x=currency_data['Date'],
-                                    y=currency_data[currency],
-                                    mode='lines+markers',
-                                    name=currency,
-                                    line=dict(color=econ_colors.get(currency, '#95a5a6'), width=2),
-                                    marker=dict(size=4)
-                                ))
-                    
-                    # Update layout
-                    fig_econ.update_layout(
-                        title=dict(
-                            text="<b>Economic Strength Over Time</b>",
-                            font=dict(size=14, color='#f1c40f'),
-                            x=0.5
-                        ),
-                        xaxis=dict(
-                            title=dict(text="<b>Date</b>", font=dict(size=10, color='#e2e8f0')),
-                            tickangle=45,
-                            tickfont=dict(size=9)
-                        ),
-                        yaxis=dict(
-                            title=dict(text="<b>Economic Strength</b>", font=dict(size=10, color='#e2e8f0')),
-                            zeroline=True,
-                            zerolinecolor='#f1c40f',
-                            zerolinewidth=1.5
-                        ),
-                        height=400,
-                        template="plotly_dark",
-                        hovermode='x unified',
-                        legend=dict(
-                            orientation="h",
-                            yanchor="bottom",
-                            y=1.02,
-                            xanchor="center",
-                            x=0.5,
-                            font=dict(size=10)
-                        ),
-                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
-                        paper_bgcolor='rgba(0,0,0,0)'
-                    )
-                    
-                    # Add zero line
-                    fig_econ.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.5)
-                    
-                    st.plotly_chart(fig_econ, use_container_width=True, key="econ_timeline_chart")
-                else:
-                    st.info("📊 No economic data available for chart")
-            
-            # ===== Chart 2: Yield Timeline =====
-            with col_chart2:
-                st.markdown("""
-                <div style='background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
-                            border-radius: 15px; padding: 15px; 
-                            border: 1px solid #334155;'>
-                    <div style='text-align: center; margin-bottom: 15px;'>
-                        <span style='font-size: 24px;'>📈</span>
-                        <h4 style='color: #f1c40f; margin: 0;'>Yield Timeline</h4>
-                        <span style='font-size: 12px; color: #94a3b8;'>All Currencies - Historical Data</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Prepare yield data for chart
-                if not db_yield.empty:
-                    # Get all yield data
-                    yield_chart_data = db_yield.copy()
-                    yield_chart_data['Date'] = pd.to_datetime(yield_chart_data['Date'])
-                    yield_chart_data = yield_chart_data.sort_values('Date')
-                    
-                    # Create figure
-                    fig_yield = go.Figure()
-                    
-                    # Colors for each currency (same as economic)
-                    yield_colors = {
-                        'USD': '#3498db', 'EUR': '#2ecc71', 'GBP': '#e74c3c', 'JPY': '#f39c12',
-                        'CHF': '#9b59b6', 'CAD': '#1abc9c', 'AUD': '#e67e22', 'NZD': '#e84393'
-                    }
-                    
-                    # Add line for each currency
-                    for currency in currencies_list:
-                        if currency in yield_chart_data.columns:
-                            currency_data = yield_chart_data[['Date', currency]].dropna()
-                            if not currency_data.empty:
-                                fig_yield.add_trace(go.Scatter(
-                                    x=currency_data['Date'],
-                                    y=currency_data[currency],
-                                    mode='lines+markers',
-                                    name=currency,
-                                    line=dict(color=yield_colors.get(currency, '#95a5a6'), width=2),
-                                    marker=dict(size=4)
-                                ))
-                    
-                    # Update layout
-                    fig_yield.update_layout(
-                        title=dict(
-                            text="<b>Yield Rates Over Time</b>",
-                            font=dict(size=14, color='#f1c40f'),
-                            x=0.5
-                        ),
-                        xaxis=dict(
-                            title=dict(text="<b>Date</b>", font=dict(size=10, color='#e2e8f0')),
-                            tickangle=45,
-                            tickfont=dict(size=9)
-                        ),
-                        yaxis=dict(
-                            title=dict(text="<b>Yield (%)</b>", font=dict(size=10, color='#e2e8f0')),
-                            zeroline=True,
-                            zerolinecolor='#f1c40f',
-                            zerolinewidth=1.5
-                        ),
-                        height=400,
-                        template="plotly_dark",
-                        hovermode='x unified',
-                        legend=dict(
-                            orientation="h",
-                            yanchor="bottom",
-                            y=1.02,
-                            xanchor="center",
-                            x=0.5,
-                            font=dict(size=10)
-                        ),
-                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
-                        paper_bgcolor='rgba(0,0,0,0)'
-                    )
-                    
-                    # Add zero line
-                    fig_yield.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.5)
-                    
-                    st.plotly_chart(fig_yield, use_container_width=True, key="yield_timeline_chart")
-                else:
-                    st.info("📊 No yield data available for chart")
-            
-            st.markdown("---")
-            
-            # ========== Currency Cards ==========
-            st.subheader("💱 Currency Cards")
-            
-            # Central bank data
-            currency_central_banks = {
-                "USD": "Federal Reserve",
-                "EUR": "European Central Bank",
-                "GBP": "Bank of England",
-                "JPY": "Bank of Japan",
-                "CHF": "Swiss National Bank",
-                "CAD": "Bank of Canada",
-                "AUD": "Reserve Bank of Australia",
-                "NZD": "Reserve Bank of New Zealand"
-            }
-            
-            # Function to display currency pairs as a table
-            def show_currency_pairs_table(currency_code, current_data, prev_data, pairs):
-                """Display table for pairs related to a specific currency"""
-                related_pairs = [pair for pair in pairs if currency_code in pair]
-                currency_full = currency_full_names.get(currency_code, currency_code)
-                
-                st.markdown(f"##### 🔍 {currency_full} Pairs")
-                
-                table_data = []
-                for pair in related_pairs:
-                    base, quote = pair[:3], pair[3:]
-                    strength_today = current_data[base] - current_data[quote]
-                    
-                    if strength_today > 0:
-                        signal_display = "🟢 BUY"
-                    elif strength_today < 0:
-                        signal_display = "🔴 SELL"
-                    else:
-                        signal_display = "🟡 WAIT"
-                    
-                    if prev_data is not None:
-                        delta = {c: current_data[c] - prev_data[c] for c in currencies_list}
-                        base_delta = delta[base]
-                        quote_delta = delta[quote]
-                        volatility = abs(base_delta - quote_delta)
-                        delta_power = strength_today - (prev_data[base] - prev_data[quote])
-                        
-                        if current_data[base] > current_data[quote]:
-                            base_vs_quote = f"{base} > {quote}"
-                        elif current_data[base] < current_data[quote]:
-                            base_vs_quote = f"{base} < {quote}"
-                        else:
-                            base_vs_quote = f"{base} = {quote}"
-                    else:
-                        delta_power = 0
-                        volatility = 0
-                        base_vs_quote = "N/A"
-                    
-                    table_data.append({
-                        "Pair": pair,
-                        "Signal": signal_display,
-                        "Power": f"{strength_today:+.0f}",
-                        "Δ Power": f"{delta_power:+.0f}",
-                        "Base vs Quote": base_vs_quote,
-                        "Volatility": f"{volatility:.0f}"
-                    })
-                
-                df_table = pd.DataFrame(table_data)
-                df_table['Power_Num'] = df_table['Power'].str.replace('+', '').astype(float)
-                df_table = df_table.sort_values('Power_Num', ascending=False).drop('Power_Num', axis=1)
-                
-                st.dataframe(
-                    df_table,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Pair": st.column_config.TextColumn("Pair", width="small"),
-                        "Signal": st.column_config.TextColumn("Signal", width="small"),
-                        "Power": st.column_config.TextColumn("Power", width="small"),
-                        "Δ Power": st.column_config.TextColumn("Δ Power", width="small"),
-                        "Base vs Quote": st.column_config.TextColumn("Base vs Quote", width="medium"),
-                        "Volatility": st.column_config.TextColumn("Volatility", width="small")
-                    }
-                )
-                st.caption("📌 **Note:** 🟢 BUY = Positive Power | 🔴 SELL = Negative Power | 🟡 WAIT = Zero Power")
-                st.markdown("---")
-            
-            # ==================== Display Cards + Tables Directly ====================
-            for i in range(0, len(currencies_list), 2):
-                col1, col2 = st.columns(2)
-                
-                # ==================== العملة الأولى ====================
-                with col1:
-                    currency_code = currencies_list[i]
-                    currency_strength = current_data[currency_code]
-                    strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
-                    full_name = currency_full_names.get(currency_code, currency_code)
-                    flag = currency_flags.get(currency_code, "💰")
-                    central_bank = currency_central_banks.get(currency_code, "")
-                    
-                    # Economic Strength
-                    economic_strength = None
-                    if economy_data_today is not None and currency_code in economy_data_today.index:
-                        eco_val = economy_data_today[currency_code]
-                        if pd.notna(eco_val):
-                            economic_strength = eco_val
-                    
-                    economic_strength_text = f"{economic_strength:+.2f}" if economic_strength is not None else "N/A"
-                    economic_color = "#10b981" if (economic_strength is not None and economic_strength >= 0) else "#ef4444" if (economic_strength is not None and economic_strength < 0) else "#6b7280"
-                    
-                    # Yield
-                    yield_value = None
-                    if yield_data_today is not None and currency_code in yield_data_today.index:
-                        y_val = yield_data_today[currency_code]
-                        if pd.notna(y_val):
-                            yield_value = y_val
-                    
-                    yield_text = f"{yield_value:.2f}%" if yield_value is not None else "N/A"
-                    yield_color = "#10b981" if (yield_value is not None and yield_value > 0) else "#ef4444" if (yield_value is not None and yield_value < 0) else "#f1c40f"
-                    
-                    # عرض الكارت
-                    card_html = f'''
-                    <div style="background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
-                                border-radius: 15px; padding: 20px; margin: 10px 0;
-                                border: 1px solid #334155;">
-                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                            <div style="font-size: 48px;">{flag}</div>
-                            <div>
-                                <h2 style="margin:0; color: #f1c40f;">{full_name}</h2>
-                                <div style="font-size: 12px; color: #94a3b8;">{central_bank}</div>
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                            <span>💪 Currency Strength (Daily):</span>
-                            <span style="font-weight: bold; color: {strength_color};">{currency_strength:+.2f}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                            <span>🏭 Economic Strength (ECONOMY):</span>
-                            <span style="font-weight: bold; color: {economic_color};">{economic_strength_text}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                            <span>📈 Yield (YIELD):</span>
-                            <span style="font-weight: bold; color: {yield_color};">{yield_text}</span>
-                        </div>
-                    </div>
-                    '''
-                    st.markdown(card_html, unsafe_allow_html=True)
-                    
-                    # الجدول يظهر مباشرة تحت الكارت
-                    show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
-                
-                # ==================== العملة الثانية ====================
-                if i + 1 < len(currencies_list):
-                    with col2:
-                        currency_code = currencies_list[i + 1]
-                        currency_strength = current_data[currency_code]
-                        strength_color = "#10b981" if currency_strength >= 0 else "#ef4444"
-                        full_name = currency_full_names.get(currency_code, currency_code)
-                        flag = currency_flags.get(currency_code, "💰")
-                        central_bank = currency_central_banks.get(currency_code, "")
-                        
-                        # Economic Strength
-                        economic_strength = None
-                        if economy_data_today is not None and currency_code in economy_data_today.index:
-                            eco_val = economy_data_today[currency_code]
-                            if pd.notna(eco_val):
-                                economic_strength = eco_val
-                        
-                        economic_strength_text = f"{economic_strength:+.2f}" if economic_strength is not None else "N/A"
-                        economic_color = "#10b981" if (economic_strength is not None and economic_strength >= 0) else "#ef4444" if (economic_strength is not None and economic_strength < 0) else "#6b7280"
-                        
-                        # Yield
-                        yield_value = None
-                        if yield_data_today is not None and currency_code in yield_data_today.index:
-                            y_val = yield_data_today[currency_code]
-                            if pd.notna(y_val):
-                                yield_value = y_val
-                        
-                        yield_text = f"{yield_value:.2f}%" if yield_value is not None else "N/A"
-                        yield_color = "#10b981" if (yield_value is not None and yield_value > 0) else "#ef4444" if (yield_value is not None and yield_value < 0) else "#f1c40f"
-                        
-                        # عرض الكارت
-                        card_html = f'''
-                        <div style="background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
-                                    border-radius: 15px; padding: 20px; margin: 10px 0;
-                                    border: 1px solid #334155;">
-                            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                                <div style="font-size: 48px;">{flag}</div>
-                                <div>
-                                    <h2 style="margin:0; color: #f1c40f;">{full_name}</h2>
-                                    <div style="font-size: 12px; color: #94a3b8;">{central_bank}</div>
-                                </div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                                <span>💪 Currency Strength (Daily):</span>
-                                <span style="font-weight: bold; color: {strength_color};">{currency_strength:+.2f}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                                <span>🏭 Economic Strength (ECONOMY):</span>
-                                <span style="font-weight: bold; color: {economic_color};">{economic_strength_text}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                                <span>📈 Yield (YIELD):</span>
-                                <span style="font-weight: bold; color: {yield_color};">{yield_text}</span>
-                            </div>
-                        </div>
-                        '''
-                        st.markdown(card_html, unsafe_allow_html=True)
-                        
-                        # الجدول يظهر مباشرة تحت الكارت
-                        show_currency_pairs_table(currency_code, current_data, prev_data, pairs)
-        
-        # ========== Higher Time Frame Analyses ==========
-        st.markdown("---")
-        st.markdown("""
-        <div style='background: linear-gradient(135deg, #1e2a3a 0%, #0f172a 100%); 
-                    border-radius: 15px; padding: 20px; margin: 20px 0; 
-                    border: 1px solid #334155;'>
-            <h3 style='color: #f1c40f; text-align: center;'>📈 Higher Time Frame Analyses</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Display charts for all currencies (2 per row)
-        for i in range(0, len(currencies_list), 2):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                currency = currencies_list[i]
-                currency_full = currency_full_names.get(currency, currency)
-                st.markdown(f"### 💱 {currency_full} ({currency})")
-                
-                # Prepare chart data from all three timeframes
+                        <span style='font-weight:700; font-size:14px; color:{vc};
+                                     font-family:"JetBrains Mono",monospace;'>
+                            {item['val']:+.2f}{unit}
+                        </span>
+                    </div>""", unsafe_allow_html=True)
+            else:
+                st.info("No data")
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    render_ranking(col_eco, "Economic Power", "🏭", economy_data_today)
+    render_ranking(col_yld, "Real Yield",     "📈", yield_data_today, unit="%")
+
+    st.markdown("---")
+
+    # ── Charts (فوق بعض) ──
+    render_stacked_charts(db_economy, db_yield)
+
+    st.markdown("---")
+
+    # ── HTF Charts ──
+    st.markdown('<div class="section-header">📈 Higher Time Frame — Currency Strength</div>',
+                unsafe_allow_html=True)
+
+    for i in range(0, len(currencies_list), 2):
+        col1, col2 = st.columns(2)
+        for col, currency in [(col1, currencies_list[i]),
+                               (col2, currencies_list[i+1] if i+1 < len(currencies_list) else None)]:
+            if currency is None:
+                continue
+            with col:
+                full_name = currency_full_names.get(currency, currency)
+                flag      = currency_flags.get(currency, "")
+                st.markdown(f"**{flag} {currency}** — {full_name}")
+
                 chart_data = pd.DataFrame()
-                
                 if not db_daily.empty:
-                    daily_data = db_daily[['Date', currency]].copy().rename(columns={currency: 'Daily'})
-                    chart_data = pd.concat([chart_data, daily_data], ignore_index=True)
-                
+                    d = db_daily[['Date', currency]].copy().rename(columns={currency:'Daily'})
+                    chart_data = d
                 if not db_weekly.empty:
-                    weekly_data = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'Weekly'})
-                    if not chart_data.empty:
-                        chart_data = chart_data.merge(weekly_data[['Date', 'Weekly']], on='Date', how='outer')
-                    else:
-                        chart_data = weekly_data
-                
+                    db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
+                    w = db_weekly[['Week_Start', currency]].copy().rename(
+                        columns={'Week_Start':'Date', currency:'Weekly'})
+                    chart_data = chart_data.merge(w, on='Date', how='outer') if not chart_data.empty else w
                 if not db_monthly.empty:
-                    monthly_data = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'Monthly'})
-                    if not chart_data.empty:
-                        chart_data = chart_data.merge(monthly_data[['Date', 'Monthly']], on='Date', how='outer')
-                    else:
-                        chart_data = monthly_data
-                
+                    db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
+                    m = db_monthly[['Month_Start', currency]].copy().rename(
+                        columns={'Month_Start':'Date', currency:'Monthly'})
+                    chart_data = chart_data.merge(m, on='Date', how='outer') if not chart_data.empty else m
+
                 if not chart_data.empty:
                     chart_data = chart_data.sort_values('Date').reset_index(drop=True)
-                    
                     fig = go.Figure()
-                    
-                    # Daily line (blue)
-                    if 'Daily' in chart_data.columns and not chart_data['Daily'].isna().all():
-                        daily_plot = chart_data[chart_data['Daily'].notna()]
-                        fig.add_trace(go.Scatter(
-                            x=daily_plot['Date'], 
-                            y=daily_plot['Daily'], 
-                            mode='lines+markers',
-                            name='Daily', 
-                            line=dict(color='#3498db', width=2.5),
-                            marker=dict(size=6)
-                        ))
-                    
-                    # Weekly line (yellow, dashed)
-                    if 'Weekly' in chart_data.columns and not chart_data['Weekly'].isna().all():
-                        weekly_plot = chart_data[chart_data['Weekly'].notna()]
-                        fig.add_trace(go.Scatter(
-                            x=weekly_plot['Date'], 
-                            y=weekly_plot['Weekly'], 
-                            mode='lines+markers',
-                            name='Weekly', 
-                            line=dict(color='#f1c40f', width=2.5, dash='dash'),
-                            marker=dict(size=6)
-                        ))
-                    
-                    # Monthly line (white, dotted)
-                    if 'Monthly' in chart_data.columns and not chart_data['Monthly'].isna().all():
-                        monthly_plot = chart_data[chart_data['Monthly'].notna()]
-                        fig.add_trace(go.Scatter(
-                            x=monthly_plot['Date'], 
-                            y=monthly_plot['Monthly'], 
-                            mode='lines+markers',
-                            name='Monthly', 
-                            line=dict(color='white', width=2.5, dash='dot'),
-                            marker=dict(size=6)
-                        ))
-                    
-                    # Update layout
-                    fig.update_layout(
-                        title=dict(
-                            text=f"<b>{currency_full}</b> - Strength Evolution", 
-                            font=dict(size=14, color='#f1c40f'), 
-                            x=0.5
-                        ),
-                        xaxis=dict(
-                            title=dict(text="<b>Date</b>", font=dict(size=10, color='#e2e8f0')), 
-                            tickangle=45,
-                            tickfont=dict(size=10)
-                        ),
-                        yaxis=dict(
-                            title=dict(text="<b>Currency Strength</b>", font=dict(size=10, color='#e2e8f0')),
-                            zeroline=True, 
-                            zerolinecolor='#f1c40f',
-                            zerolinewidth=1.5
-                        ),
-                        height=400, 
-                        template="plotly_dark", 
-                        hovermode='x unified',
-                        legend=dict(
-                            orientation="h", 
-                            yanchor="bottom", 
-                            y=1.02, 
-                            xanchor="center", 
-                            x=0.5,
-                            font=dict(size=10)
-                        ),
-                        plot_bgcolor='rgba(15, 23, 42, 0.8)', 
-                        paper_bgcolor='rgba(0,0,0,0)'
-                    )
-                    
-                    # Add zero line
-                    fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.7)
-                    
-                    st.plotly_chart(fig, use_container_width=True, key=f"htf_chart_{currency}")
-                else:
-                    st.info(f"📊 No data available for {currency_full}")
-            
-            if i + 1 < len(currencies_list):
-                with col2:
-                    currency = currencies_list[i + 1]
-                    currency_full = currency_full_names.get(currency, currency)
-                    st.markdown(f"### 💱 {currency_full} ({currency})")
-                    
-                    # Prepare chart data from all three timeframes
-                    chart_data = pd.DataFrame()
-                    
-                    if not db_daily.empty:
-                        daily_data = db_daily[['Date', currency]].copy().rename(columns={currency: 'Daily'})
-                        chart_data = pd.concat([chart_data, daily_data], ignore_index=True)
-                    
-                    if not db_weekly.empty:
-                        weekly_data = db_weekly[['Week_Start', currency]].copy().rename(columns={'Week_Start': 'Date', currency: 'Weekly'})
-                        if not chart_data.empty:
-                            chart_data = chart_data.merge(weekly_data[['Date', 'Weekly']], on='Date', how='outer')
-                        else:
-                            chart_data = weekly_data
-                    
-                    if not db_monthly.empty:
-                        monthly_data = db_monthly[['Month_Start', currency]].copy().rename(columns={'Month_Start': 'Date', currency: 'Monthly'})
-                        if not chart_data.empty:
-                            chart_data = chart_data.merge(monthly_data[['Date', 'Monthly']], on='Date', how='outer')
-                        else:
-                            chart_data = monthly_data
-                    
-                    if not chart_data.empty:
-                        chart_data = chart_data.sort_values('Date').reset_index(drop=True)
-                        
-                        fig = go.Figure()
-                        
-                        # Daily line (blue)
-                        if 'Daily' in chart_data.columns and not chart_data['Daily'].isna().all():
-                            daily_plot = chart_data[chart_data['Daily'].notna()]
-                            fig.add_trace(go.Scatter(
-                                x=daily_plot['Date'], 
-                                y=daily_plot['Daily'], 
-                                mode='lines+markers',
-                                name='Daily', 
-                                line=dict(color='#3498db', width=2.5),
-                                marker=dict(size=6)
-                            ))
-                        
-                        # Weekly line (yellow, dashed)
-                        if 'Weekly' in chart_data.columns and not chart_data['Weekly'].isna().all():
-                            weekly_plot = chart_data[chart_data['Weekly'].notna()]
-                            fig.add_trace(go.Scatter(
-                                x=weekly_plot['Date'], 
-                                y=weekly_plot['Weekly'], 
-                                mode='lines+markers',
-                                name='Weekly', 
-                                line=dict(color='#f1c40f', width=2.5, dash='dash'),
-                                marker=dict(size=6)
-                            ))
-                        
-                        # Monthly line (white, dotted)
-                        if 'Monthly' in chart_data.columns and not chart_data['Monthly'].isna().all():
-                            monthly_plot = chart_data[chart_data['Monthly'].notna()]
-                            fig.add_trace(go.Scatter(
-                                x=monthly_plot['Date'], 
-                                y=monthly_plot['Monthly'], 
-                                mode='lines+markers',
-                                name='Monthly', 
-                                line=dict(color='white', width=2.5, dash='dot'),
-                                marker=dict(size=6)
-                            ))
-                        
-                        # Update layout
-                        fig.update_layout(
-                            title=dict(
-                                text=f"<b>{currency_full}</b> - Strength Evolution", 
-                                font=dict(size=14, color='#f1c40f'), 
-                                x=0.5
-                            ),
-                            xaxis=dict(
-                                title=dict(text="<b>Date</b>", font=dict(size=10, color='#e2e8f0')), 
-                                tickangle=45,
-                                tickfont=dict(size=10)
-                            ),
-                            yaxis=dict(
-                                title=dict(text="<b>Currency Strength</b>", font=dict(size=10, color='#e2e8f0')),
-                                zeroline=True, 
-                                zerolinecolor='#f1c40f',
-                                zerolinewidth=1.5
-                            ),
-                            height=400, 
-                            template="plotly_dark", 
-                            hovermode='x unified',
-                            legend=dict(
-                                orientation="h", 
-                                yanchor="bottom", 
-                                y=1.02, 
-                                xanchor="center", 
-                                x=0.5,
-                                font=dict(size=10)
-                            ),
-                            plot_bgcolor='rgba(15, 23, 42, 0.8)', 
-                            paper_bgcolor='rgba(0,0,0,0)'
-                        )
-                        
-                        # Add zero line
-                        fig.add_hline(y=0, line_dash="solid", line_color="#e74c3c", line_width=1.5, opacity=0.7)
-                        
-                        st.plotly_chart(fig, use_container_width=True, key=f"htf_chart_{currency}")
-                    else:
-                        st.info(f"📊 No data available for {currency_full}")
-            
-            st.markdown("---")
 
-# ──── تبويب Pair Matrix ─────────────────────
+                    trace_cfg = [
+                        ('Daily',   CURRENCY_COLORS.get(currency,'#94a3b8'), 'solid',  2.5),
+                        ('Weekly',  '#f1c40f',                                'dash',   2),
+                        ('Monthly', '#e2e8f0',                                'dot',    2),
+                    ]
+                    for col_name, color, dash, width in trace_cfg:
+                        if col_name in chart_data.columns:
+                            cd = chart_data[chart_data[col_name].notna()]
+                            if not cd.empty:
+                                fig.add_trace(go.Scatter(
+                                    x=cd['Date'], y=cd[col_name],
+                                    mode='lines', name=col_name,
+                                    line=dict(color=color, width=width, dash=dash),
+                                ))
+
+                    fig.update_layout(
+                        height=280,
+                        template="plotly_dark",
+                        hovermode='x unified',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(15,23,42,0.8)',
+                        margin=dict(l=0, r=0, t=4, b=0),
+                        legend=dict(
+                            orientation="h", yanchor="bottom", y=1.01,
+                            xanchor="center", x=0.5, font=dict(size=10),
+                            bgcolor='rgba(0,0,0,0)'
+                        ),
+                        xaxis=dict(showgrid=False, tickfont=dict(size=9)),
+                        yaxis=dict(
+                            showgrid=True,
+                            gridcolor='rgba(30,41,59,0.6)',
+                            zeroline=True,
+                            zerolinecolor='rgba(241,196,15,0.3)',
+                            tickfont=dict(size=9)
+                        ),
+                    )
+                    fig.add_hline(y=0, line_dash="dot",
+                                  line_color="rgba(241,196,15,0.25)", line_width=1)
+                    st.plotly_chart(fig, use_container_width=True,
+                                    key=f"htf_{currency}")
+                else:
+                    st.info(f"No data for {currency}")
+
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════
+# إنشاء التبويبات
+# ══════════════════════════════════════════════════════════════
+tab_dashboard, tab_results, tab_signal, tab_signal_engine = st.tabs([
+    "🌍 Market Overview",
+    "⚡ Scalping Signals", 
+    "📊 Signal Matrix",
+    "📅 Daily Signals",
+])
+
+# ──── Daily Dashboard Tab (باستخدام الدالة الجديدة) ─────────────────────────────────
+with tab_dashboard:
+    render_dashboard_tab(db_daily, db_economy, db_yield, db_weekly, db_monthly, selected_date)
+
+# ──── تبويب Pair Matrix (باستخدام التاريخ الموحد) ─────────────────────
 with tab_results:
     if db_daily.empty or len(db_daily) < 2:
         st.info("📊 أدخل بيانات يومين على الأقل لعرض النتائج")
     else:
         st.header("🎯 28 Pairs Results")
         
-        # ================== تهيئة Session State ==================
-        if 'selected_date' not in st.session_state:
-            st.session_state.selected_date = None
+        # استخدام التاريخ الموحد من session_state
+        selected_date = st.session_state.get('selected_date', db_daily['Date'].max())
         
-        # ================== إنشاء قائمة التواريخ ==================
-        all_dates = db_daily['Date'].sort_values(ascending=False).tolist()
-        
-        date_options = []
-        date_map = {}
-        
-        for date in all_dates:
-            date_str = date.strftime("%Y-%m-%d")
-            if date == all_dates[0]:
-                date_str = f"📅 {date_str} (الأحدث)"
-            date_options.append(date_str)
-            date_map[date_str] = date
-        
-        # ================== عرض القائمة المنسدلة ==================
-        col_date1, col_date2, col_date3 = st.columns([1, 2, 1])
-        with col_date2:
-            selected_date_str = st.selectbox(
-                "📆 اختر التاريخ لعرض النتائج:",
-                options=date_options,
-                index=0,
-                key="date_selector"
-            )
-            
-            st.session_state.selected_date = date_map[selected_date_str]
-            
-            st.markdown(f"""
-            <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
-                        border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
-                <span style="color: #f1c40f; font-weight: bold;">📅 التاريخ المختار: {selected_date_str}</span>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                    border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
+            <span style="color: #f1c40f; font-weight: bold;">📅 التاريخ المختار: {selected_date.strftime('%Y-%m-%d')}</span>
+        </div>
+        """, unsafe_allow_html=True)
         
         st.markdown("---")
         
         # ================== حساب البيانات للتاريخ المختار ==================
-        selected_date = st.session_state.selected_date
         selected_row = db_daily[db_daily['Date'] == selected_date]
         
         if selected_row.empty:
-            st.error(f"❌ لا توجد بيانات للتاريخ {selected_date_str}")
+            st.error(f"❌ لا توجد بيانات للتاريخ {selected_date}")
         else:
             latest = selected_row.iloc[0]
             
@@ -1498,7 +1019,7 @@ with tab_results:
                         '''
                         st.markdown(card_html, unsafe_allow_html=True)
 
-# ──── Signal Matrix Tab ─────────────────────
+# ──── Signal Matrix Tab (باستخدام التاريخ الموحد) ─────────────────────
 with tab_signal:
     st.header("📊 Signal Matrix - Multi-Timeframe Currency Strength")
     st.caption("Economic • Yield • Monthly • Weekly • Daily — White = Current Value, Arrow = Change vs Previous")
@@ -1506,54 +1027,26 @@ with tab_signal:
     if db_daily.empty:
         st.info("📊 Please enter daily data first")
     else:
-        # ================== Session State Init ==================
-        if 'signal_selected_date' not in st.session_state:
-            st.session_state.signal_selected_date = None
+        # استخدام التاريخ الموحد من session_state
+        selected_date = st.session_state.get('selected_date', db_daily['Date'].max())
         
-        # ================== Date List Creation ==================
-        all_dates = db_daily['Date'].sort_values(ascending=False).tolist()
-        
-        date_options = []
-        date_map = {}
-        
-        for date in all_dates:
-            date_str = date.strftime("%Y-%m-%d")
-            if date == all_dates[0]:
-                date_str = f"📅 {date_str} (Latest)"
-            date_options.append(date_str)
-            date_map[date_str] = date
-        
-        # ================== Date Selector ==================
-        col_date1, col_date2, col_date3 = st.columns([1, 2, 1])
-        with col_date2:
-            selected_date_str = st.selectbox(
-                "📆 Select Date to View Analysis:",
-                options=date_options,
-                index=0,
-                key="signal_date_selector"
-            )
-            
-            st.session_state.signal_selected_date = date_map[selected_date_str]
-            
-            st.markdown(f"""
-            <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
-                        border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
-                <span style="color: #f1c40f; font-weight: bold;">📅 Selected Date: {selected_date_str}</span>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                    border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
+            <span style="color: #f1c40f; font-weight: bold;">📅 Selected Date: {selected_date.strftime('%Y-%m-%d')}</span>
+        </div>
+        """, unsafe_allow_html=True)
         
         st.markdown("---")
         
         # ================== Calculate Data for Selected Date ==================
-        selected_date = st.session_state.signal_selected_date
-        
         if isinstance(selected_date, pd.Timestamp):
             selected_date = selected_date.date()
         
         selected_row = db_daily[db_daily['Date'] == selected_date]
         
         if selected_row.empty:
-            st.error(f"❌ No data found for {selected_date_str}")
+            st.error(f"❌ No data found for {selected_date}")
         else:
             latest = selected_row.iloc[0]
             
@@ -1657,15 +1150,14 @@ with tab_signal:
             
             # Helper functions
             def get_arrow_color(current_val, prev_val):
-                """Return color for arrow based on direction of change"""
                 if current_val is None or prev_val is None or pd.isna(current_val) or pd.isna(prev_val):
-                    return "#f1c40f"  # Yellow for no data
+                    return "#f1c40f"
                 if current_val > prev_val:
-                    return "#10b981"  # Green for up
+                    return "#10b981"
                 elif current_val < prev_val:
-                    return "#ef4444"  # Red for down
+                    return "#ef4444"
                 else:
-                    return "#f1c40f"  # Yellow for unchanged
+                    return "#f1c40f"
             
             def get_arrow_symbol(current_val, prev_val):
                 if current_val is None or prev_val is None or pd.isna(current_val) or pd.isna(prev_val):
@@ -1700,14 +1192,12 @@ with tab_signal:
                     curr_val = latest[curr] if curr in latest.index else 0
                     curr_prev = prev[curr] if prev is not None and curr in prev.index else curr_val
                     
-                    # === تعديل الاقتصاد والعوائد لعرض التغير فقط ===
                     eco_val = economy_today[curr] if economy_today is not None and curr in economy_today.index and pd.notna(economy_today[curr]) else None
                     eco_prev = economy_prev[curr] if economy_prev is not None and curr in economy_prev.index and pd.notna(economy_prev[curr]) else eco_val
                     
                     yld_val = yield_today[curr] if yield_today is not None and curr in yield_today.index and pd.notna(yield_today[curr]) else None
                     yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
                     
-                    # ===== تعديل النص ليكون التغير =====
                     if eco_val is not None and eco_prev is not None:
                         eco_delta = eco_val - eco_prev
                         eco_str = f"{eco_delta:+.2f}"
@@ -1719,7 +1209,6 @@ with tab_signal:
                         yld_str = f"{yld_delta:+.2f}%"
                     else:
                         yld_str = "N/A"
-                    # =================================
                     
                     daily_delta = curr_val - curr_prev if prev is not None else 0
                     daily_arrow = get_arrow_symbol(daily_delta, 0)
@@ -1789,14 +1278,12 @@ with tab_signal:
                     curr_val = latest[curr] if curr in latest.index else 0
                     curr_prev = prev[curr] if prev is not None and curr in prev.index else curr_val
                     
-                    # === تعديل الاقتصاد والعوائد لعرض التغير فقط ===
                     eco_val = economy_today[curr] if economy_today is not None and curr in economy_today.index and pd.notna(economy_today[curr]) else None
                     eco_prev = economy_prev[curr] if economy_prev is not None and curr in economy_prev.index and pd.notna(economy_prev[curr]) else eco_val
                     
                     yld_val = yield_today[curr] if yield_today is not None and curr in yield_today.index and pd.notna(yield_today[curr]) else None
                     yld_prev = yield_prev[curr] if yield_prev is not None and curr in yield_prev.index and pd.notna(yield_prev[curr]) else yld_val
                     
-                    # ===== تعديل النص ليكون التغير =====
                     if eco_val is not None and eco_prev is not None:
                         eco_delta = eco_val - eco_prev
                         eco_str = f"{eco_delta:+.2f}"
@@ -1808,7 +1295,6 @@ with tab_signal:
                         yld_str = f"{yld_delta:+.2f}%"
                     else:
                         yld_str = "N/A"
-                    # =================================
                     
                     daily_delta = curr_val - curr_prev if prev is not None else 0
                     daily_arrow = get_arrow_symbol(daily_delta, 0)
@@ -1877,10 +1363,6 @@ with tab_signal:
             # ================== Pairs Signal Matrix ==================
             st.subheader("📈 Pairs Signal Matrix")
             st.caption("Economic • Yield • Monthly • Weekly • Daily — White = Current Value, Arrow = Change vs Previous")
-            
-            ECO_THRESHOLD = 2.0
-            YIELD_THRESHOLD = 0.2
-            PRICE_THRESHOLD = 0.3
             
             pairs_ordered = [
                 "EURUSD", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF", "EURJPY",
@@ -2055,7 +1537,7 @@ with tab_signal:
             </div>
             """, unsafe_allow_html=True)
 
-# ──── Signal Engine Tab ─────────────────────
+# ──── Signal Engine Tab (باستخدام التاريخ الموحد) ─────────────────────
 with tab_signal_engine:
     st.header("📡 Signal Engine")
     st.caption("نظام الإشارات المبني على الأولوية: Economic → Yield → Daily")
@@ -2063,27 +1545,8 @@ with tab_signal_engine:
     if db_daily.empty or db_economy.empty:
         st.info("📊 يرجى إدخال بيانات Daily و ECONOMY أولاً")
     else:
-        # ══════════════════════════════════════════
-        # 1. اختيار التاريخ
-        # ══════════════════════════════════════════
-        all_dates_se = db_daily['Date'].sort_values(ascending=False).tolist()
-        date_opts_se = []
-        date_map_se  = {}
-        for d in all_dates_se:
-            ds = d.strftime("%Y-%m-%d")
-            label = f"📅 {ds} (Latest)" if d == all_dates_se[0] else ds
-            date_opts_se.append(label)
-            date_map_se[label] = d
-
-        col_se1, col_se2, col_se3 = st.columns([1, 2, 1])
-        with col_se2:
-            sel_str_se = st.selectbox(
-                "📆 اختر التاريخ:",
-                options=date_opts_se,
-                index=0,
-                key="se_date_selector"
-            )
-        sel_date_se = date_map_se[sel_str_se]
+        # استخدام التاريخ الموحد من session_state
+        sel_date_se = st.session_state.get('selected_date', db_daily['Date'].max())
 
         # ══════════════════════════════════════════
         # 2. جلب بيانات اليوم والأمس
@@ -2278,7 +1741,7 @@ with tab_signal_engine:
 
         st.markdown("---")
 
-              # ══════════════════════════════════════════
+        # ══════════════════════════════════════════
         # 7. ترتيب الجدول حسب النسبة + حذف WAIT
         # ══════════════════════════════════════════
         df_se['_sort'] = df_se['confidence'].replace(0, -1)
