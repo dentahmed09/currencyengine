@@ -1540,7 +1540,6 @@ with tab_signal:
 # ──── Signal Engine Tab (باستخدام التاريخ الموحد) ─────────────────────
 with tab_signal_engine:
     st.header("📡 Signal Engine")
-    st.caption("نظام الإشارات المبني على الأولوية: Economic → Yield → Daily")
 
     if db_daily.empty or db_economy.empty:
         st.info("📊 يرجى إدخال بيانات Daily و ECONOMY أولاً")
