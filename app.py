@@ -1680,56 +1680,64 @@ with tab_signal_engine:
 
             # ══════════════════════════════════════════
             # حساب السكور والتارجت لكل فريم
+            # التارجت = قيمة العملة الأساس إذا السكور موجب
+            # التارجت = قيمة عملة التسعير إذا السكور سالب
+            # نسبة الثقة = |السكور|%
             # ══════════════════════════════════════════
             
             # Daily Score & Target
             daily_score = None
             daily_target = None
             daily_target_conf = None
+            daily_target_currency = None
             if daily_curr is not None:
                 b = daily_curr.get(base, 0)
                 q = daily_curr.get(quote, 0)
                 if pd.notna(b) and pd.notna(q):
                     daily_score = b - q
                     daily_target_conf = abs(daily_score)
-                    # جلب الهاي واللو من بيانات الديلي
-                    if 'High' in daily_curr.index and 'Low' in daily_curr.index:
-                        if daily_score > 0:
-                            daily_target = daily_curr['High']
-                        elif daily_score < 0:
-                            daily_target = daily_curr['Low']
+                    if daily_score > 0:
+                        daily_target = b
+                        daily_target_currency = base
+                    elif daily_score < 0:
+                        daily_target = q
+                        daily_target_currency = quote
             
             # Weekly Score & Target
             weekly_score = None
             weekly_target = None
             weekly_target_conf = None
+            weekly_target_currency = None
             if weekly_curr is not None:
                 b = weekly_curr.get(base, 0)
                 q = weekly_curr.get(quote, 0)
                 if pd.notna(b) and pd.notna(q):
                     weekly_score = b - q
                     weekly_target_conf = abs(weekly_score)
-                    if 'High' in weekly_curr.index and 'Low' in weekly_curr.index:
-                        if weekly_score > 0:
-                            weekly_target = weekly_curr['High']
-                        elif weekly_score < 0:
-                            weekly_target = weekly_curr['Low']
+                    if weekly_score > 0:
+                        weekly_target = b
+                        weekly_target_currency = base
+                    elif weekly_score < 0:
+                        weekly_target = q
+                        weekly_target_currency = quote
             
             # Monthly Score & Target
             monthly_score = None
             monthly_target = None
             monthly_target_conf = None
+            monthly_target_currency = None
             if monthly_curr is not None:
                 b = monthly_curr.get(base, 0)
                 q = monthly_curr.get(quote, 0)
                 if pd.notna(b) and pd.notna(q):
                     monthly_score = b - q
                     monthly_target_conf = abs(monthly_score)
-                    if 'High' in monthly_curr.index and 'Low' in monthly_curr.index:
-                        if monthly_score > 0:
-                            monthly_target = monthly_curr['High']
-                        elif monthly_score < 0:
-                            monthly_target = monthly_curr['Low']
+                    if monthly_score > 0:
+                        monthly_target = b
+                        monthly_target_currency = base
+                    elif monthly_score < 0:
+                        monthly_target = q
+                        monthly_target_currency = quote
 
             return {
                 'signal':     signal,
@@ -1737,12 +1745,15 @@ with tab_signal_engine:
                 'daily_score': daily_score,
                 'daily_target': daily_target,
                 'daily_target_conf': daily_target_conf,
+                'daily_target_currency': daily_target_currency,
                 'weekly_score': weekly_score,
                 'weekly_target': weekly_target,
                 'weekly_target_conf': weekly_target_conf,
+                'weekly_target_currency': weekly_target_currency,
                 'monthly_score': monthly_score,
                 'monthly_target': monthly_target,
                 'monthly_target_conf': monthly_target_conf,
+                'monthly_target_currency': monthly_target_currency,
             }
 
         # ══════════════════════════════════════════
@@ -1899,24 +1910,27 @@ with tab_signal_engine:
                 # Daily Target
                 daily_target = row.get('daily_target')
                 daily_conf = row.get('daily_target_conf')
+                daily_curr_name = row.get('daily_target_currency')
                 if daily_target is not None and pd.notna(daily_target) and daily_conf is not None:
-                    daily_display = f'{daily_target:.4f} <span style="color:#f1c40f;font-size:11px;">({daily_conf:.1f}%)</span>'
+                    daily_display = f'{daily_target:.0f} <span style="color:#64748b;">({daily_curr_name})</span> <span style="color:#f1c40f;font-size:11px;">{daily_conf:.1f}%</span>'
                 else:
                     daily_display = '<span style="color:#64748b;">—</span>'
                 
                 # Weekly Target
                 weekly_target = row.get('weekly_target')
                 weekly_conf = row.get('weekly_target_conf')
+                weekly_curr_name = row.get('weekly_target_currency')
                 if weekly_target is not None and pd.notna(weekly_target) and weekly_conf is not None:
-                    weekly_display = f'{weekly_target:.4f} <span style="color:#f1c40f;font-size:11px;">({weekly_conf:.1f}%)</span>'
+                    weekly_display = f'{weekly_target:.0f} <span style="color:#64748b;">({weekly_curr_name})</span> <span style="color:#f1c40f;font-size:11px;">{weekly_conf:.1f}%</span>'
                 else:
                     weekly_display = '<span style="color:#64748b;">—</span>'
                 
                 # Monthly Target
                 monthly_target = row.get('monthly_target')
                 monthly_conf = row.get('monthly_target_conf')
+                monthly_curr_name = row.get('monthly_target_currency')
                 if monthly_target is not None and pd.notna(monthly_target) and monthly_conf is not None:
-                    monthly_display = f'{monthly_target:.4f} <span style="color:#f1c40f;font-size:11px;">({monthly_conf:.1f}%)</span>'
+                    monthly_display = f'{monthly_target:.0f} <span style="color:#64748b;">({monthly_curr_name})</span> <span style="color:#f1c40f;font-size:11px;">{monthly_conf:.1f}%</span>'
                 else:
                     monthly_display = '<span style="color:#64748b;">—</span>'
 
