@@ -1905,32 +1905,45 @@ with tab_signal_engine:
 
                 # ══════════════════════════════════════════
                 # تنسيق التارجت مع نسبة الثقة
+                # الصيغة: نسبة_الثقة% (Target High/Low)
                 # ══════════════════════════════════════════
                 
                 # Daily Target
-                daily_target = row.get('daily_target')
+                daily_score = row.get('daily_score')
                 daily_conf = row.get('daily_target_conf')
-                daily_curr_name = row.get('daily_target_currency')
-                if daily_target is not None and pd.notna(daily_target) and daily_conf is not None:
-                    daily_display = f'{daily_target:.0f} <span style="color:#64748b;">({daily_curr_name})</span> <span style="color:#f1c40f;font-size:11px;">{daily_conf:.1f}%</span>'
+                if daily_score is not None and pd.notna(daily_score) and daily_conf is not None:
+                    if daily_score > 0:
+                        daily_display = f'<span style="color:#10b981;font-weight:600;">{daily_conf:.1f}%</span> <span style="color:#64748b;">(Target High)</span>'
+                    elif daily_score < 0:
+                        daily_display = f'<span style="color:#ef4444;font-weight:600;">{daily_conf:.1f}%</span> <span style="color:#64748b;">(Target Low)</span>'
+                    else:
+                        daily_display = f'<span style="color:#f1c40f;font-weight:600;">{daily_conf:.1f}%</span> <span style="color:#64748b;">(Neutral)</span>'
                 else:
                     daily_display = '<span style="color:#64748b;">—</span>'
                 
                 # Weekly Target
-                weekly_target = row.get('weekly_target')
+                weekly_score = row.get('weekly_score')
                 weekly_conf = row.get('weekly_target_conf')
-                weekly_curr_name = row.get('weekly_target_currency')
-                if weekly_target is not None and pd.notna(weekly_target) and weekly_conf is not None:
-                    weekly_display = f'{weekly_target:.0f} <span style="color:#64748b;">({weekly_curr_name})</span> <span style="color:#f1c40f;font-size:11px;">{weekly_conf:.1f}%</span>'
+                if weekly_score is not None and pd.notna(weekly_score) and weekly_conf is not None:
+                    if weekly_score > 0:
+                        weekly_display = f'<span style="color:#10b981;font-weight:600;">{weekly_conf:.1f}%</span> <span style="color:#64748b;">(Target High)</span>'
+                    elif weekly_score < 0:
+                        weekly_display = f'<span style="color:#ef4444;font-weight:600;">{weekly_conf:.1f}%</span> <span style="color:#64748b;">(Target Low)</span>'
+                    else:
+                        weekly_display = f'<span style="color:#f1c40f;font-weight:600;">{weekly_conf:.1f}%</span> <span style="color:#64748b;">(Neutral)</span>'
                 else:
                     weekly_display = '<span style="color:#64748b;">—</span>'
                 
                 # Monthly Target
-                monthly_target = row.get('monthly_target')
+                monthly_score = row.get('monthly_score')
                 monthly_conf = row.get('monthly_target_conf')
-                monthly_curr_name = row.get('monthly_target_currency')
-                if monthly_target is not None and pd.notna(monthly_target) and monthly_conf is not None:
-                    monthly_display = f'{monthly_target:.0f} <span style="color:#64748b;">({monthly_curr_name})</span> <span style="color:#f1c40f;font-size:11px;">{monthly_conf:.1f}%</span>'
+                if monthly_score is not None and pd.notna(monthly_score) and monthly_conf is not None:
+                    if monthly_score > 0:
+                        monthly_display = f'<span style="color:#10b981;font-weight:600;">{monthly_conf:.1f}%</span> <span style="color:#64748b;">(Target High)</span>'
+                    elif monthly_score < 0:
+                        monthly_display = f'<span style="color:#ef4444;font-weight:600;">{monthly_conf:.1f}%</span> <span style="color:#64748b;">(Target Low)</span>'
+                    else:
+                        monthly_display = f'<span style="color:#f1c40f;font-weight:600;">{monthly_conf:.1f}%</span> <span style="color:#64748b;">(Neutral)</span>'
                 else:
                     monthly_display = '<span style="color:#64748b;">—</span>'
 
@@ -1944,37 +1957,8 @@ with tab_signal_engine:
                         </span>
                     </td>
                     <td style="padding:12px 10px;">{conf_display}</td>
-                    <td style="padding:12px 10px;font-size:13px;color:#e2e8f0;">{daily_display}</td>
-                    <td style="padding:12px 10px;font-size:13px;color:#e2e8f0;">{weekly_display}</td>
-                    <td style="padding:12px 10px;font-size:13px;color:#e2e8f0;">{monthly_display}</td>
+                    <td style="padding:12px 10px;font-size:13px;">{daily_display}</td>
+                    <td style="padding:12px 10px;font-size:13px;">{weekly_display}</td>
+                    <td style="padding:12px 10px;font-size:13px;">{monthly_display}</td>
                 </tr>"""
             return rows_html
-
-        table_html = f"""
-        <!DOCTYPE html><html><head><meta charset="UTF-8">
-        <style>
-            body {{ margin:0; padding:0; background:transparent;
-                   font-family: -apple-system, BlinkMacSystemFont, sans-serif; }}
-            table {{ width:100%; border-collapse:collapse;
-                    background:linear-gradient(135deg,#0f172a,#1e293b);
-                    border-radius:12px; overflow:hidden; }}
-            th {{ background:#1e293b; color:#f1c40f; padding:12px 10px;
-                 text-align:left; font-size:12px; font-weight:600;
-                 border-bottom:2px solid #f1c40f; white-space:nowrap; }}
-            tr:hover {{ background:rgba(241,196,15,0.04); }}
-        </style></head><body>
-        <table>
-            <thead><tr>
-                <th>Pair</th>
-                <th>Signal</th>
-                <th>Confidence</th>
-                <th>🎯 Daily Target</th>
-                <th>📅 Weekly Target</th>
-                <th>🗓️ Monthly Target</th>
-            </tr></thead>
-            <tbody>{build_signal_table(df_filtered)}</tbody>
-        </table></body></html>"""
-
-        row_count   = len(df_filtered)
-        table_height = max(200, row_count * 52 + 60)
-        st.components.v1.html(table_html, height=table_height, scrolling=True)
