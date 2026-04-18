@@ -1563,6 +1563,31 @@ with tab_signal_engine:
         daily_curr, daily_prev   = get_row_and_prev(db_daily,   'Date', sel_date_se)
         eco_curr,   eco_prev     = get_row_and_prev(db_economy,  'Date', sel_date_se)
         yield_curr, yield_prev   = get_row_and_prev(db_yield,    'Date', sel_date_se) if not db_yield.empty else (None, None)
+        
+        # Get Weekly data
+        sel_date_obj = pd.to_datetime(sel_date_se)
+        week_start = (sel_date_obj - pd.Timedelta(days=sel_date_obj.weekday())).date()
+        weekly_curr = None
+        weekly_prev = None
+        if not db_weekly.empty:
+            db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
+            week_row = db_weekly[db_weekly['Week_Start'] == week_start]
+            if not week_row.empty:
+                week_idx = week_row.index[0]
+                weekly_curr = week_row.iloc[0]
+                weekly_prev = db_weekly.iloc[week_idx - 1] if week_idx > 0 else None
+        
+        # Get Monthly data
+        month_start = sel_date_obj.replace(day=1).date()
+        monthly_curr = None
+        monthly_prev = None
+        if not db_monthly.empty:
+            db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
+            month_row = db_monthly[db_monthly['Month_Start'] == month_start]
+            if not month_row.empty:
+                month_idx = month_row.index[0]
+                monthly_curr = month_row.iloc[0]
+                monthly_prev = db_monthly.iloc[month_idx - 1] if month_idx > 0 else None
 
         if daily_curr is None or eco_curr is None:
             st.error("❌ لا توجد بيانات كافية للتاريخ المختار")
@@ -1653,9 +1678,71 @@ with tab_signal_engine:
                 signal = 'WAIT'
                 confidence = 0
 
+            # ══════════════════════════════════════════
+            # حساب السكور والتارجت لكل فريم
+            # ══════════════════════════════════════════
+            
+            # Daily Score & Target
+            daily_score = None
+            daily_target = None
+            daily_target_conf = None
+            if daily_curr is not None:
+                b = daily_curr.get(base, 0)
+                q = daily_curr.get(quote, 0)
+                if pd.notna(b) and pd.notna(q):
+                    daily_score = b - q
+                    daily_target_conf = abs(daily_score)
+                    # جلب الهاي واللو من بيانات الديلي
+                    if 'High' in daily_curr.index and 'Low' in daily_curr.index:
+                        if daily_score > 0:
+                            daily_target = daily_curr['High']
+                        elif daily_score < 0:
+                            daily_target = daily_curr['Low']
+            
+            # Weekly Score & Target
+            weekly_score = None
+            weekly_target = None
+            weekly_target_conf = None
+            if weekly_curr is not None:
+                b = weekly_curr.get(base, 0)
+                q = weekly_curr.get(quote, 0)
+                if pd.notna(b) and pd.notna(q):
+                    weekly_score = b - q
+                    weekly_target_conf = abs(weekly_score)
+                    if 'High' in weekly_curr.index and 'Low' in weekly_curr.index:
+                        if weekly_score > 0:
+                            weekly_target = weekly_curr['High']
+                        elif weekly_score < 0:
+                            weekly_target = weekly_curr['Low']
+            
+            # Monthly Score & Target
+            monthly_score = None
+            monthly_target = None
+            monthly_target_conf = None
+            if monthly_curr is not None:
+                b = monthly_curr.get(base, 0)
+                q = monthly_curr.get(quote, 0)
+                if pd.notna(b) and pd.notna(q):
+                    monthly_score = b - q
+                    monthly_target_conf = abs(monthly_score)
+                    if 'High' in monthly_curr.index and 'Low' in monthly_curr.index:
+                        if monthly_score > 0:
+                            monthly_target = monthly_curr['High']
+                        elif monthly_score < 0:
+                            monthly_target = monthly_curr['Low']
+
             return {
                 'signal':     signal,
                 'confidence': confidence,
+                'daily_score': daily_score,
+                'daily_target': daily_target,
+                'daily_target_conf': daily_target_conf,
+                'weekly_score': weekly_score,
+                'weekly_target': weekly_target,
+                'weekly_target_conf': weekly_target_conf,
+                'monthly_score': monthly_score,
+                'monthly_target': monthly_target,
+                'monthly_target_conf': monthly_target_conf,
             }
 
         # ══════════════════════════════════════════
@@ -1750,7 +1837,7 @@ with tab_signal_engine:
         df_filtered = df_filtered[df_filtered['signal'] != 'WAIT']
 
         # ══════════════════════════════════════════
-        # 8. الجدول الرئيسي (3 أعمدة فقط)
+        # 8. الجدول الرئيسي مع أعمدة التارجت الجديدة
         # ══════════════════════════════════════════
         def build_signal_table(df):
             rows_html = ""
@@ -1759,7 +1846,7 @@ with tab_signal_engine:
                 signal    = row['signal']
                 conf      = row['confidence']
 
-                # لون الإشارة ثابت: BUY = أخضر / SELL = أحمر / WAIT = رمادي
+                # لون الإشارة
                 if signal == 'BUY':
                     sig_color = '#10b981'
                     sig_bg    = 'rgba(16,185,129,0.2)'
@@ -1768,12 +1855,12 @@ with tab_signal_engine:
                     sig_color = '#ef4444'
                     sig_bg    = 'rgba(239,68,68,0.2)'
                     border_c  = '#ef4444'
-                else:  # WAIT
+                else:
                     sig_color = '#64748b'
                     sig_bg    = 'rgba(100,116,139,0.1)'
                     border_c  = '#475569'
 
-                # لون شريط الثقة يتغير حسب النسبة
+                # لون شريط الثقة
                 if conf > 0:
                     if conf == 80:
                         bar_color = '#059669'
@@ -1805,6 +1892,34 @@ with tab_signal_engine:
                 else:
                     conf_display = '<span style="font-size:13px;color:#64748b;">—</span>'
 
+                # ══════════════════════════════════════════
+                # تنسيق التارجت مع نسبة الثقة
+                # ══════════════════════════════════════════
+                
+                # Daily Target
+                daily_target = row.get('daily_target')
+                daily_conf = row.get('daily_target_conf')
+                if daily_target is not None and pd.notna(daily_target) and daily_conf is not None:
+                    daily_display = f'{daily_target:.4f} <span style="color:#f1c40f;font-size:11px;">({daily_conf:.1f}%)</span>'
+                else:
+                    daily_display = '<span style="color:#64748b;">—</span>'
+                
+                # Weekly Target
+                weekly_target = row.get('weekly_target')
+                weekly_conf = row.get('weekly_target_conf')
+                if weekly_target is not None and pd.notna(weekly_target) and weekly_conf is not None:
+                    weekly_display = f'{weekly_target:.4f} <span style="color:#f1c40f;font-size:11px;">({weekly_conf:.1f}%)</span>'
+                else:
+                    weekly_display = '<span style="color:#64748b;">—</span>'
+                
+                # Monthly Target
+                monthly_target = row.get('monthly_target')
+                monthly_conf = row.get('monthly_target_conf')
+                if monthly_target is not None and pd.notna(monthly_target) and monthly_conf is not None:
+                    monthly_display = f'{monthly_target:.4f} <span style="color:#f1c40f;font-size:11px;">({monthly_conf:.1f}%)</span>'
+                else:
+                    monthly_display = '<span style="color:#64748b;">—</span>'
+
                 rows_html += f"""
                 <tr style="border-bottom:1px solid #1e293b;">
                     <td style="padding:12px 10px;font-weight:700;color:#e2e8f0;font-size:14px;">{pair}</td>
@@ -1815,6 +1930,9 @@ with tab_signal_engine:
                         </span>
                     </td>
                     <td style="padding:12px 10px;">{conf_display}</td>
+                    <td style="padding:12px 10px;font-size:13px;color:#e2e8f0;">{daily_display}</td>
+                    <td style="padding:12px 10px;font-size:13px;color:#e2e8f0;">{weekly_display}</td>
+                    <td style="padding:12px 10px;font-size:13px;color:#e2e8f0;">{monthly_display}</td>
                 </tr>"""
             return rows_html
 
@@ -1836,6 +1954,9 @@ with tab_signal_engine:
                 <th>Pair</th>
                 <th>Signal</th>
                 <th>Confidence</th>
+                <th>🎯 Daily Target</th>
+                <th>📅 Weekly Target</th>
+                <th>🗓️ Monthly Target</th>
             </tr></thead>
             <tbody>{build_signal_table(df_filtered)}</tbody>
         </table></body></html>"""
