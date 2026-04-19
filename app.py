@@ -2181,13 +2181,13 @@ with tab_heat_map:
 
         # المجموعات السبع
         groups = [
-            {"name": "🇺🇸🇨🇦 USD/CAD Cross", "pairs": ["EURUSD", "EURCAD", "GBPUSD", "GBPCAD"]},
-            {"name": "🌏🇳🇿 AUD/NZD Cross", "pairs": ["EURAUD", "EURNZD", "GBPAUD", "GBPNZD"]},
-            {"name": "🇦🇺🇳🇿 Commodity", "pairs": ["AUDUSD", "AUDCAD", "NZDUSD", "NZDCAD"]},
-            {"name": "🇪🇺🇨🇭🇯🇵 European/JPY", "pairs": ["EURCHF", "GBPCHF", "EURJPY", "GBPJPY"]},
-            {"name": "🇦🇺🇳🇿🇨🇭🇯🇵 Pacific/JPY", "pairs": ["AUDCHF", "NZDCHF", "AUDJPY", "NZDJPY"]},
-            {"name": "🇺🇸🇨🇦🇨🇭🇯🇵 USD/JPY Cross", "pairs": ["USDCHF", "CADCHF", "USDJPY", "CADJPY"]},
-            {"name": "🔄 Special Crosses", "pairs": ["USDCAD", "EURGBP", "AUDNZD", "CHFJPY"]},
+            {"name": "[Frist Group", "pairs": ["EURUSD", "EURCAD", "GBPUSD", "GBPCAD"]},
+            {"name": "Seconed Group", "pairs": ["EURAUD", "EURNZD", "GBPAUD", "GBPNZD"]},
+            {"name": "Third Group", "pairs": ["AUDUSD", "AUDCAD", "NZDUSD", "NZDCAD"]},
+            {"name": "Fourth Group", "pairs": ["EURCHF", "GBPCHF", "EURJPY", "GBPJPY"]},
+            {"name": "Fifth Group", "pairs": ["AUDCHF", "NZDCHF", "AUDJPY", "NZDJPY"]},
+            {"name": "Sixth Group", "pairs": ["USDCHF", "CADCHF", "USDJPY", "CADJPY"]},
+            {"name": "Seventh Group", "pairs": ["USDCAD", "EURGBP", "AUDNZD", "CHFJPY"]},
         ]
 
         # عرض المجموعات
