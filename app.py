@@ -769,11 +769,12 @@ def render_dashboard_tab(db_daily, db_economy, db_yield, db_weekly, db_monthly, 
 # ══════════════════════════════════════════════════════════════
 # إنشاء التبويبات
 # ══════════════════════════════════════════════════════════════
-tab_dashboard, tab_results, tab_signal, tab_signal_engine = st.tabs([
+tab_dashboard, tab_results, tab_signal, tab_signal_engine, tab_heat_map = st.tabs([
     "🌍 Market Overview",
     "⚡ Scalping Signals", 
     "📊 Signal Matrix",
     "📅 Daily Signals",
+    "🔥 Heat Map",
 ])
 
 # ──── Daily Dashboard Tab (باستخدام الدالة الجديدة) ─────────────────────────────────
@@ -1991,3 +1992,360 @@ with tab_signal_engine:
         row_count   = len(df_filtered)
         table_height = max(200, row_count * 52 + 60)
         st.components.v1.html(table_html, height=table_height, scrolling=True)
+
+# ──── Heat Map Tab ─────────────────────
+with tab_heat_map:
+    st.header("🔥 Currency Strength Heat Map")
+    st.caption("7 Groups • 4 Pairs Each • Multi-Timeframe Targets")
+    
+    if db_daily.empty or db_economy.empty:
+        st.info("📊 Please enter Daily and ECONOMY data first")
+    else:
+        # استخدام التاريخ الموحد من session_state
+        sel_date_hm = st.session_state.get('selected_date', db_daily['Date'].max())
+        
+        st.markdown(f"""
+        <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                    border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
+            <span style="color: #f1c40f; font-weight: bold;">📅 Selected Date: {sel_date_hm.strftime('%Y-%m-%d') if hasattr(sel_date_hm, 'strftime') else sel_date_hm}</span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # ══════════════════════════════════════════
+        # جلب البيانات وحساب الإشارات (نفس منطق Daily Signals)
+        # ══════════════════════════════════════════
+        def get_row_and_prev(df, date_col, sel_date):
+            df[date_col] = pd.to_datetime(df[date_col]).dt.date
+            row = df[df[date_col] == sel_date]
+            if row.empty:
+                return None, None
+            idx = row.index[0]
+            curr = row.iloc[0]
+            prev = df.iloc[idx - 1] if idx > 0 else None
+            return curr, prev
+
+        daily_curr_hm, daily_prev_hm   = get_row_and_prev(db_daily,   'Date', sel_date_hm)
+        eco_curr_hm,   eco_prev_hm     = get_row_and_prev(db_economy,  'Date', sel_date_hm)
+        yield_curr_hm, yield_prev_hm   = get_row_and_prev(db_yield,    'Date', sel_date_hm) if not db_yield.empty else (None, None)
+        
+        # Get Weekly data
+        sel_date_obj_hm = pd.to_datetime(sel_date_hm)
+        week_start_hm = (sel_date_obj_hm - pd.Timedelta(days=sel_date_obj_hm.weekday())).date()
+        weekly_curr_hm = None
+        if not db_weekly.empty:
+            db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
+            week_row = db_weekly[db_weekly['Week_Start'] == week_start_hm]
+            if not week_row.empty:
+                weekly_curr_hm = week_row.iloc[0]
+        
+        # Get Monthly data
+        month_start_hm = sel_date_obj_hm.replace(day=1).date()
+        monthly_curr_hm = None
+        if not db_monthly.empty:
+            db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
+            month_row = db_monthly[db_monthly['Month_Start'] == month_start_hm]
+            if not month_row.empty:
+                monthly_curr_hm = month_row.iloc[0]
+
+        if daily_curr_hm is None or eco_curr_hm is None:
+            st.error("❌ No data for selected date")
+            st.stop()
+
+        def get_direction(curr_row, prev_row, col):
+            if curr_row is None or prev_row is None:
+                return None
+            if col not in curr_row.index or col not in prev_row.index:
+                return None
+            c = curr_row[col]
+            p = prev_row[col]
+            if pd.isna(c) or pd.isna(p):
+                return None
+            if c > p:
+                return 'up'
+            elif c < p:
+                return 'down'
+            else:
+                return 'flat'
+
+        def get_pair_signal_hm(base, quote):
+            eco_base  = get_direction(eco_curr_hm,   eco_prev_hm,   base)
+            eco_quote = get_direction(eco_curr_hm,   eco_prev_hm,   quote)
+            yld_base  = get_direction(yield_curr_hm, yield_prev_hm, base)  if yield_curr_hm is not None else None
+            yld_quote = get_direction(yield_curr_hm, yield_prev_hm, quote) if yield_curr_hm is not None else None
+            
+            daily_val = None
+            if daily_curr_hm is not None:
+                b = daily_curr_hm.get(base, 0)
+                q = daily_curr_hm.get(quote, 0)
+                if pd.notna(b) and pd.notna(q):
+                    diff = b - q
+                    daily_val = 'up' if diff > 0 else 'down' if diff < 0 else 'flat'
+
+            signal     = None
+            confidence = None
+
+            # ── منطق الإشارة (نفس النظام الخماسي) ──
+            if eco_base == 'up' and eco_quote == 'down':
+                signal = 'BUY'
+                confidence = 80 if daily_val == 'up' else 75
+            elif eco_base == 'down' and eco_quote == 'up':
+                signal = 'SELL'
+                confidence = 80 if daily_val == 'down' else 75
+            elif (eco_base == 'up' and eco_quote != 'down') or (eco_quote == 'down' and eco_base != 'up'):
+                signal = 'BUY'
+                confidence = 70 if daily_val == 'up' else 65
+            elif (eco_base == 'down' and eco_quote != 'up') or (eco_quote == 'up' and eco_base != 'down'):
+                signal = 'SELL'
+                confidence = 70 if daily_val == 'down' else 65
+            elif (eco_base == 'flat' or eco_quote == 'flat') or (eco_base is None):
+                yld_signal = None
+                if yld_base is not None and yld_quote is not None:
+                    if (yld_base == 'up' and yld_quote != 'up') or (yld_quote == 'down' and yld_base != 'down'):
+                        yld_signal = 'BUY'
+                    elif (yld_base == 'down' and yld_quote != 'down') or (yld_quote == 'up' and yld_base != 'up'):
+                        yld_signal = 'SELL'
+                
+                if yld_signal == 'BUY' and daily_val == 'up':
+                    signal = 'BUY'
+                    confidence = 60
+                elif yld_signal == 'SELL' and daily_val == 'down':
+                    signal = 'SELL'
+                    confidence = 60
+                else:
+                    signal = 'WAIT'
+                    confidence = 0
+            else:
+                signal = 'WAIT'
+                confidence = 0
+
+            # ══════════════════════════════════════════
+            # حساب السكور والتارجت لكل فريم
+            # ══════════════════════════════════════════
+            daily_score = None
+            daily_target_conf = None
+            if daily_curr_hm is not None:
+                b = daily_curr_hm.get(base, 0)
+                q = daily_curr_hm.get(quote, 0)
+                if pd.notna(b) and pd.notna(q):
+                    daily_score = b - q
+                    daily_target_conf = abs(daily_score)
+            
+            weekly_score = None
+            weekly_target_conf = None
+            if weekly_curr_hm is not None:
+                b = weekly_curr_hm.get(base, 0)
+                q = weekly_curr_hm.get(quote, 0)
+                if pd.notna(b) and pd.notna(q):
+                    weekly_score = b - q
+                    weekly_target_conf = abs(weekly_score)
+            
+            monthly_score = None
+            monthly_target_conf = None
+            if monthly_curr_hm is not None:
+                b = monthly_curr_hm.get(base, 0)
+                q = monthly_curr_hm.get(quote, 0)
+                if pd.notna(b) and pd.notna(q):
+                    monthly_score = b - q
+                    monthly_target_conf = abs(monthly_score)
+
+            # إذا الإشارة WAIT → نحولها لـ RANGE بثقة 50%
+            if signal == 'WAIT' or signal is None:
+                signal = 'RANGE'
+                confidence = 50
+
+            return {
+                'pair': base + quote,
+                'signal': signal,
+                'confidence': confidence,
+                'daily_score': daily_score,
+                'daily_target_conf': daily_target_conf,
+                'weekly_score': weekly_score,
+                'weekly_target_conf': weekly_target_conf,
+                'monthly_score': monthly_score,
+                'monthly_target_conf': monthly_target_conf,
+            }
+
+        # ══════════════════════════════════════════
+        # حساب الإشارات لكل الأزواج
+        # ══════════════════════════════════════════
+        all_pairs = [
+            "EURUSD","EURCAD","GBPUSD","GBPCAD",
+            "EURAUD","EURNZD","GBPAUD","GBPNZD",
+            "AUDUSD","AUDCAD","NZDUSD","NZDCAD",
+            "EURCHF","GBPCHF","EURJPY","GBPJPY",
+            "AUDCHF","NZDCHF","AUDJPY","NZDJPY",
+            "USDCHF","CADCHF","USDJPY","CADJPY",
+            "USDCAD","EURGBP","AUDNZD","CHFJPY"
+        ]
+        
+        signals_dict = {}
+        for pair in all_pairs:
+            base, quote = pair[:3], pair[3:]
+            signals_dict[pair] = get_pair_signal_hm(base, quote)
+
+        # ══════════════════════════════════════════
+        # تعريف المجموعات السبع
+        # ══════════════════════════════════════════
+        groups = [
+            {"name": "🇺🇸🇨🇦 USD/CAD Cross", "pairs": ["EURUSD", "EURCAD", "GBPUSD", "GBPCAD"]},
+            {"name": "🌏🇳🇿 AUD/NZD Cross", "pairs": ["EURAUD", "EURNZD", "GBPAUD", "GBPNZD"]},
+            {"name": "🇦🇺🇳🇿 Commodity", "pairs": ["AUDUSD", "AUDCAD", "NZDUSD", "NZDCAD"]},
+            {"name": "🇪🇺🇨🇭🇯🇵 European/JPY", "pairs": ["EURCHF", "GBPCHF", "EURJPY", "GBPJPY"]},
+            {"name": "🇦🇺🇳🇿🇨🇭🇯🇵 Pacific/JPY", "pairs": ["AUDCHF", "NZDCHF", "AUDJPY", "NZDJPY"]},
+            {"name": "🇺🇸🇨🇦🇨🇭🇯🇵 USD/JPY Cross", "pairs": ["USDCHF", "CADCHF", "USDJPY", "CADJPY"]},
+            {"name": "🔄 Special Crosses", "pairs": ["USDCAD", "EURGBP", "AUDNZD", "CHFJPY"]},
+        ]
+
+        # ══════════════════════════════════════════
+        # دالة إنشاء كرت لزوج واحد
+        # ══════════════════════════════════════════
+        def render_pair_card(pair_data):
+            pair = pair_data['pair']
+            signal = pair_data['signal']
+            conf = pair_data['confidence']
+            
+            # ألوان الإشارة
+            if signal == 'BUY':
+                sig_color = '#10b981'
+                sig_bg = 'rgba(16,185,129,0.15)'
+                border_c = '#10b981'
+                gradient_bg = 'linear-gradient(135deg, #0a2f1f 0%, #0f172a 100%)'
+            elif signal == 'SELL':
+                sig_color = '#ef4444'
+                sig_bg = 'rgba(239,68,68,0.15)'
+                border_c = '#ef4444'
+                gradient_bg = 'linear-gradient(135deg, #2f1a1a 0%, #0f172a 100%)'
+            else:  # RANGE
+                sig_color = '#f1c40f'
+                sig_bg = 'rgba(241,196,15,0.15)'
+                border_c = '#f1c40f'
+                gradient_bg = 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
+            
+            # لون شريط الثقة
+            if conf >= 80:
+                bar_color = '#059669'
+            elif conf >= 70:
+                bar_color = '#10b981'
+            elif conf >= 60:
+                bar_color = '#f1c40f'
+            elif conf >= 50:
+                bar_color = '#f97316'
+            else:
+                bar_color = '#64748b'
+            
+            # تنسيق الأهداف
+            def format_target(score, conf_val):
+                if score is None or conf_val is None:
+                    return '<span style="color:#64748b;">—</span>'
+                if score > 0:
+                    return f'<span style="color:#10b981;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Target High)</span>'
+                elif score < 0:
+                    return f'<span style="color:#ef4444;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Target Low)</span>'
+                else:
+                    return f'<span style="color:#f1c40f;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Neutral)</span>'
+            
+            daily_display = format_target(pair_data['daily_score'], pair_data['daily_target_conf'])
+            weekly_display = format_target(pair_data['weekly_score'], pair_data['weekly_target_conf'])
+            monthly_display = format_target(pair_data['monthly_score'], pair_data['monthly_target_conf'])
+            
+            card_html = f'''
+            <div style="background: {gradient_bg}; border-radius: 16px; padding: 16px; 
+                        border: 2px solid {border_c}; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                        height: 100%; display: flex; flex-direction: column;">
+                <!-- Header: Pair & Signal -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 20px; font-weight: 700; color: #e2e8f0;">{pair}</span>
+                    <span style="background: {sig_bg}; color: {sig_color}; border: 1px solid {border_c};
+                                 padding: 5px 14px; border-radius: 20px; font-weight: 700; font-size: 13px;">
+                        {signal}
+                    </span>
+                </div>
+                
+                <!-- Confidence Bar -->
+                <div style="margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="font-size: 11px; color: #64748b;">Confidence</span>
+                        <span style="font-size: 14px; font-weight: 700; color: {bar_color};">{conf}%</span>
+                    </div>
+                    <div style="background: #1e293b; border-radius: 6px; height: 6px; overflow:hidden;">
+                        <div style="background: {bar_color}; height: 100%; width: {conf}%; border-radius: 6px;"></div>
+                    </div>
+                </div>
+                
+                <!-- Divider -->
+                <div style="border-top: 1px solid #334155; margin: 8px 0;"></div>
+                
+                <!-- Targets -->
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 14px; min-width: 24px;">🎯</span>
+                        <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Daily:</span>
+                        <span style="font-size: 12px;">{daily_display}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 14px; min-width: 24px;">📅</span>
+                        <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Weekly:</span>
+                        <span style="font-size: 12px;">{weekly_display}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 14px; min-width: 24px;">🗓️</span>
+                        <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Monthly:</span>
+                        <span style="font-size: 12px;">{monthly_display}</span>
+                    </div>
+                </div>
+            </div>
+            '''
+            return card_html
+
+        # ══════════════════════════════════════════
+        # عرض المجموعات
+        # ══════════════════════════════════════════
+        for group_idx, group in enumerate(groups):
+            st.markdown(f"""
+            <div style="margin-top: 24px; margin-bottom: 12px;">
+                <span style="background: #1e293b; color: #f1c40f; padding: 6px 16px; 
+                         border-radius: 20px; font-size: 14px; font-weight: 600;
+                         border: 1px solid #f1c40f40;">
+                    {group['name']}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            cols = st.columns(4)
+            for idx, pair in enumerate(group['pairs']):
+                with cols[idx]:
+                    if pair in signals_dict:
+                        card = render_pair_card(signals_dict[pair])
+                        st.markdown(card, unsafe_allow_html=True)
+                    else:
+                        st.warning(f"⚠️ {pair} not found")
+            
+            # مسافة بين المجموعات
+            if group_idx < len(groups) - 1:
+                st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
+        # ══════════════════════════════════════════
+        # Legend
+        # ══════════════════════════════════════════
+        st.markdown("---")
+        st.markdown("""
+        <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; padding: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #10b981; width: 12px; height: 12px; border-radius: 3px;"></span>
+                <span style="color: #94a3b8;">BUY Signal</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #ef4444; width: 12px; height: 12px; border-radius: 3px;"></span>
+                <span style="color: #94a3b8;">SELL Signal</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #f1c40f; width: 12px; height: 12px; border-radius: 3px;"></span>
+                <span style="color: #94a3b8;">RANGE (No Clear Signal)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #10b981; font-weight: 600;">XX% (Target High)</span>
+                <span style="color: #64748b;">|</span>
+                <span style="color: #ef4444; font-weight: 600;">XX% (Target Low)</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
