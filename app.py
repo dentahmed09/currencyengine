@@ -2181,7 +2181,7 @@ with tab_heat_map:
 
         # المجموعات السبع
         groups = [
-            {"name": "[Frist Group", "pairs": ["EURUSD", "EURCAD", "GBPUSD", "GBPCAD"]},
+            {"name": "Frist Group", "pairs": ["EURUSD", "EURCAD", "GBPUSD", "GBPCAD"]},
             {"name": "Seconed Group", "pairs": ["EURAUD", "EURNZD", "GBPAUD", "GBPNZD"]},
             {"name": "Third Group", "pairs": ["AUDUSD", "AUDCAD", "NZDUSD", "NZDCAD"]},
             {"name": "Fourth Group", "pairs": ["EURCHF", "GBPCHF", "EURJPY", "GBPJPY"]},
