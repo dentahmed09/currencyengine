@@ -2012,7 +2012,7 @@ with tab_heat_map:
         """, unsafe_allow_html=True)
         
         # ══════════════════════════════════════════
-        # جلب البيانات وحساب الإشارات (نفس منطق Daily Signals)
+        # جلب البيانات وحساب الإشارات
         # ══════════════════════════════════════════
         def get_row_and_prev(df, date_col, sel_date):
             df[date_col] = pd.to_datetime(df[date_col]).dt.date
@@ -2084,7 +2084,7 @@ with tab_heat_map:
             signal     = None
             confidence = None
 
-            # ── منطق الإشارة (نفس النظام الخماسي) ──
+            # ── منطق الإشارة (النظام الخماسي) ──
             if eco_base == 'up' and eco_quote == 'down':
                 signal = 'BUY'
                 confidence = 80 if daily_val == 'up' else 75
@@ -2118,9 +2118,7 @@ with tab_heat_map:
                 signal = 'WAIT'
                 confidence = 0
 
-            # ══════════════════════════════════════════
-            # حساب السكور والتارجت لكل فريم
-            # ══════════════════════════════════════════
+            # حساب السكور
             daily_score = None
             daily_target_conf = None
             if daily_curr_hm is not None:
@@ -2148,7 +2146,7 @@ with tab_heat_map:
                     monthly_score = b - q
                     monthly_target_conf = abs(monthly_score)
 
-            # إذا الإشارة WAIT → نحولها لـ RANGE بثقة 50%
+            # WAIT → RANGE بثقة 50%
             if signal == 'WAIT' or signal is None:
                 signal = 'RANGE'
                 confidence = 50
@@ -2165,9 +2163,7 @@ with tab_heat_map:
                 'monthly_target_conf': monthly_target_conf,
             }
 
-        # ══════════════════════════════════════════
-        # حساب الإشارات لكل الأزواج
-        # ══════════════════════════════════════════
+        # حساب الإشارات
         all_pairs = [
             "EURUSD","EURCAD","GBPUSD","GBPCAD",
             "EURAUD","EURNZD","GBPAUD","GBPNZD",
@@ -2183,9 +2179,7 @@ with tab_heat_map:
             base, quote = pair[:3], pair[3:]
             signals_dict[pair] = get_pair_signal_hm(base, quote)
 
-        # ══════════════════════════════════════════
-        # تعريف المجموعات السبع
-        # ══════════════════════════════════════════
+        # المجموعات السبع
         groups = [
             {"name": "🇺🇸🇨🇦 USD/CAD Cross", "pairs": ["EURUSD", "EURCAD", "GBPUSD", "GBPCAD"]},
             {"name": "🌏🇳🇿 AUD/NZD Cross", "pairs": ["EURAUD", "EURNZD", "GBPAUD", "GBPNZD"]},
@@ -2196,110 +2190,7 @@ with tab_heat_map:
             {"name": "🔄 Special Crosses", "pairs": ["USDCAD", "EURGBP", "AUDNZD", "CHFJPY"]},
         ]
 
-        # ══════════════════════════════════════════
-        # دالة إنشاء كرت لزوج واحد
-        # ══════════════════════════════════════════
-        def render_pair_card(pair_data):
-            pair = pair_data['pair']
-            signal = pair_data['signal']
-            conf = pair_data['confidence']
-            
-            # ألوان الإشارة
-            if signal == 'BUY':
-                sig_color = '#10b981'
-                sig_bg = 'rgba(16,185,129,0.15)'
-                border_c = '#10b981'
-                gradient_bg = 'linear-gradient(135deg, #0a2f1f 0%, #0f172a 100%)'
-            elif signal == 'SELL':
-                sig_color = '#ef4444'
-                sig_bg = 'rgba(239,68,68,0.15)'
-                border_c = '#ef4444'
-                gradient_bg = 'linear-gradient(135deg, #2f1a1a 0%, #0f172a 100%)'
-            else:  # RANGE
-                sig_color = '#f1c40f'
-                sig_bg = 'rgba(241,196,15,0.15)'
-                border_c = '#f1c40f'
-                gradient_bg = 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
-            
-            # لون شريط الثقة
-            if conf >= 80:
-                bar_color = '#059669'
-            elif conf >= 70:
-                bar_color = '#10b981'
-            elif conf >= 60:
-                bar_color = '#f1c40f'
-            elif conf >= 50:
-                bar_color = '#f97316'
-            else:
-                bar_color = '#64748b'
-            
-            # تنسيق الأهداف
-            def format_target(score, conf_val):
-                if score is None or conf_val is None:
-                    return '<span style="color:#64748b;">—</span>'
-                if score > 0:
-                    return f'<span style="color:#10b981;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Target High)</span>'
-                elif score < 0:
-                    return f'<span style="color:#ef4444;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Target Low)</span>'
-                else:
-                    return f'<span style="color:#f1c40f;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Neutral)</span>'
-            
-            daily_display = format_target(pair_data['daily_score'], pair_data['daily_target_conf'])
-            weekly_display = format_target(pair_data['weekly_score'], pair_data['weekly_target_conf'])
-            monthly_display = format_target(pair_data['monthly_score'], pair_data['monthly_target_conf'])
-            
-            card_html = f'''
-            <div style="background: {gradient_bg}; border-radius: 16px; padding: 16px; 
-                        border: 2px solid {border_c}; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                        height: 100%; display: flex; flex-direction: column;">
-                <!-- Header: Pair & Signal -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <span style="font-size: 20px; font-weight: 700; color: #e2e8f0;">{pair}</span>
-                    <span style="background: {sig_bg}; color: {sig_color}; border: 1px solid {border_c};
-                                 padding: 5px 14px; border-radius: 20px; font-weight: 700; font-size: 13px;">
-                        {signal}
-                    </span>
-                </div>
-                
-                <!-- Confidence Bar -->
-                <div style="margin-bottom: 14px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="font-size: 11px; color: #64748b;">Confidence</span>
-                        <span style="font-size: 14px; font-weight: 700; color: {bar_color};">{conf}%</span>
-                    </div>
-                    <div style="background: #1e293b; border-radius: 6px; height: 6px; overflow:hidden;">
-                        <div style="background: {bar_color}; height: 100%; width: {conf}%; border-radius: 6px;"></div>
-                    </div>
-                </div>
-                
-                <!-- Divider -->
-                <div style="border-top: 1px solid #334155; margin: 8px 0;"></div>
-                
-                <!-- Targets -->
-                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 14px; min-width: 24px;">🎯</span>
-                        <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Daily:</span>
-                        <span style="font-size: 12px;">{daily_display}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 14px; min-width: 24px;">📅</span>
-                        <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Weekly:</span>
-                        <span style="font-size: 12px;">{weekly_display}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 14px; min-width: 24px;">🗓️</span>
-                        <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Monthly:</span>
-                        <span style="font-size: 12px;">{monthly_display}</span>
-                    </div>
-                </div>
-            </div>
-            '''
-            return card_html
-
-        # ══════════════════════════════════════════
         # عرض المجموعات
-        # ══════════════════════════════════════════
         for group_idx, group in enumerate(groups):
             st.markdown(f"""
             <div style="margin-top: 24px; margin-bottom: 12px;">
@@ -2315,18 +2206,101 @@ with tab_heat_map:
             for idx, pair in enumerate(group['pairs']):
                 with cols[idx]:
                     if pair in signals_dict:
-                        card = render_pair_card(signals_dict[pair])
-                        st.markdown(card, unsafe_allow_html=True)
+                        data = signals_dict[pair]
+                        
+                        # ألوان الإشارة
+                        if data['signal'] == 'BUY':
+                            sig_color = '#10b981'
+                            sig_bg = 'rgba(16,185,129,0.15)'
+                            border_c = '#10b981'
+                            gradient_bg = 'linear-gradient(135deg, #0a2f1f 0%, #0f172a 100%)'
+                        elif data['signal'] == 'SELL':
+                            sig_color = '#ef4444'
+                            sig_bg = 'rgba(239,68,68,0.15)'
+                            border_c = '#ef4444'
+                            gradient_bg = 'linear-gradient(135deg, #2f1a1a 0%, #0f172a 100%)'
+                        else:
+                            sig_color = '#f1c40f'
+                            sig_bg = 'rgba(241,196,15,0.15)'
+                            border_c = '#f1c40f'
+                            gradient_bg = 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
+                        
+                        # لون شريط الثقة
+                        conf = data['confidence']
+                        if conf >= 80:
+                            bar_color = '#059669'
+                        elif conf >= 70:
+                            bar_color = '#10b981'
+                        elif conf >= 60:
+                            bar_color = '#f1c40f'
+                        elif conf >= 50:
+                            bar_color = '#f97316'
+                        else:
+                            bar_color = '#64748b'
+                        
+                        # تنسيق الأهداف
+                        def format_target_html(score, conf_val):
+                            if score is None or conf_val is None:
+                                return '<span style="color:#64748b;">—</span>'
+                            if score > 0:
+                                return f'<span style="color:#10b981;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Target High)</span>'
+                            elif score < 0:
+                                return f'<span style="color:#ef4444;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Target Low)</span>'
+                            else:
+                                return f'<span style="color:#f1c40f;font-weight:600;">{conf_val:.1f}%</span> <span style="color:#64748b;">(Neutral)</span>'
+                        
+                        daily_html = format_target_html(data['daily_score'], data['daily_target_conf'])
+                        weekly_html = format_target_html(data['weekly_score'], data['weekly_target_conf'])
+                        monthly_html = format_target_html(data['monthly_score'], data['monthly_target_conf'])
+                        
+                        card_html = f'''
+                        <div style="background: {gradient_bg}; border-radius: 16px; padding: 16px; 
+                                    border: 2px solid {border_c}; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                                    height: 100%; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <span style="font-size: 20px; font-weight: 700; color: #e2e8f0;">{data['pair']}</span>
+                                <span style="background: {sig_bg}; color: {sig_color}; border: 1px solid {border_c};
+                                             padding: 5px 14px; border-radius: 20px; font-weight: 700; font-size: 13px;">
+                                    {data['signal']}
+                                </span>
+                            </div>
+                            <div style="margin-bottom: 14px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="font-size: 11px; color: #64748b;">Confidence</span>
+                                    <span style="font-size: 14px; font-weight: 700; color: {bar_color};">{conf}%</span>
+                                </div>
+                                <div style="background: #1e293b; border-radius: 6px; height: 6px; overflow:hidden;">
+                                    <div style="background: {bar_color}; height: 100%; width: {conf}%; border-radius: 6px;"></div>
+                                </div>
+                            </div>
+                            <div style="border-top: 1px solid #334155; margin: 8px 0;"></div>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 14px; min-width: 24px;">🎯</span>
+                                    <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Daily:</span>
+                                    <span style="font-size: 12px;">{daily_html}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 14px; min-width: 24px;">📅</span>
+                                    <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Weekly:</span>
+                                    <span style="font-size: 12px;">{weekly_html}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 14px; min-width: 24px;">🗓️</span>
+                                    <span style="font-size: 12px; color: #94a3b8; min-width: 55px;">Monthly:</span>
+                                    <span style="font-size: 12px;">{monthly_html}</span>
+                                </div>
+                            </div>
+                        </div>
+                        '''
+                        st.markdown(card_html, unsafe_allow_html=True)
                     else:
-                        st.warning(f"⚠️ {pair} not found")
+                        st.warning(f"⚠️ {pair}")
             
-            # مسافة بين المجموعات
             if group_idx < len(groups) - 1:
                 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
-        # ══════════════════════════════════════════
         # Legend
-        # ══════════════════════════════════════════
         st.markdown("---")
         st.markdown("""
         <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; padding: 10px;">
