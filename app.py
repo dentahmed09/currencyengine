@@ -279,9 +279,10 @@ def inject_custom_css():
 ## ==================== Sheet ID ====================
 SHEET_ID = "1q_q9QGYHm0w7Z5nnO1Uq4NKLW1SoQCf5stbAMKoT3FE"
 
-DAILY_WS   = "daily"
-WEEKLY_WS  = "weekly"
-MONTHLY_WS = "monthly"
+# ✅ تم تغيير المصادر إلى البيانات التاريخية الجديدة
+DAILY_WS   = "Daily_Strength_History"
+WEEKLY_WS  = "Weekly_Strength_History"
+MONTHLY_WS = "Monthly_Strength_History"
 ECONOMY_WS = "ECONOMY"    
 YIELD_WS   = "YIELD"       
 
@@ -309,7 +310,20 @@ def load_data(worksheet_name: str, date_col: str = "Date"):
     df = pd.DataFrame(data)
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce').dt.date
     df = df.dropna(subset=[date_col])
-    return df.sort_values(date_col).reset_index(drop=True)
+    df = df.sort_values(date_col).reset_index(drop=True)
+    
+    # ✅ تحويل البيانات من الشكل الجديد (USD_Score) إلى الشكل القديم (USD)
+    df_converted = pd.DataFrame()
+    df_converted[date_col] = df[date_col]
+    
+    for curr in currencies:
+        score_col = f"{curr}_Score"
+        if score_col in df.columns:
+            df_converted[curr] = df[score_col]
+        else:
+            df_converted[curr] = 0
+    
+    return df_converted
 
 def save_data(df: pd.DataFrame, worksheet_name: str):
     client = get_gspread_client()
@@ -331,8 +345,8 @@ st.markdown("""
 
 # ====================== تحميل البيانات ======================
 db_daily   = load_data(DAILY_WS, "Date")
-db_weekly  = load_data(WEEKLY_WS, "Week_Start")
-db_monthly = load_data(MONTHLY_WS, "Month_Start")
+db_weekly  = load_data(WEEKLY_WS, "Date")
+db_monthly = load_data(MONTHLY_WS, "Date")
 db_yield   = load_data(YIELD_WS, "Date")
 db_economy = load_data(ECONOMY_WS, "Date")
 
@@ -707,14 +721,14 @@ def render_dashboard_tab(db_daily, db_economy, db_yield, db_weekly, db_monthly, 
                     d = db_daily[['Date', currency]].copy().rename(columns={currency:'Daily'})
                     chart_data = d
                 if not db_weekly.empty:
-                    db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
-                    w = db_weekly[['Week_Start', currency]].copy().rename(
-                        columns={'Week_Start':'Date', currency:'Weekly'})
+                    db_weekly['Date'] = pd.to_datetime(db_weekly['Date']).dt.date
+                    w = db_weekly[['Date', currency]].copy().rename(
+                        columns={'Date':'Date', currency:'Weekly'})
                     chart_data = chart_data.merge(w, on='Date', how='outer') if not chart_data.empty else w
                 if not db_monthly.empty:
-                    db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
-                    m = db_monthly[['Month_Start', currency]].copy().rename(
-                        columns={'Month_Start':'Date', currency:'Monthly'})
+                    db_monthly['Date'] = pd.to_datetime(db_monthly['Date']).dt.date
+                    m = db_monthly[['Date', currency]].copy().rename(
+                        columns={'Date':'Date', currency:'Monthly'})
                     chart_data = chart_data.merge(m, on='Date', how='outer') if not chart_data.empty else m
 
                 if not chart_data.empty:
@@ -1090,12 +1104,11 @@ with tab_signal:
             weekly_prev_val = {}
             
             if not db_weekly.empty:
-                db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
-                weekly_sorted = db_weekly.sort_values('Week_Start')
-                weekly_current_row = db_weekly[db_weekly['Week_Start'] == week_start]
+                db_weekly['Date'] = pd.to_datetime(db_weekly['Date']).dt.date
+                weekly_current_row = db_weekly[db_weekly['Date'] == week_start]
                 
                 if not weekly_current_row.empty:
-                    weekly_idx = db_weekly[db_weekly['Week_Start'] == week_start].index[0]
+                    weekly_idx = db_weekly[db_weekly['Date'] == week_start].index[0]
                     for curr in currencies:
                         if curr in weekly_current_row.columns and pd.notna(weekly_current_row.iloc[0][curr]):
                             weekly_current[curr] = weekly_current_row.iloc[0][curr]
@@ -1123,12 +1136,11 @@ with tab_signal:
             monthly_prev_val = {}
             
             if not db_monthly.empty:
-                db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
-                monthly_sorted = db_monthly.sort_values('Month_Start')
-                monthly_current_row = db_monthly[db_monthly['Month_Start'] == month_start]
+                db_monthly['Date'] = pd.to_datetime(db_monthly['Date']).dt.date
+                monthly_current_row = db_monthly[db_monthly['Date'] == month_start]
                 
                 if not monthly_current_row.empty:
-                    monthly_idx = db_monthly[db_monthly['Month_Start'] == month_start].index[0]
+                    monthly_idx = db_monthly[db_monthly['Date'] == month_start].index[0]
                     for curr in currencies:
                         if curr in monthly_current_row.columns and pd.notna(monthly_current_row.iloc[0][curr]):
                             monthly_current[curr] = monthly_current_row.iloc[0][curr]
@@ -1361,9 +1373,9 @@ with tab_signal:
             
             st.markdown("---")
             
-            # ================== Pairs Signal Matrix ==================
-            st.subheader("📈 Pairs Signal Matrix")
-            st.caption("Economic • Yield • Monthly • Weekly • Daily — White = Current Value, Arrow = Change vs Previous")
+            # ================== 2. Pairs Economic Charts (28 Charts - Base vs Quote) ==================
+            st.subheader("📈 Pairs Economic Spread — Base vs Quote")
+            st.caption("Economic Strength: Base Currency vs Quote Currency")
             
             pairs_ordered = [
                 "EURUSD", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF", "EURJPY",
@@ -1374,169 +1386,135 @@ with tab_signal:
                 "CADCHF", "CADJPY", "CHFJPY"
             ]
             
-            table_data = []
-            
-            for pair in pairs_ordered:
-                base, quote = pair[:3], pair[3:]
+            # تحضير البيانات الاقتصادية
+            if not db_economy.empty:
+                econ_data = db_economy.copy()
+                econ_data['Date'] = pd.to_datetime(econ_data['Date'])
+                econ_data = econ_data.sort_values('Date')
                 
-                # Economic
-                eco_current = None
-                eco_prev = None
-                if economy_today is not None and economy_prev is not None:
-                    if base in economy_today.index and quote in economy_today.index and base in economy_prev.index and quote in economy_prev.index:
-                        if pd.notna(economy_today[base]) and pd.notna(economy_today[quote]):
-                            eco_current = economy_today[base] - economy_today[quote]
-                            eco_prev = economy_prev[base] - economy_prev[quote]
+                # عرض 4 شارتات في كل صف
+                for i in range(0, len(pairs_ordered), 4):
+                    cols = st.columns(4)
+                    for j in range(4):
+                        if i + j < len(pairs_ordered):
+                            pair = pairs_ordered[i + j]
+                            base, quote = pair[:3], pair[3:]
+                            
+                            with cols[j]:
+                                # إنشاء الشارت
+                                fig = go.Figure()
+                                
+                                # خط Base
+                                if base in econ_data.columns:
+                                    base_data = econ_data[['Date', base]].dropna()
+                                    if not base_data.empty:
+                                        fig.add_trace(go.Scatter(
+                                            x=base_data['Date'],
+                                            y=base_data[base],
+                                            mode='lines',
+                                            name=base,
+                                            line=dict(
+                                                color=CURRENCY_COLORS.get(base, '#94a3b8'),
+                                                width=2
+                                            ),
+                                            hovertemplate=f'<b>{base}</b>: %{{y:.2f}}<extra></extra>'
+                                        ))
+                                
+                                # خط Quote
+                                if quote in econ_data.columns:
+                                    quote_data = econ_data[['Date', quote]].dropna()
+                                    if not quote_data.empty:
+                                        fig.add_trace(go.Scatter(
+                                            x=quote_data['Date'],
+                                            y=quote_data[quote],
+                                            mode='lines',
+                                            name=quote,
+                                            line=dict(
+                                                color=CURRENCY_COLORS.get(quote, '#94a3b8'),
+                                                width=2,
+                                                dash='dash'
+                                            ),
+                                            hovertemplate=f'<b>{quote}</b>: %{{y:.2f}}<extra></extra>'
+                                        ))
+                                
+                                # تنسيق الشارت
+                                fig.update_layout(
+                                    title=dict(
+                                        text=f"<b>{pair}</b>",
+                                        font=dict(size=14, color='#f1c40f'),
+                                        x=0.5,
+                                        xanchor='center'
+                                    ),
+                                    height=250,
+                                    template="plotly_dark",
+                                    hovermode='x unified',
+                                    paper_bgcolor='rgba(0,0,0,0)',
+                                    plot_bgcolor='rgba(15,23,42,0.8)',
+                                    margin=dict(l=10, r=10, t=40, b=10),
+                                    legend=dict(
+                                        orientation="h",
+                                        yanchor="top",
+                                        y=-0.15,
+                                        xanchor="center",
+                                        x=0.5,
+                                        font=dict(size=10),
+                                        bgcolor='rgba(0,0,0,0)'
+                                    ),
+                                    xaxis=dict(
+                                        showgrid=True,
+                                        gridcolor='rgba(30,41,59,0.6)',
+                                        tickfont=dict(size=9),
+                                        title=None
+                                    ),
+                                    yaxis=dict(
+                                        showgrid=True,
+                                        gridcolor='rgba(30,41,59,0.6)',
+                                        tickfont=dict(size=9),
+                                        zeroline=True,
+                                        zerolinecolor='rgba(241,196,15,0.4)',
+                                        zerolinewidth=1,
+                                        title=None
+                                    ),
+                                )
+                                
+                                # إضافة خط الصفر
+                                fig.add_hline(y=0, line_dash="dot", line_color="rgba(241,196,15,0.3)", line_width=1)
+                                
+                                st.plotly_chart(fig, use_container_width=True, key=f"pair_chart_{pair}")
+                        else:
+                            # عمود فاضي
+                            pass
                 
-                eco_arrow = get_arrow_symbol(eco_current, eco_prev)
-                eco_arrow_color = get_arrow_color(eco_current, eco_prev)
-                eco_display = f"{eco_current:+.2f}" if eco_current is not None else "N/A"
+                st.markdown("---")
                 
-                # Yield
-                yld_current = None
-                yld_prev = None
-                if yield_today is not None and yield_prev is not None:
-                    if base in yield_today.index and quote in yield_today.index and base in yield_prev.index and quote in yield_prev.index:
-                        if pd.notna(yield_today[base]) and pd.notna(yield_today[quote]):
-                            yld_current = yield_today[base] - yield_today[quote]
-                            yld_prev = yield_prev[base] - yield_prev[quote]
+                # Legend للألوان
+                st.markdown("### 🎨 Currency Colors")
+                legend_cols = st.columns(8)
+                for idx, curr in enumerate(currencies_list):
+                    with legend_cols[idx]:
+                        flag = currency_flags.get(curr, "")
+                        st.markdown(f"""
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <div style="width: 16px; height: 4px; background: {CURRENCY_COLORS.get(curr, '#94a3b8')}; 
+                                        border-radius: 2px;"></div>
+                            <span style="color: #e2e8f0; font-size: 12px;">{flag} {curr}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
-                yld_arrow = get_arrow_symbol(yld_current, yld_prev)
-                yld_arrow_color = get_arrow_color(yld_current, yld_prev)
-                yld_display = f"{yld_current:+.2f}" if yld_current is not None else "N/A"
-                
-                # Monthly
-                m_base = monthly_current.get(base, 0)
-                m_quote = monthly_current.get(quote, 0)
-                m_base_prev = monthly_prev_val.get(base, m_base)
-                m_quote_prev = monthly_prev_val.get(quote, m_quote)
-                monthly_pair_current = m_base - m_quote
-                monthly_pair_prev = m_base_prev - m_quote_prev
-                
-                monthly_arrow = get_arrow_symbol(monthly_pair_current, monthly_pair_prev)
-                monthly_arrow_color = get_arrow_color(monthly_pair_current, monthly_pair_prev)
-                monthly_display = f"{monthly_pair_current:+.2f}"
-                
-                # Weekly
-                w_base = weekly_current.get(base, 0)
-                w_quote = weekly_current.get(quote, 0)
-                w_base_prev = weekly_prev_val.get(base, w_base)
-                w_quote_prev = weekly_prev_val.get(quote, w_quote)
-                weekly_pair_current = w_base - w_quote
-                weekly_pair_prev = w_base_prev - w_quote_prev
-                
-                weekly_arrow = get_arrow_symbol(weekly_pair_current, weekly_pair_prev)
-                weekly_arrow_color = get_arrow_color(weekly_pair_current, weekly_pair_prev)
-                weekly_display = f"{weekly_pair_current:+.2f}"
-                
-                # Daily
-                daily_current = latest.get(base, 0) - latest.get(quote, 0)
-                daily_prev = (prev.get(base, 0) - prev.get(quote, 0)) if prev is not None else daily_current
-                
-                daily_arrow = get_arrow_symbol(daily_current, daily_prev)
-                daily_arrow_color = get_arrow_color(daily_current, daily_prev)
-                daily_display = f"{daily_current:+.2f}"
-                
-                table_data.append({
-                    "Pair": pair,
-                    "Economic": eco_display, "Economic_Arrow": eco_arrow, "Economic_Arrow_Color": eco_arrow_color,
-                    "Yield": yld_display, "Yield_Arrow": yld_arrow, "Yield_Arrow_Color": yld_arrow_color,
-                    "Monthly": monthly_display, "Monthly_Arrow": monthly_arrow, "Monthly_Arrow_Color": monthly_arrow_color,
-                    "Weekly": weekly_display, "Weekly_Arrow": weekly_arrow, "Weekly_Arrow_Color": weekly_arrow_color,
-                    "Daily": daily_display, "Daily_Arrow": daily_arrow, "Daily_Arrow_Color": daily_arrow_color,
-                })
-            
-            # ================== HTML Table كامل ==================
-            table_html = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="UTF-8">
-            <style>
-                body {
-                    margin: 0;
-                    padding: 0;
-                    background: transparent;
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-                }
-                .signal-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-                    border-radius: 12px;
-                    overflow: hidden;
-                }
-                .signal-table th {
-                    background: #1e293b;
-                    color: #f1c40f;
-                    padding: 14px 8px;
-                    text-align: center;
-                    font-weight: 600;
-                    font-size: 13px;
-                    border-bottom: 2px solid #f1c40f;
-                }
-                .signal-table td {
-                    padding: 11px 8px;
-                    text-align: center;
-                    border-bottom: 1px solid #334155;
-                    font-size: 13.5px;
-                    font-weight: 500;
-                }
-                .signal-table tr:hover {
-                    background: rgba(241, 196, 15, 0.06);
-                }
-                .pair-cell {
-                    font-weight: 700;
-                    color: #e2e8f0;
-                }
-            </style>
-            </head>
-            <body>
-            <table class="signal-table">
-                <thead>
-                    <tr>
-                        <th>Pair</th>
-                        <th>🏭 Economic</th>
-                        <th>📈 Yield</th>
-                        <th>🗓️ Monthly</th>
-                        <th>📆 Weekly</th>
-                        <th>📅 Daily</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
-            
-            for row in table_data:
-                table_html += f"""
-                    <tr>
-                        <td class="pair-cell">{row['Pair']}</td>
-                        <td><span style="font-weight: bold; color: {row['Economic_Arrow_Color']};">{row['Economic_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Economic']}</span></td>
-                        <td><span style="font-weight: bold; color: {row['Yield_Arrow_Color']};">{row['Yield_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Yield']}</span></td>
-                        <td><span style="font-weight: bold; color: {row['Monthly_Arrow_Color']};">{row['Monthly_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Monthly']}</span></td>
-                        <td><span style="font-weight: bold; color: {row['Weekly_Arrow_Color']};">{row['Weekly_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Weekly']}</span></td>
-                        <td><span style="font-weight: bold; color: {row['Daily_Arrow_Color']};">{row['Daily_Arrow']}</span> <span style="font-weight: bold; color: white;">{row['Daily']}</span></td>
-                    </tr>
-                """
-            
-            table_html += """
-                </tbody>
-            </table>
-            </body>
-            </html>
-            """
-            
-            st.components.v1.html(table_html, height=680, scrolling=True)
-            
-            # Legend
-            st.markdown("---")
-            st.markdown("""
-            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; padding: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #10b981; font-size: 20px;">▲</span> <span style="color: #94a3b8;">Increasing (Up Arrow)</span></div>
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #ef4444; font-size: 20px;">▼</span> <span style="color: #94a3b8;">Decreasing (Down Arrow)</span></div>
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: #f1c40f; font-size: 20px;">●</span> <span style="color: #94a3b8;">Unchanged / No Change</span></div>
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="color: white; font-size: 16px; font-weight: bold;">+2.45</span> <span style="color: #94a3b8;">Value (always white)</span></div>
-            </div>
-            """, unsafe_allow_html=True)
+                st.markdown("""
+                <div style="display: flex; justify-content: center; gap: 30px; margin-top: 15px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 20px; height: 2px; background: #94a3b8;"></div>
+                        <span style="color: #94a3b8; font-size: 12px;">Base (Solid)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 20px; height: 2px; background: #94a3b8; border-top: 1px dashed;"></div>
+                        <span style="color: #94a3b8; font-size: 12px;">Quote (Dashed)</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("📊 No ECONOMY data available for charts")
 
 # ──── Signal Engine Tab (باستخدام التاريخ الموحد) ─────────────────────
 with tab_signal_engine:
@@ -1571,8 +1549,8 @@ with tab_signal_engine:
         weekly_curr = None
         weekly_prev = None
         if not db_weekly.empty:
-            db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
-            week_row = db_weekly[db_weekly['Week_Start'] == week_start]
+            db_weekly['Date'] = pd.to_datetime(db_weekly['Date']).dt.date
+            week_row = db_weekly[db_weekly['Date'] == week_start]
             if not week_row.empty:
                 week_idx = week_row.index[0]
                 weekly_curr = week_row.iloc[0]
@@ -1583,8 +1561,8 @@ with tab_signal_engine:
         monthly_curr = None
         monthly_prev = None
         if not db_monthly.empty:
-            db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
-            month_row = db_monthly[db_monthly['Month_Start'] == month_start]
+            db_monthly['Date'] = pd.to_datetime(db_monthly['Date']).dt.date
+            month_row = db_monthly[db_monthly['Date'] == month_start]
             if not month_row.empty:
                 month_idx = month_row.index[0]
                 monthly_curr = month_row.iloc[0]
@@ -1681,9 +1659,6 @@ with tab_signal_engine:
 
             # ══════════════════════════════════════════
             # حساب السكور والتارجت لكل فريم
-            # التارجت = قيمة العملة الأساس إذا السكور موجب
-            # التارجت = قيمة عملة التسعير إذا السكور سالب
-            # نسبة الثقة = |السكور|%
             # ══════════════════════════════════════════
             
             # Daily Score & Target
@@ -1904,11 +1879,6 @@ with tab_signal_engine:
                 else:
                     conf_display = '<span style="font-size:13px;color:#64748b;">—</span>'
 
-                # ══════════════════════════════════════════
-                # تنسيق التارجت مع نسبة الثقة
-                # الصيغة: نسبة_الثقة% (Target High/Low)
-                # ══════════════════════════════════════════
-                
                 # Daily Target
                 daily_score = row.get('daily_score')
                 daily_conf = row.get('daily_target_conf')
@@ -2033,8 +2003,8 @@ with tab_heat_map:
         week_start_hm = (sel_date_obj_hm - pd.Timedelta(days=sel_date_obj_hm.weekday())).date()
         weekly_curr_hm = None
         if not db_weekly.empty:
-            db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
-            week_row = db_weekly[db_weekly['Week_Start'] == week_start_hm]
+            db_weekly['Date'] = pd.to_datetime(db_weekly['Date']).dt.date
+            week_row = db_weekly[db_weekly['Date'] == week_start_hm]
             if not week_row.empty:
                 weekly_curr_hm = week_row.iloc[0]
         
@@ -2042,8 +2012,8 @@ with tab_heat_map:
         month_start_hm = sel_date_obj_hm.replace(day=1).date()
         monthly_curr_hm = None
         if not db_monthly.empty:
-            db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
-            month_row = db_monthly[db_monthly['Month_Start'] == month_start_hm]
+            db_monthly['Date'] = pd.to_datetime(db_monthly['Date']).dt.date
+            month_row = db_monthly[db_monthly['Date'] == month_start_hm]
             if not month_row.empty:
                 monthly_curr_hm = month_row.iloc[0]
 
