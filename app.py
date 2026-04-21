@@ -1,4 +1,3 @@
-import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
@@ -279,15 +278,13 @@ def inject_custom_css():
 ## ==================== Sheet ID ====================
 SHEET_ID = "1q_q9QGYHm0w7Z5nnO1Uq4NKLW1SoQCf5stbAMKoT3FE"
 
-# ✅ أسماء التبويبات الجديدة
-DAILY_WS   = "Daily_Strength_History"
-WEEKLY_WS  = "Weekly_Strength_History"
-MONTHLY_WS = "Monthly_Strength_History"
+DAILY_WS   = "daily"
+WEEKLY_WS  = "weekly"
+MONTHLY_WS = "monthly"
 ECONOMY_WS = "ECONOMY"    
 YIELD_WS   = "YIELD"       
 
 currencies = ["USD", "CAD", "EUR", "GBP", "CHF", "AUD", "NZD", "JPY"]
-
 
 pairs = [
     "EURUSD","EURGBP","EURAUD","EURNZD","EURCAD","EURCHF","EURJPY",
@@ -311,20 +308,14 @@ def load_data(worksheet_name: str, date_col: str = "Date"):
     df = pd.DataFrame(data)
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce').dt.date
     df = df.dropna(subset=[date_col])
-    df = df.sort_values(date_col).reset_index(drop=True)
-    
-    # ✅ تحويل البيانات من الشكل الجديد للشكل القديم
-    df_converted = pd.DataFrame()
-    df_converted[date_col] = df[date_col]
-    
-    for curr in currencies:
-        score_col = f"{curr}_Score"
-        if score_col in df.columns:
-            df_converted[curr] = df[score_col]
-        else:
-            df_converted[curr] = 0
-    
-    return df_converted
+    return df.sort_values(date_col).reset_index(drop=True)
+
+def save_data(df: pd.DataFrame, worksheet_name: str):
+    client = get_gspread_client()
+    sheet = client.open_by_key(SHEET_ID)
+    ws = sheet.worksheet(worksheet_name)
+    ws.clear()
+    ws.update([df.columns.tolist()] + df.values.tolist())
 
 # Inject custom CSS
 inject_custom_css()
@@ -339,8 +330,8 @@ st.markdown("""
 
 # ====================== تحميل البيانات ======================
 db_daily   = load_data(DAILY_WS, "Date")
-db_weekly  = load_data(WEEKLY_WS, "Date")
-db_monthly = load_data(MONTHLY_WS, "Date")
+db_weekly  = load_data(WEEKLY_WS, "Week_Start")
+db_monthly = load_data(MONTHLY_WS, "Month_Start")
 db_yield   = load_data(YIELD_WS, "Date")
 db_economy = load_data(ECONOMY_WS, "Date")
 
