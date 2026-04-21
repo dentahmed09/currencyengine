@@ -279,9 +279,9 @@ def inject_custom_css():
 ## ==================== Sheet ID ====================
 SHEET_ID = "1q_q9QGYHm0w7Z5nnO1Uq4NKLW1SoQCf5stbAMKoT3FE"
 
-DAILY_WS   = "daily"
-WEEKLY_WS  = "weekly"
-MONTHLY_WS = "monthly"
+DAILY_HISTORY_WS   = "Daily_Strength_History"
+WEEKLY_HISTORY_WS  = "Weekly_Strength_History"
+MONTHLY_HISTORY_WS = "Monthly_Strength_History"
 ECONOMY_WS = "ECONOMY"    
 YIELD_WS   = "YIELD"       
 
