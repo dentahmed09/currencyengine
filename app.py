@@ -330,11 +330,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ====================== تحميل البيانات ======================
-db_daily   = load_data(DAILY_WS, "Date")
-db_weekly  = load_data(WEEKLY_WS, "Week_Start")
+db_daily   = load_data(DAILY_HISTORY_WS, "Date")
+db_weekly  = load_data(WEEKLY_HISTORY_WS, "Week_Start")
 db_monthly = load_data(MONTHLY_WS, "Month_Start")
 db_yield   = load_data(YIELD_WS, "Date")
-db_economy = load_data(ECONOMY_WS, "Date")
+db_economy = load_data(MONTHLY_HISTORY_WS, "Date")
 
 # ══════════════════════════════════════════════════════════════
 # ✅ 1. Date Selector موحد في أعلى الصفحة (قبل التبويبات)
