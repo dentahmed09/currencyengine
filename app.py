@@ -284,6 +284,7 @@ WEEKLY_WS  = "weekly"
 MONTHLY_WS = "monthly"
 ECONOMY_WS = "ECONOMY"    
 YIELD_WS   = "YIELD"       
+NEWS_WS    = "News"
 
 currencies = ["USD", "CAD", "EUR", "GBP", "CHF", "AUD", "NZD", "JPY"]
 
@@ -318,6 +319,32 @@ def save_data(df: pd.DataFrame, worksheet_name: str):
     ws.clear()
     ws.update([df.columns.tolist()] + df.values.tolist())
 
+# ✅ أضف الدالة دي هنا
+def load_news_data(worksheet_name: str = "News"):
+    """تحميل بيانات الأخبار من Google Sheets"""
+    client = get_gspread_client()
+    sheet = client.open_by_key(SHEET_ID)
+    
+    try:
+        ws = sheet.worksheet(worksheet_name)
+        data = ws.get_all_records()
+        
+        if not data:
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(data)
+        
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+        
+        if 'Shock' in df.columns:
+            df['Shock'] = pd.to_numeric(df['Shock'], errors='coerce')
+        
+        return df
+    except Exception as e:
+        st.warning(f"Could not load News worksheet: {e}")
+        return pd.DataFrame()
+
 # Inject custom CSS
 inject_custom_css()
 
@@ -335,6 +362,7 @@ db_weekly  = load_data(WEEKLY_WS, "Week_Start")
 db_monthly = load_data(MONTHLY_WS, "Month_Start")
 db_yield   = load_data(YIELD_WS, "Date")
 db_economy = load_data(ECONOMY_WS, "Date")
+db_news    = load_news_data(NEWS_WS)
 
 # ══════════════════════════════════════════════════════════════
 # ✅ 1. Date Selector موحد في أعلى الصفحة (قبل التبويبات)
