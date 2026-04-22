@@ -2372,8 +2372,8 @@ with tab_events:
             # ✅ 3. عرض التاريخ في أعلى الصفحة
             st.markdown(f"""
             <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
-                        border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
-                <span style="color: #f1c40f; font-weight: bold;">📅 Date: {latest_date.strftime('%Y-%m-%d')}</span>
+                        border-radius: 10px; padding: 12px; margin: 10px 0; border: 1px solid #f1c40f;">
+                <span style="color: #f1c40f; font-weight: bold; font-size: 18px;">📅 {latest_date.strftime('%Y-%m-%d')}</span>
             </div>
             """, unsafe_allow_html=True)
             
@@ -2390,9 +2390,9 @@ with tab_events:
             }
             
             # دالة لحساب نسبة الاتجاه لمجموعة أحداث
-            def get_sentiment_percentage(events_df):
+            def get_sentiment_stats(events_df):
                 if len(events_df) == 0:
-                    return 0, 0, 0  # إيجابي%, سلبي%, محايد%
+                    return 0, 0, 0, 0, "Neutral"  # إيجابي%, سلبي%, محايد%, العدد, التصنيف
                 
                 positive = 0
                 negative = 0
@@ -2417,9 +2417,20 @@ with tab_events:
                 
                 total = len(events_df)
                 if total == 0:
-                    return 0, 0, 0
+                    return 0, 0, 0, 0, "Neutral"
                 
-                return round((positive / total) * 100), round((negative / total) * 100), round((neutral / total) * 100)
+                pos_pct = round((positive / total) * 100)
+                neg_pct = round((negative / total) * 100)
+                neu_pct = round((neutral / total) * 100)
+                
+                if pos_pct > neg_pct:
+                    sentiment = "Bullish"
+                elif neg_pct > pos_pct:
+                    sentiment = "Bearish"
+                else:
+                    sentiment = "Neutral"
+                
+                return pos_pct, neg_pct, neu_pct, total, sentiment
             
             # عرض كروت العملات
             cols = st.columns(min(len(active_currencies), 4))
@@ -2434,105 +2445,89 @@ with tab_events:
                     moderate_curr = curr_events[curr_events['Importance'] == 'Moderate']
                     low_curr = curr_events[curr_events['Importance'] == 'Low']
                     
-                    # حساب النسب لكل مستوى
-                    high_pos, high_neg, high_neu = get_sentiment_percentage(high_curr)
-                    mod_pos, mod_neg, mod_neu = get_sentiment_percentage(moderate_curr)
-                    low_pos, low_neg, low_neu = get_sentiment_percentage(low_curr)
+                    # حساب الإحصائيات
+                    high_pos, high_neg, high_neu, high_cnt, high_sent = get_sentiment_stats(high_curr)
+                    mod_pos, mod_neg, mod_neu, mod_cnt, mod_sent = get_sentiment_stats(moderate_curr)
+                    low_pos, low_neg, low_neu, low_cnt, low_sent = get_sentiment_stats(low_curr)
                     
-                    # بناء HTML الكرت
-                    card_html = f"""
-                    <div style="background: #0f172a; border: 2px solid {border_color}; 
-                                border-radius: 16px; padding: 15px; margin-bottom: 10px;">
-                        <div style="font-size: 36px; font-weight: bold; color: {border_color}; 
-                                    text-align: center; margin-bottom: 10px;">{curr}</div>
-                    """
-                    
-                    # High Impact
-                    if len(high_curr) > 0:
-                        sentiment_color = "#10b981" if high_pos > high_neg else "#ef4444" if high_neg > high_pos else "#f1c40f"
-                        sentiment_text = "Bullish" if high_pos > high_neg else "Bearish" if high_neg > high_pos else "Neutral"
-                        card_html += f"""
-                        <div style="margin-bottom: 8px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
-                                <span>🔴 High ({len(high_curr)})</span>
-                                <span style="color: {sentiment_color};">{sentiment_text}</span>
+                    # بناء الكرت
+                    with st.container():
+                        st.markdown(f"""
+                        <div style="background: #0f172a; border: 2px solid {border_color}; 
+                                    border-radius: 16px; padding: 15px; margin-bottom: 10px;">
+                            <div style="font-size: 36px; font-weight: bold; color: {border_color}; 
+                                        text-align: center; margin-bottom: 15px;">{curr}</div>
+                        """, unsafe_allow_html=True)
+                        
+                        # High Impact
+                        if high_cnt > 0:
+                            sentiment_color = "#10b981" if high_sent == "Bullish" else "#ef4444" if high_sent == "Bearish" else "#f1c40f"
+                            st.markdown(f"""
+                            <div style="margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                                    <span style="color: #ef4444;">🔴 High ({high_cnt})</span>
+                                    <span style="color: {sentiment_color}; font-weight: bold;">{high_sent}</span>
+                                </div>
+                                <div style="display: flex; gap: 3px; height: 6px;">
+                                    <div style="background: #10b981; width: {high_pos}%; border-radius: 3px;"></div>
+                                    <div style="background: #ef4444; width: {high_neg}%; border-radius: 3px;"></div>
+                                    <div style="background: #f1c40f; width: {high_neu}%; border-radius: 3px;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-top: 4px;">
+                                    <span>📈 {high_pos}%</span>
+                                    <span>📉 {high_neg}%</span>
+                                </div>
                             </div>
-                            <div style="display: flex; gap: 4px; margin-top: 3px;">
-                                <div style="background: #10b981; height: 4px; width: {high_pos}%; border-radius: 2px;"></div>
-                                <div style="background: #ef4444; height: 4px; width: {high_neg}%; border-radius: 2px;"></div>
-                                <div style="background: #f1c40f; height: 4px; width: {high_neu}%; border-radius: 2px;"></div>
+                            """, unsafe_allow_html=True)
+                        
+                        # Moderate Impact
+                        if mod_cnt > 0:
+                            sentiment_color = "#10b981" if mod_sent == "Bullish" else "#ef4444" if mod_sent == "Bearish" else "#f1c40f"
+                            st.markdown(f"""
+                            <div style="margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                                    <span style="color: #fbbf24;">🟡 Moderate ({mod_cnt})</span>
+                                    <span style="color: {sentiment_color}; font-weight: bold;">{mod_sent}</span>
+                                </div>
+                                <div style="display: flex; gap: 3px; height: 6px;">
+                                    <div style="background: #10b981; width: {mod_pos}%; border-radius: 3px;"></div>
+                                    <div style="background: #ef4444; width: {mod_neg}%; border-radius: 3px;"></div>
+                                    <div style="background: #f1c40f; width: {mod_neu}%; border-radius: 3px;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-top: 4px;">
+                                    <span>📈 {mod_pos}%</span>
+                                    <span>📉 {mod_neg}%</span>
+                                </div>
                             </div>
-                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-top: 2px;">
-                                <span>📈 {high_pos}%</span>
-                                <span>📉 {high_neg}%</span>
+                            """, unsafe_allow_html=True)
+                        
+                        # Low Impact
+                        if low_cnt > 0:
+                            sentiment_color = "#10b981" if low_sent == "Bullish" else "#ef4444" if low_sent == "Bearish" else "#f1c40f"
+                            st.markdown(f"""
+                            <div style="margin-bottom: 8px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                                    <span style="color: #10b981;">🟢 Low ({low_cnt})</span>
+                                    <span style="color: {sentiment_color}; font-weight: bold;">{low_sent}</span>
+                                </div>
+                                <div style="display: flex; gap: 3px; height: 6px;">
+                                    <div style="background: #10b981; width: {low_pos}%; border-radius: 3px;"></div>
+                                    <div style="background: #ef4444; width: {low_neg}%; border-radius: 3px;"></div>
+                                    <div style="background: #f1c40f; width: {low_neu}%; border-radius: 3px;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-top: 4px;">
+                                    <span>📈 {low_pos}%</span>
+                                    <span>📉 {low_neg}%</span>
+                                </div>
                             </div>
-                        </div>
-                        """
-                    
-                    # Moderate Impact
-                    if len(moderate_curr) > 0:
-                        sentiment_color = "#10b981" if mod_pos > mod_neg else "#ef4444" if mod_neg > mod_pos else "#f1c40f"
-                        sentiment_text = "Bullish" if mod_pos > mod_neg else "Bearish" if mod_neg > mod_pos else "Neutral"
-                        card_html += f"""
-                        <div style="margin-bottom: 8px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
-                                <span>🟡 Moderate ({len(moderate_curr)})</span>
-                                <span style="color: {sentiment_color};">{sentiment_text}</span>
-                            </div>
-                            <div style="display: flex; gap: 4px; margin-top: 3px;">
-                                <div style="background: #10b981; height: 4px; width: {mod_pos}%; border-radius: 2px;"></div>
-                                <div style="background: #ef4444; height: 4px; width: {mod_neg}%; border-radius: 2px;"></div>
-                                <div style="background: #f1c40f; height: 4px; width: {mod_neu}%; border-radius: 2px;"></div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-top: 2px;">
-                                <span>📈 {mod_pos}%</span>
-                                <span>📉 {mod_neg}%</span>
-                            </div>
-                        </div>
-                        """
-                    
-                    # Low Impact
-                    if len(low_curr) > 0:
-                        sentiment_color = "#10b981" if low_pos > low_neg else "#ef4444" if low_neg > low_pos else "#f1c40f"
-                        sentiment_text = "Bullish" if low_pos > low_neg else "Bearish" if low_neg > low_pos else "Neutral"
-                        card_html += f"""
-                        <div style="margin-bottom: 8px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
-                                <span>🟢 Low ({len(low_curr)})</span>
-                                <span style="color: {sentiment_color};">{sentiment_text}</span>
-                            </div>
-                            <div style="display: flex; gap: 4px; margin-top: 3px;">
-                                <div style="background: #10b981; height: 4px; width: {low_pos}%; border-radius: 2px;"></div>
-                                <div style="background: #ef4444; height: 4px; width: {low_neg}%; border-radius: 2px;"></div>
-                                <div style="background: #f1c40f; height: 4px; width: {low_neu}%; border-radius: 2px;"></div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-top: 2px;">
-                                <span>📈 {low_pos}%</span>
-                                <span>📉 {low_neg}%</span>
-                            </div>
-                        </div>
-                        """
-                    
-                    # لو مفيش أي أحداث
-                    if len(curr_events) == 0:
-                        card_html += """
-                        <div style="text-align: center; color: #64748b; padding: 10px;">
-                            No events today
-                        </div>
-                        """
-                    
-                    card_html += "</div>"
-                    st.markdown(card_html, unsafe_allow_html=True)
+                            """, unsafe_allow_html=True)
+                        
+                        st.markdown("</div>", unsafe_allow_html=True)
             
             st.markdown("---")
             
             # ✅ 5. جدول الأحداث بالترتيب الزمني
             st.subheader("📋 All Events Timeline")
-            
-            # فلترة حسب الأهمية (للجدول)
-            high_impact = today_events[today_events['Importance'] == 'High']
-            moderate_impact = today_events[today_events['Importance'] == 'Moderate']
-            low_impact = today_events[today_events['Importance'] == 'Low']
             
             # ترتيب حسب الوقت
             all_events_sorted = today_events.sort_values('TimeOnly')
@@ -2549,7 +2544,7 @@ with tab_events:
                     importance_icon = "🟢"
                 
                 # تحديد لون التوقع (Forecast vs Previous)
-                forecast_color = "white"
+                forecast_color = "#e2e8f0"
                 forecast_icon = ""
                 try:
                     fc = float(event['Forecast']) if pd.notna(event.get('Forecast')) and event.get('Forecast') != '' else None
@@ -2557,15 +2552,14 @@ with tab_events:
                     
                     if fc is not None and prev is not None:
                         if fc > prev:
-                            forecast_color = "#10b981"  # أخضر - إيجابي
+                            forecast_color = "#10b981"
                             forecast_icon = "📈"
                         elif fc < prev:
-                            forecast_color = "#ef4444"  # أحمر - سلبي
+                            forecast_color = "#ef4444"
                             forecast_icon = "📉"
                 except:
                     pass
                 
-                # قيمة التوقع
                 forecast_val = event['Forecast'] if pd.notna(event.get('Forecast')) and event.get('Forecast') != '' else '—'
                 previous_val = event['Previous'] if pd.notna(event.get('Previous')) and event.get('Previous') != '' else '—'
                 actual_val = event['Actual'] if pd.notna(event.get('Actual')) and event.get('Actual') != '' else '—'
@@ -2589,7 +2583,7 @@ with tab_events:
                 <tr style="border-bottom: 1px solid #334155;">
                     <td style="padding: 10px 8px; color: white;">{importance_icon} {event['TimeOnly']}</td>
                     <td style="padding: 10px 8px; font-weight: bold; color: white;">{event['Currency']}</td>
-                    <td style="padding: 10px 8px; color: #94a3b8;">{event['EventName'][:50]}</td>
+                    <td style="padding: 10px 8px; color: #94a3b8;">{event['EventName'][:45]}</td>
                     <td style="padding: 10px 8px; text-align: center;">
                         <span style="color: {forecast_color}; font-weight: bold;">{forecast_icon} {forecast_val}</span>
                     </td>
@@ -2600,38 +2594,16 @@ with tab_events:
                 </tr>
                 """
             
-            # عرض الجدول
             table_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
             <meta charset="UTF-8">
             <style>
-                body {{
-                    margin: 0;
-                    padding: 0;
-                    background: transparent;
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-                }}
-                .news-table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-                    border-radius: 12px;
-                    overflow: hidden;
-                }}
-                .news-table th {{
-                    background: #1e293b;
-                    color: #f1c40f;
-                    padding: 14px 8px;
-                    text-align: left;
-                    font-weight: 600;
-                    font-size: 13px;
-                    border-bottom: 2px solid #f1c40f;
-                }}
-                .news-table tr:hover {{
-                    background: rgba(241, 196, 15, 0.06);
-                }}
+                body {{ margin: 0; padding: 0; background: transparent; font-family: 'Inter', sans-serif; }}
+                .news-table {{ width: 100%; border-collapse: collapse; background: #0f172a; border-radius: 12px; overflow: hidden; }}
+                .news-table th {{ background: #1e293b; color: #f1c40f; padding: 14px 8px; text-align: left; font-weight: 600; font-size: 13px; border-bottom: 2px solid #f1c40f; }}
+                .news-table tr:hover {{ background: rgba(241, 196, 15, 0.06); }}
             </style>
             </head>
             <body>
@@ -2639,10 +2611,10 @@ with tab_events:
                 <thead>
                     <tr>
                         <th>Time</th>
-                        <th>Currency</th>
+                        <th>Curr</th>
                         <th>Event</th>
                         <th>Forecast</th>
-                        <th>Previous</th>
+                        <th>Prev</th>
                         <th>Actual</th>
                     </tr>
                 </thead>
