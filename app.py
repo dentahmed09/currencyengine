@@ -2377,59 +2377,162 @@ with tab_events:
             </div>
             """, unsafe_allow_html=True)
             
-            # فلترة حسب الأهمية
+            # ✅ 4. كارت العملات النشطة مع الإحصائيات
+            st.subheader("🎯 Active Currencies Today")
+            
+            # العملات اللي عندها أي أحداث
+            active_currencies = today_events['Currency'].unique()
+            
+            currency_colors = {
+                'USD': '#3b82f6', 'EUR': '#f1c40f', 'GBP': '#a78bfa',
+                'JPY': '#f43f5e', 'CHF': '#e2e8f0', 'CAD': '#fb923c',
+                'AUD': '#34d399', 'NZD': '#22d3ee'
+            }
+            
+            # دالة لحساب نسبة الاتجاه لمجموعة أحداث
+            def get_sentiment_percentage(events_df):
+                if len(events_df) == 0:
+                    return 0, 0, 0  # إيجابي%, سلبي%, محايد%
+                
+                positive = 0
+                negative = 0
+                neutral = 0
+                
+                for _, evt in events_df.iterrows():
+                    try:
+                        fc = float(evt['Forecast']) if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '' else None
+                        prev = float(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else None
+                        
+                        if fc is not None and prev is not None:
+                            if fc > prev:
+                                positive += 1
+                            elif fc < prev:
+                                negative += 1
+                            else:
+                                neutral += 1
+                        else:
+                            neutral += 1
+                    except:
+                        neutral += 1
+                
+                total = len(events_df)
+                if total == 0:
+                    return 0, 0, 0
+                
+                return round((positive / total) * 100), round((negative / total) * 100), round((neutral / total) * 100)
+            
+            # عرض كروت العملات
+            cols = st.columns(min(len(active_currencies), 4))
+            
+            for idx, curr in enumerate(active_currencies):
+                with cols[idx % 4]:
+                    curr_events = today_events[today_events['Currency'] == curr]
+                    border_color = currency_colors.get(curr, '#f1c40f')
+                    
+                    # تقسيم حسب الأهمية
+                    high_curr = curr_events[curr_events['Importance'] == 'High']
+                    moderate_curr = curr_events[curr_events['Importance'] == 'Moderate']
+                    low_curr = curr_events[curr_events['Importance'] == 'Low']
+                    
+                    # حساب النسب لكل مستوى
+                    high_pos, high_neg, high_neu = get_sentiment_percentage(high_curr)
+                    mod_pos, mod_neg, mod_neu = get_sentiment_percentage(moderate_curr)
+                    low_pos, low_neg, low_neu = get_sentiment_percentage(low_curr)
+                    
+                    # بناء HTML الكرت
+                    card_html = f"""
+                    <div style="background: #0f172a; border: 2px solid {border_color}; 
+                                border-radius: 16px; padding: 15px; margin-bottom: 10px;">
+                        <div style="font-size: 36px; font-weight: bold; color: {border_color}; 
+                                    text-align: center; margin-bottom: 10px;">{curr}</div>
+                    """
+                    
+                    # High Impact
+                    if len(high_curr) > 0:
+                        sentiment_color = "#10b981" if high_pos > high_neg else "#ef4444" if high_neg > high_pos else "#f1c40f"
+                        sentiment_text = "Bullish" if high_pos > high_neg else "Bearish" if high_neg > high_pos else "Neutral"
+                        card_html += f"""
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
+                                <span>🔴 High ({len(high_curr)})</span>
+                                <span style="color: {sentiment_color};">{sentiment_text}</span>
+                            </div>
+                            <div style="display: flex; gap: 4px; margin-top: 3px;">
+                                <div style="background: #10b981; height: 4px; width: {high_pos}%; border-radius: 2px;"></div>
+                                <div style="background: #ef4444; height: 4px; width: {high_neg}%; border-radius: 2px;"></div>
+                                <div style="background: #f1c40f; height: 4px; width: {high_neu}%; border-radius: 2px;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-top: 2px;">
+                                <span>📈 {high_pos}%</span>
+                                <span>📉 {high_neg}%</span>
+                            </div>
+                        </div>
+                        """
+                    
+                    # Moderate Impact
+                    if len(moderate_curr) > 0:
+                        sentiment_color = "#10b981" if mod_pos > mod_neg else "#ef4444" if mod_neg > mod_pos else "#f1c40f"
+                        sentiment_text = "Bullish" if mod_pos > mod_neg else "Bearish" if mod_neg > mod_pos else "Neutral"
+                        card_html += f"""
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
+                                <span>🟡 Moderate ({len(moderate_curr)})</span>
+                                <span style="color: {sentiment_color};">{sentiment_text}</span>
+                            </div>
+                            <div style="display: flex; gap: 4px; margin-top: 3px;">
+                                <div style="background: #10b981; height: 4px; width: {mod_pos}%; border-radius: 2px;"></div>
+                                <div style="background: #ef4444; height: 4px; width: {mod_neg}%; border-radius: 2px;"></div>
+                                <div style="background: #f1c40f; height: 4px; width: {mod_neu}%; border-radius: 2px;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-top: 2px;">
+                                <span>📈 {mod_pos}%</span>
+                                <span>📉 {mod_neg}%</span>
+                            </div>
+                        </div>
+                        """
+                    
+                    # Low Impact
+                    if len(low_curr) > 0:
+                        sentiment_color = "#10b981" if low_pos > low_neg else "#ef4444" if low_neg > low_pos else "#f1c40f"
+                        sentiment_text = "Bullish" if low_pos > low_neg else "Bearish" if low_neg > low_pos else "Neutral"
+                        card_html += f"""
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
+                                <span>🟢 Low ({len(low_curr)})</span>
+                                <span style="color: {sentiment_color};">{sentiment_text}</span>
+                            </div>
+                            <div style="display: flex; gap: 4px; margin-top: 3px;">
+                                <div style="background: #10b981; height: 4px; width: {low_pos}%; border-radius: 2px;"></div>
+                                <div style="background: #ef4444; height: 4px; width: {low_neg}%; border-radius: 2px;"></div>
+                                <div style="background: #f1c40f; height: 4px; width: {low_neu}%; border-radius: 2px;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-top: 2px;">
+                                <span>📈 {low_pos}%</span>
+                                <span>📉 {low_neg}%</span>
+                            </div>
+                        </div>
+                        """
+                    
+                    # لو مفيش أي أحداث
+                    if len(curr_events) == 0:
+                        card_html += """
+                        <div style="text-align: center; color: #64748b; padding: 10px;">
+                            No events today
+                        </div>
+                        """
+                    
+                    card_html += "</div>"
+                    st.markdown(card_html, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # ✅ 5. جدول الأحداث بالترتيب الزمني
+            st.subheader("📋 All Events Timeline")
+            
+            # فلترة حسب الأهمية (للجدول)
             high_impact = today_events[today_events['Importance'] == 'High']
             moderate_impact = today_events[today_events['Importance'] == 'Moderate']
             low_impact = today_events[today_events['Importance'] == 'Low']
-            
-            # ✅ 4. كارت العملات النشطة (High Impact فقط)
-            if not high_impact.empty:
-                st.subheader("🎯 Active Currencies Today (High Impact)")
-                
-                active_currencies = high_impact['Currency'].unique()
-                cols = st.columns(min(len(active_currencies), 4))
-                
-                currency_colors = {
-                    'USD': '#3b82f6', 'EUR': '#f1c40f', 'GBP': '#a78bfa',
-                    'JPY': '#f43f5e', 'CHF': '#e2e8f0', 'CAD': '#fb923c',
-                    'AUD': '#34d399', 'NZD': '#22d3ee'
-                }
-                
-                for idx, curr in enumerate(active_currencies):
-                    with cols[idx % 4]:
-                        curr_events = high_impact[high_impact['Currency'] == curr]
-                        event_count = len(curr_events)
-                        border_color = currency_colors.get(curr, '#f1c40f')
-                        
-                        # حسب التوقعات للعملة (إيجابي ولا سلبي)
-                        forecast_summary = ""
-                        for _, evt in curr_events.iterrows():
-                            if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '':
-                                try:
-                                    fc = float(evt['Forecast'])
-                                    prev = float(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else fc
-                                    if fc > prev:
-                                        forecast_summary = "📈"
-                                        break
-                                    elif fc < prev:
-                                        forecast_summary = "📉"
-                                        break
-                                except:
-                                    pass
-                        
-                        st.markdown(f"""
-                        <div style="background: #0f172a; border: 2px solid {border_color}; 
-                                    border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 10px;">
-                            <div style="font-size: 48px; margin-bottom: 10px;">{curr}</div>
-                            <div style="font-size: 36px; font-weight: bold; color: {border_color};">{event_count} {forecast_summary}</div>
-                            <div style="font-size: 14px; color: #64748b;">High Impact Events</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                st.markdown("---")
-            
-            # ✅ 5. جدول الأحداث بالترتيب الزمني (كل الأهميات)
-            st.subheader("📋 All Events Timeline")
             
             # ترتيب حسب الوقت
             all_events_sorted = today_events.sort_values('TimeOnly')
@@ -2445,7 +2548,7 @@ with tab_events:
                 else:
                     importance_icon = "🟢"
                 
-                # ✅ تحديد لون التوقع (Forecast vs Previous)
+                # تحديد لون التوقع (Forecast vs Previous)
                 forecast_color = "white"
                 forecast_icon = ""
                 try:
