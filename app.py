@@ -2352,6 +2352,7 @@ with tab_heat_map:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
 # ──── Market Events Tab ─────────────────────────────────
 with tab_events:
     st.header("📰 Market Events - Today's Economic Calendar")
@@ -2359,134 +2360,203 @@ with tab_events:
     if db_news.empty:
         st.info("📊 No news data available. Run the MT5 NewsExporter script first.")
     else:
-        today = datetime.now().date()
-        today_events = db_news[db_news['Date'] == today]
+        # ✅ 1. جلب أحدث تاريخ من البيانات نفسها
+        latest_date = db_news['Date'].max()
+        
+        # ✅ 2. فلترة أحداث أحدث تاريخ فقط
+        today_events = db_news[db_news['Date'] == latest_date]
         
         if today_events.empty:
-            st.info(f"📭 No economic events scheduled for today ({today})")
+            st.info(f"📭 No economic events scheduled for {latest_date}")
         else:
+            # ✅ 3. عرض التاريخ في أعلى الصفحة
+            st.markdown(f"""
+            <div style="text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                        border-radius: 10px; padding: 8px; margin: 10px 0; border: 1px solid #f1c40f;">
+                <span style="color: #f1c40f; font-weight: bold;">📅 Date: {latest_date.strftime('%Y-%m-%d')}</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
             # فلترة حسب الأهمية
             high_impact = today_events[today_events['Importance'] == 'High']
             moderate_impact = today_events[today_events['Importance'] == 'Moderate']
             low_impact = today_events[today_events['Importance'] == 'Low']
             
-            # عرض إحصائيات سريعة
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Total Events", len(today_events))
-            with col2:
-                st.metric("🔥 High Impact", len(high_impact))
-            with col3:
-                st.metric("🟡 Moderate", len(moderate_impact))
-            with col4:
-                st.metric("🟢 Low", len(low_impact))
-            
-            st.markdown("---")
-            
-            # عرض العملات النشطة (اللي عليها أخبار عالية الأهمية)
+            # ✅ 4. كارت العملات النشطة (High Impact فقط)
             if not high_impact.empty:
                 st.subheader("🎯 Active Currencies Today (High Impact)")
                 
                 active_currencies = high_impact['Currency'].unique()
-                
-                # عرض كروت للعملات النشطة
                 cols = st.columns(min(len(active_currencies), 4))
+                
+                currency_colors = {
+                    'USD': '#3b82f6', 'EUR': '#f1c40f', 'GBP': '#a78bfa',
+                    'JPY': '#f43f5e', 'CHF': '#e2e8f0', 'CAD': '#fb923c',
+                    'AUD': '#34d399', 'NZD': '#22d3ee'
+                }
                 
                 for idx, curr in enumerate(active_currencies):
                     with cols[idx % 4]:
                         curr_events = high_impact[high_impact['Currency'] == curr]
                         event_count = len(curr_events)
-                        
-                        # لون حسب العملة
-                        currency_colors = {
-                            'USD': '#3b82f6', 'EUR': '#f1c40f', 'GBP': '#a78bfa',
-                            'JPY': '#f43f5e', 'CHF': '#e2e8f0', 'CAD': '#fb923c',
-                            'AUD': '#34d399', 'NZD': '#22d3ee'
-                        }
                         border_color = currency_colors.get(curr, '#f1c40f')
+                        
+                        # حسب التوقعات للعملة (إيجابي ولا سلبي)
+                        forecast_summary = ""
+                        for _, evt in curr_events.iterrows():
+                            if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '':
+                                try:
+                                    fc = float(evt['Forecast'])
+                                    prev = float(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else fc
+                                    if fc > prev:
+                                        forecast_summary = "📈"
+                                        break
+                                    elif fc < prev:
+                                        forecast_summary = "📉"
+                                        break
+                                except:
+                                    pass
                         
                         st.markdown(f"""
                         <div style="background: #0f172a; border: 2px solid {border_color}; 
                                     border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 10px;">
                             <div style="font-size: 48px; margin-bottom: 10px;">{curr}</div>
-                            <div style="font-size: 36px; font-weight: bold; color: {border_color};">{event_count}</div>
+                            <div style="font-size: 36px; font-weight: bold; color: {border_color};">{event_count} {forecast_summary}</div>
                             <div style="font-size: 14px; color: #64748b;">High Impact Events</div>
                         </div>
                         """, unsafe_allow_html=True)
                 
                 st.markdown("---")
             
-            # عرض جدول الأحداث عالية الأهمية
-            if not high_impact.empty:
-                st.subheader("🔥 High Impact Events")
-                
-                for _, event in high_impact.sort_values('TimeOnly').iterrows():
-                    # تحديد لون الصدمة
-                    shock_val = event.get('Shock')
-                    shock_color = "#10b981" if shock_val and shock_val > 0 else "#ef4444" if shock_val and shock_val < 0 else "#f1c40f"
-                    shock_icon = "✅" if shock_val and shock_val > 0 else "❌" if shock_val and shock_val < 0 else "⏳"
-                    
-                    # تحديد خلفية الكرت
-                    if event['Status'] == 'Upcoming':
-                        bg_gradient = "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
-                        border_color = "#f1c40f"
-                    elif event['Status'] == 'Better':
-                        bg_gradient = "linear-gradient(135deg, #0a2f1f 0%, #051a0f 100%)"
-                        border_color = "#10b981"
-                    elif event['Status'] == 'Worse':
-                        bg_gradient = "linear-gradient(135deg, #2f1a1a 0%, #1a0a0a 100%)"
-                        border_color = "#ef4444"
-                    else:
-                        bg_gradient = "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
-                        border_color = "#64748b"
-                    
-                    col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
-                    
-                    with col1:
-                        st.markdown(f"**⏰ {event['TimeOnly']}**")
-                    
-                    with col2:
-                        st.markdown(f"**{event['Currency']}** - {event['EventName']}")
-                    
-                    with col3:
-                        forecast = event['Forecast'] if pd.notna(event['Forecast']) and event['Forecast'] != '' else '—'
-                        st.metric(label="Forecast", value=forecast)
-                    
-                    with col4:
-                        if event['Status'] == 'Upcoming':
-                            st.markdown("⏳ **Upcoming**")
-                        else:
-                            actual = event['Actual'] if pd.notna(event['Actual']) else '—'
-                            shock_display = f"{shock_val:+.2f}" if shock_val else ""
-                            st.markdown(f"**Actual:** {actual}  {shock_icon} {shock_display}")
-                    
-                    st.markdown("---")
+            # ✅ 5. جدول الأحداث بالترتيب الزمني (كل الأهميات)
+            st.subheader("📋 All Events Timeline")
             
-            # عرض الأحداث المتوسطة والمنخفضة (مطوية)
-            with st.expander("📋 All Events (Moderate & Low Impact)"):
-                all_other = today_events[today_events['Importance'] != 'High'].sort_values(['Importance', 'TimeOnly'])
-                
-                if not all_other.empty:
-                    for _, event in all_other.iterrows():
-                        importance_icon = "🟡" if event['Importance'] == 'Moderate' else "🟢"
-                        
-                        st.markdown(f"""
-                        <div style="display: flex; align-items: center; gap: 15px; padding: 8px; 
-                                    border-bottom: 1px solid #334155;">
-                            <span style="min-width: 60px;">{importance_icon} {event['TimeOnly']}</span>
-                            <span style="min-width: 50px; font-weight: bold;">{event['Currency']}</span>
-                            <span style="flex: 1;">{event['EventName']}</span>
-                            <span style="min-width: 80px; color: #64748b;">Forecast: {event['Forecast'] if pd.notna(event['Forecast']) else '—'}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
+            # ترتيب حسب الوقت
+            all_events_sorted = today_events.sort_values('TimeOnly')
+            
+            # إنشاء جدول HTML
+            table_rows = ""
+            for _, event in all_events_sorted.iterrows():
+                # تحديد أيقونة الأهمية
+                if event['Importance'] == 'High':
+                    importance_icon = "🔴"
+                elif event['Importance'] == 'Moderate':
+                    importance_icon = "🟡"
                 else:
-                    st.info("No other events today")
+                    importance_icon = "🟢"
+                
+                # ✅ تحديد لون التوقع (Forecast vs Previous)
+                forecast_color = "white"
+                forecast_icon = ""
+                try:
+                    fc = float(event['Forecast']) if pd.notna(event.get('Forecast')) and event.get('Forecast') != '' else None
+                    prev = float(event['Previous']) if pd.notna(event.get('Previous')) and event.get('Previous') != '' else None
+                    
+                    if fc is not None and prev is not None:
+                        if fc > prev:
+                            forecast_color = "#10b981"  # أخضر - إيجابي
+                            forecast_icon = "📈"
+                        elif fc < prev:
+                            forecast_color = "#ef4444"  # أحمر - سلبي
+                            forecast_icon = "📉"
+                except:
+                    pass
+                
+                # قيمة التوقع
+                forecast_val = event['Forecast'] if pd.notna(event.get('Forecast')) and event.get('Forecast') != '' else '—'
+                previous_val = event['Previous'] if pd.notna(event.get('Previous')) and event.get('Previous') != '' else '—'
+                actual_val = event['Actual'] if pd.notna(event.get('Actual')) and event.get('Actual') != '' else '—'
+                
+                # حالة الحدث
+                status = event.get('Status', 'Upcoming')
+                if status == 'Upcoming':
+                    status_icon = "⏳"
+                    status_color = "#f1c40f"
+                elif status == 'Better':
+                    status_icon = "✅"
+                    status_color = "#10b981"
+                elif status == 'Worse':
+                    status_icon = "❌"
+                    status_color = "#ef4444"
+                else:
+                    status_icon = "➖"
+                    status_color = "#64748b"
+                
+                table_rows += f"""
+                <tr style="border-bottom: 1px solid #334155;">
+                    <td style="padding: 10px 8px; color: white;">{importance_icon} {event['TimeOnly']}</td>
+                    <td style="padding: 10px 8px; font-weight: bold; color: white;">{event['Currency']}</td>
+                    <td style="padding: 10px 8px; color: #94a3b8;">{event['EventName'][:50]}</td>
+                    <td style="padding: 10px 8px; text-align: center;">
+                        <span style="color: {forecast_color}; font-weight: bold;">{forecast_icon} {forecast_val}</span>
+                    </td>
+                    <td style="padding: 10px 8px; text-align: center; color: #64748b;">{previous_val}</td>
+                    <td style="padding: 10px 8px; text-align: center;">
+                        <span style="color: {status_color};">{status_icon} {actual_val}</span>
+                    </td>
+                </tr>
+                """
             
-            # ملخص الصدمات للعملات
+            # عرض الجدول
+            table_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                }}
+                .news-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                    border-radius: 12px;
+                    overflow: hidden;
+                }}
+                .news-table th {{
+                    background: #1e293b;
+                    color: #f1c40f;
+                    padding: 14px 8px;
+                    text-align: left;
+                    font-weight: 600;
+                    font-size: 13px;
+                    border-bottom: 2px solid #f1c40f;
+                }}
+                .news-table tr:hover {{
+                    background: rgba(241, 196, 15, 0.06);
+                }}
+            </style>
+            </head>
+            <body>
+            <table class="news-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Currency</th>
+                        <th>Event</th>
+                        <th>Forecast</th>
+                        <th>Previous</th>
+                        <th>Actual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
+            </body>
+            </html>
+            """
+            
+            st.components.v1.html(table_html, height=min(600, len(all_events_sorted) * 45 + 60), scrolling=True)
+            
+            # ✅ 6. ملخص الصدمات للعملات
             st.markdown("---")
             st.subheader("📊 Currency Shock Summary")
             
-            # تجميع الصدمات حسب العملة
             completed_events = today_events[today_events['Status'].isin(['Better', 'Worse', 'Match'])]
             
             if not completed_events.empty:
