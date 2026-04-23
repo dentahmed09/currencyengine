@@ -625,7 +625,7 @@ def render_market_events(db_news, db_daily, selected_date):
 
             # بعد الخبر: Actual vs Forecast
             if actual is not None and forecast is not None:
-                if actual > forecast:   buy_score  += weight                elif actual < forecast: sell_score += weight
+                if actual > forecast:   buy_score  += weight                if actual < forecast: sell_score += weight
             # قبل الخبر: Forecast vs Previous
             elif forecast is not None and previous is not None:
                 if forecast > previous:   buy_score  += weight
