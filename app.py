@@ -809,7 +809,7 @@ def render_market_events(db_news, db_daily, selected_date):
     )
 
 # ══════════════════════════════════════════════════════════════
-# TAB 4 — Confluence
+# TAB 4 — Confluence (تم التعديل - عرض الأزواج كاملة البيانات فقط)
 # ══════════════════════════════════════════════════════════════
 def render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_news, selected_date):
 
@@ -927,8 +927,14 @@ def render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_
         scalp_sig,  scalp_acc   = get_scalp_signal(base, quote)
         event_sig,  event_score = get_event_signal(base, quote)
 
-        signals = [s for s in [daily_sig, scalp_sig, event_sig] if s != 'WAIT']
+        # ═══════════════════════════════════════════════════════════════════
+        # 🔴 التغيير الأساسي: تخطي الزوج إذا كانت أي من الإشارات WAIT
+        # ═══════════════════════════════════════════════════════════════════
+        if 'WAIT' in [daily_sig, scalp_sig, event_sig]:
+            continue  # لا نضيف الزوج إلى الجدول (بياناته غير مكتملة)
 
+        # إذا وصلنا إلى هنا، فجميع الإشارات BUY أو SELL
+        signals = [daily_sig, scalp_sig, event_sig]
         buy_count  = signals.count('BUY')
         sell_count = signals.count('SELL')
 
@@ -961,7 +967,7 @@ def render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_
 
     df = pd.DataFrame(results)
     if df.empty:
-        st.info("لا توجد إشارات متوافقة")
+        st.info("لا توجد إشارات متوافقة مع بيانات كاملة في جميع الأطر الزمنية")
         return
 
     df = df.sort_values(['confluence', 'daily_conf'], ascending=[False, False])
@@ -993,7 +999,7 @@ def render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_
 
     st.markdown("---")
 
-    # ── جدول الـ Confluence ──
+    # ── جدول الـ Confluence ─ـ
     def build_rows(df):
         rows = ""
         for _, row in df.iterrows():
@@ -1004,6 +1010,7 @@ def render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_
             stars = '✅' * row['confluence'] + '⬜' * (3 - row['confluence'])
 
             def sig_badge(sig):
+                # لا داعي لفحص WAIT هنا لأننا استبعدناها مسبقاً
                 if sig == 'WAIT': return '<span style="color:#475569;">—</span>'
                 c, bg = signal_color(sig)
                 return f'<span style="background:{bg};color:{c};border:1px solid {c};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">{sig}</span>'
