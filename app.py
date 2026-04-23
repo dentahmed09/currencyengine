@@ -423,14 +423,15 @@ def render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, 
 # ══════════════════════════════════════════════════════════════
 # TAB 2 — Scalping Signals
 # ══════════════════════════════════════════════════════════════
-def render_scalping_signals(db_daily, db_weekly, selected_date):
+def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
 
-    if db_daily.empty or db_weekly.empty:
-        st.info("📊 يرجى إدخال بيانات Daily و Weekly أولاً")
+    if db_daily.empty or db_weekly.empty or db_monthly.empty:
+        st.info("📊 يرجى إدخال بيانات Daily و Weekly و Monthly أولاً")
         return
 
     daily_curr, _          = get_row_for_date(db_daily, 'Date', selected_date)
     weekly_curr, weekly_prev = get_weekly_row(db_weekly, selected_date)
+    monthly_curr, monthly_prev = get_monthly_row(db_monthly, selected_date)
 
     if daily_curr is None:
         st.error(f"❌ لا توجد بيانات يومية للتاريخ {selected_date}")
@@ -438,8 +439,12 @@ def render_scalping_signals(db_daily, db_weekly, selected_date):
     if weekly_curr is None:
         st.error("❌ لا توجد بيانات أسبوعية")
         return
+    if monthly_curr is None:
+        st.error("❌ لا توجد بيانات شهرية")
+        return
 
-    results = []
+    # ========== القسم الأول: اليومي vs الأسبوعي ==========
+    results_daily_vs_weekly = []
     for pair in pairs:
         base, quote = pair[:3], pair[3:]
 
@@ -463,7 +468,7 @@ def render_scalping_signals(db_daily, db_weekly, selected_date):
         else:
             signal = "WAIT"
 
-        results.append({
+        results_daily_vs_weekly.append({
             "pair":         pair,
             "signal":       signal,
             "daily_score":  round(daily_score,  2),
@@ -472,16 +477,18 @@ def render_scalping_signals(db_daily, db_weekly, selected_date):
             "weekly_bias":  weekly_bias,
         })
 
-    df = pd.DataFrame(results)
-    df = df[df['signal'] != 'WAIT']
-    df = df.reindex(df['acceleration'].abs().sort_values(ascending=False).index)
+    df_daily_vs_weekly = pd.DataFrame(results_daily_vs_weekly)
+    df_daily_vs_weekly = df_daily_vs_weekly[df_daily_vs_weekly['signal'] != 'WAIT']
+    df_daily_vs_weekly = df_daily_vs_weekly.reindex(df_daily_vs_weekly['acceleration'].abs().sort_values(ascending=False).index)
 
-    buy_count  = len(df[df['signal'] == 'BUY'])
-    sell_count = len(df[df['signal'] == 'SELL'])
-    summary_cards(buy_count, sell_count)
+    # عرض الجدول الأول
+    buy_count_1  = len(df_daily_vs_weekly[df_daily_vs_weekly['signal'] == 'BUY'])
+    sell_count_1 = len(df_daily_vs_weekly[df_daily_vs_weekly['signal'] == 'SELL'])
+    st.markdown("### 📈 Daily vs Weekly")
+    summary_cards(buy_count_1, sell_count_1)
     st.markdown("---")
 
-    def build_rows(df):
+    def build_rows_daily_vs_weekly(df):
         rows = ""
         for _, row in df.iterrows():
             sc, sbg    = signal_color(row['signal'])
@@ -502,9 +509,82 @@ def render_scalping_signals(db_daily, db_weekly, selected_date):
         return rows
 
     html_table(
-        ["Pair", "Signal", "⚡ Acceleration", "📅 Daily Score", "📆 Weekly Score", "Weekly Bias"],
-        build_rows(df),
-        height=max(200, len(df) * 52 + 60)
+        ["Pair", "Signal", "⚡ Acceleration (Daily - Weekly)", "📅 Daily Score", "📆 Weekly Score", "Weekly Bias"],
+        build_rows_daily_vs_weekly(df_daily_vs_weekly),
+        height=max(200, len(df_daily_vs_weekly) * 52 + 60)
+    )
+
+    st.markdown("---")
+    st.markdown("### 🗓️ Weekly vs Monthly")
+
+    # ========== القسم الثاني: الأسبوعي vs الشهري (الجديد) ==========
+    results_weekly_vs_monthly = []
+    for pair in pairs:
+        base, quote = pair[:3], pair[3:]
+
+        b_w = weekly_curr.get(base, None)
+        q_w = weekly_curr.get(quote, None)
+        b_m = monthly_curr.get(base, None)
+        q_m = monthly_curr.get(quote, None)
+
+        if any(x is None or pd.isna(x) for x in [b_w, q_w, b_m, q_m]):
+            continue
+
+        weekly_score  = b_w - q_w
+        monthly_score = b_m - q_m
+        acceleration_monthly = weekly_score - monthly_score
+        monthly_bias  = "Bullish" if monthly_score > 0 else "Bearish"
+
+        if acceleration_monthly > 0 and monthly_score > 0:
+            signal = "BUY"
+        elif acceleration_monthly < 0 and monthly_score < 0:
+            signal = "SELL"
+        else:
+            signal = "WAIT"
+
+        results_weekly_vs_monthly.append({
+            "pair":                 pair,
+            "signal":               signal,
+            "weekly_score":         round(weekly_score, 2),
+            "monthly_score":        round(monthly_score, 2),
+            "acceleration_monthly": round(acceleration_monthly, 2),
+            "monthly_bias":         monthly_bias,
+        })
+
+    df_weekly_vs_monthly = pd.DataFrame(results_weekly_vs_monthly)
+    df_weekly_vs_monthly = df_weekly_vs_monthly[df_weekly_vs_monthly['signal'] != 'WAIT']
+    df_weekly_vs_monthly = df_weekly_vs_monthly.reindex(df_weekly_vs_monthly['acceleration_monthly'].abs().sort_values(ascending=False).index)
+
+    # عرض الجدول الثاني
+    buy_count_2  = len(df_weekly_vs_monthly[df_weekly_vs_monthly['signal'] == 'BUY'])
+    sell_count_2 = len(df_weekly_vs_monthly[df_weekly_vs_monthly['signal'] == 'SELL'])
+    summary_cards(buy_count_2, sell_count_2, extra_label="Total Signals", extra_count=buy_count_2 + sell_count_2)
+    st.markdown("---")
+
+    def build_rows_weekly_vs_monthly(df):
+        rows = ""
+        for _, row in df.iterrows():
+            sc, sbg    = signal_color(row['signal'])
+            acc_color  = '#10b981' if row['acceleration_monthly'] > 0 else '#ef4444'
+            bias_color = '#10b981' if row['monthly_bias'] == 'Bullish' else '#ef4444'
+            bias_icon  = '📈' if row['monthly_bias'] == 'Bullish' else '📉'
+
+            rows += f"""
+            <tr style="border-bottom:1px solid #1e293b;">
+                <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
+                <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
+                             padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
+                <td style="color:{acc_color};font-weight:700;font-size:15px;">{row['acceleration_monthly']:+.2f}</td>
+                <td style="color:#e2e8f0;">{row['weekly_score']:+.2f}</td>
+                <td style="color:#e2e8f0;">{row['monthly_score']:+.2f}</td>
+                <td style="color:{bias_color};font-weight:600;">{bias_icon} {row['monthly_bias']}</td>
+            </tr>"""
+        return rows
+
+    html_table(
+        ["Pair", "Signal", "⚡ Acceleration (Weekly - Monthly)", "📆 Weekly Score", "🗓️ Monthly Score", "Monthly Bias"],
+        build_rows_weekly_vs_monthly(df_weekly_vs_monthly),
+        height=max(200, len(df_weekly_vs_monthly) * 52 + 60)
     )
 
 # ══════════════════════════════════════════════════════════════
@@ -984,8 +1064,8 @@ with tab1:
     render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, selected_date)
 
 with tab2:
-    render_scalping_signals(db_daily, db_weekly, selected_date)
-
+    render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date)
+    
 with tab3:
     render_market_events(db_news, db_daily, selected_date)
 
