@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="Institutional Currency Strength Engine", layout="wide", page_icon="🏦")
 
-# ====================== Google Sheets ======================
+# ====================== Google Sheets Configuration ======================
 @st.cache_resource(show_spinner=False)
 def get_gspread_client():
     creds_dict = st.secrets["gcp_service_account"]
@@ -40,7 +41,7 @@ def inject_custom_css():
             background: linear-gradient(90deg, #f1c40f, #e67e22, #f1c40f);
         }
         .main-header h1 { color: #f1c40f; margin: 0; font-size: 1.6rem; font-weight: 700; }
-        .main-header p  { color: #64748b; margin: 0.4rem 0 0; font-size: 0.8rem; text-transform: uppercase; }
+        .main-header p { color: #64748b; margin: 0.4rem 0 0; font-size: 0.8rem; text-transform: uppercase; }
         .section-header {
             font-size: 11px; font-weight: 600; color: #475569;
             letter-spacing: 0.1em; text-transform: uppercase;
@@ -72,7 +73,9 @@ def inject_custom_css():
 SHEET_ID   = "1q_q9QGYHm0w7Z5nnO1Uq4NKLW1SoQCf5stbAMKoT3FE"
 DAILY_WS   = "daily"
 WEEKLY_WS  = "weekly"
+MONTHLY_WS = "monthly"
 ECONOMY_WS = "ECONOMY"
+YIELD_WS   = "YIELD"
 NEWS_WS    = "News"
 
 currencies = ["USD", "CAD", "EUR", "GBP", "CHF", "AUD", "NZD", "JPY"]
@@ -86,30 +89,15 @@ pairs = [
     "CADCHF","CADJPY","CHFJPY"
 ]
 
+CURRENCY_COLORS = {
+    'USD': '#3b82f6', 'EUR': '#f1c40f', 'GBP': '#a78bfa',
+    'JPY': '#f43f5e', 'CHF': '#e2e8f0', 'CAD': '#fb923c',
+    'AUD': '#34d399', 'NZD': '#22d3ee',
+}
+
 currency_flags = {
     "USD":"🇺🇸","EUR":"🇪🇺","GBP":"🇬🇧","JPY":"🇯🇵",
     "CHF":"🇨🇭","CAD":"🇨🇦","AUD":"🇦🇺","NZD":"🇳🇿"
-}
-
-# حالات العملة وخصائصها
-STATE_CONFIG = {
-    "STRONG TREND": {"icon":"💥","color":"#059669","priority":5},
-    "TREND":        {"icon":"📈","color":"#10b981","priority":4},
-    "WEAK TREND":   {"icon":"⚠️","color":"#f97316","priority":3},
-    "RANGE":        {"icon":"🔄","color":"#64748b","priority":2},
-    "REVERSAL":     {"icon":"💣","color":"#ef4444","priority":1},
-}
-
-# أولوية السيناريوهات
-SCENARIO_CONFIG = {
-    ("STRONG TREND","STRONG TREND","opposite"): {"label":"💥 Strong vs Strong","confidence":80,"trade":True},
-    ("STRONG TREND","REVERSAL",    "opposite"): {"label":"🚀 Strong vs Reversal","confidence":75,"trade":True},
-    ("TREND",       "REVERSAL",    "opposite"): {"label":"⚡ Trend vs Reversal","confidence":70,"trade":True},
-    ("STRONG TREND","WEAK TREND",  "opposite"): {"label":"📊 Strong vs Weak","confidence":65,"trade":True},
-    ("TREND",       "WEAK TREND",  "opposite"): {"label":"📊 Trend vs Weak","confidence":60,"trade":True},
-    ("STRONG TREND","STRONG TREND","same"):     {"label":"❌ Strong vs Strong (Same)","confidence":0,"trade":False},
-    ("WEAK TREND",  "WEAK TREND",  "any"):      {"label":"❌ Weak vs Weak","confidence":0,"trade":False},
-    ("REVERSAL",    "REVERSAL",    "any"):      {"label":"❌ Reversal vs Reversal","confidence":0,"trade":False},
 }
 
 # ====================== Load Functions ======================
@@ -140,11 +128,12 @@ def load_news_data():
             df['Shock'] = pd.to_numeric(df['Shock'], errors='coerce')
         return df
     except Exception as e:
-        st.warning(f"Could not load News: {e}")
+        st.warning(f"Could not load News worksheet: {e}")
         return pd.DataFrame()
 
-# ====================== Helpers ======================
+# ====================== Helper Functions ======================
 def get_row_for_date(df, date_col, sel_date):
+    """يجيب الصف الحالي والسابق لتاريخ معين"""
     df = df.copy()
     df[date_col] = pd.to_datetime(df[date_col]).dt.date
     row = df[df[date_col] == sel_date]
@@ -156,567 +145,292 @@ def get_row_for_date(df, date_col, sel_date):
     return curr, prev
 
 def get_weekly_row(db_weekly, selected_date):
-    db = db_weekly.copy()
-    db['Week_Start'] = pd.to_datetime(db['Week_Start']).dt.date
-    available = db[db['Week_Start'] <= selected_date]
+    """يجيب أقرب أسبوع قبل أو يساوي التاريخ المختار"""
+    db_weekly = db_weekly.copy()
+    db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
+    available = db_weekly[db_weekly['Week_Start'] <= selected_date]
     if available.empty:
         return None, None
     curr = available.iloc[-1]
     prev = available.iloc[-2] if len(available) >= 2 else None
     return curr, prev
 
-def safe_float(val):
-    try:
-        if val is None or str(val).strip() == '':
-            return None
-        return float(val)
-    except:
+def get_monthly_row(db_monthly, selected_date):
+    """يجيب أقرب شهر قبل أو يساوي التاريخ المختار"""
+    db_monthly = db_monthly.copy()
+    db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
+    available = db_monthly[db_monthly['Month_Start'] <= selected_date]
+    if available.empty:
+        return None, None
+    curr = available.iloc[-1]
+    prev = available.iloc[-2] if len(available) >= 2 else None
+    return curr, prev
+
+def get_direction(curr_row, prev_row, col):
+    """يحدد اتجاه العملة مقارنة بالسابق"""
+    if curr_row is None or prev_row is None:
         return None
+    if col not in curr_row.index or col not in prev_row.index:
+        return None
+    c, p = curr_row[col], prev_row[col]
+    if pd.isna(c) or pd.isna(p):
+        return None
+    if c > p: return 'up'
+    elif c < p: return 'down'
+    else: return 'flat'
 
-def html_table(headers, rows_html, height=400):
-    h = "".join([f"<th>{x}</th>" for x in headers])
-    t = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <style>
-        body{{margin:0;padding:0;background:transparent;
-             font-family:-apple-system,BlinkMacSystemFont,sans-serif;}}
-        table{{width:100%;border-collapse:collapse;
-               background:linear-gradient(135deg,#0f172a,#1e293b);
-               border-radius:12px;overflow:hidden;}}
-        th{{background:#1e293b;color:#f1c40f;padding:12px 10px;
-            text-align:left;font-size:12px;font-weight:600;
-            border-bottom:2px solid #f1c40f;white-space:nowrap;}}
-        tr:hover{{background:rgba(241,196,15,0.04);}}
-        td{{padding:11px 10px;}}
-    </style></head><body>
-    <table><thead><tr>{h}</tr></thead>
-    <tbody>{rows_html}</tbody></table></body></html>"""
-    st.components.v1.html(t, height=height, scrolling=True)
+def signal_color(signal):
+    if signal == 'BUY':  return '#10b981', 'rgba(16,185,129,0.15)'
+    if signal == 'SELL': return '#ef4444', 'rgba(239,68,68,0.15)'
+    return '#f1c40f', 'rgba(241,196,15,0.15)'
 
-def summary_cards(buy, sell, mid_label="Total", mid_val=None):
-    mid = mid_val if mid_val is not None else buy + sell
-    c1,c2,c3 = st.columns(3)
+def summary_cards(buy_count, sell_count, extra_label="", extra_count=0):
+    """ملخص BUY/SELL في أعلى كل تبويب"""
+    c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown(f"""<div style='background:rgba(16,185,129,0.15);border:1px solid #10b981;
-            border-radius:12px;padding:16px;text-align:center;'>
-            <div style='font-size:12px;color:#94a3b8;'>Bullish / BUY</div>
-            <div style='font-size:36px;font-weight:bold;color:#10b981;'>{buy}</div>
+        st.markdown(f"""
+        <div style='background:rgba(16,185,129,0.15);border:1px solid #10b981;
+                    border-radius:12px;padding:16px;text-align:center;'>
+            <div style='font-size:12px;color:#94a3b8;'>BUY Signals</div>
+            <div style='font-size:36px;font-weight:bold;color:#10b981;'>{buy_count}</div>
         </div>""", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"""<div style='background:rgba(239,68,68,0.15);border:1px solid #ef4444;
-            border-radius:12px;padding:16px;text-align:center;'>
-            <div style='font-size:12px;color:#94a3b8;'>Bearish / SELL</div>
-            <div style='font-size:36px;font-weight:bold;color:#ef4444;'>{sell}</div>
+        st.markdown(f"""
+        <div style='background:rgba(239,68,68,0.15);border:1px solid #ef4444;
+                    border-radius:12px;padding:16px;text-align:center;'>
+            <div style='font-size:12px;color:#94a3b8;'>SELL Signals</div>
+            <div style='font-size:36px;font-weight:bold;color:#ef4444;'>{sell_count}</div>
         </div>""", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"""<div style='background:rgba(241,196,15,0.15);border:1px solid #f1c40f;
-            border-radius:12px;padding:16px;text-align:center;'>
-            <div style='font-size:12px;color:#94a3b8;'>{mid_label}</div>
-            <div style='font-size:36px;font-weight:bold;color:#f1c40f;'>{mid}</div>
+        st.markdown(f"""
+        <div style='background:rgba(241,196,15,0.15);border:1px solid #f1c40f;
+                    border-radius:12px;padding:16px;text-align:center;'>
+            <div style='font-size:12px;color:#94a3b8;'>{extra_label if extra_label else "Total Active"}</div>
+            <div style='font-size:36px;font-weight:bold;color:#f1c40f;'>
+                {extra_count if extra_label else buy_count + sell_count}
+            </div>
         </div>""", unsafe_allow_html=True)
+
+def html_table(headers, rows_html, height=400):
+    """جدول HTML موحد الشكل"""
+    headers_html = "".join([f"<th>{h}</th>" for h in headers])
+    table = f"""
+    <!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+        body {{ margin:0;padding:0;background:transparent;
+               font-family:-apple-system,BlinkMacSystemFont,sans-serif; }}
+        table {{ width:100%;border-collapse:collapse;
+                background:linear-gradient(135deg,#0f172a,#1e293b);
+                border-radius:12px;overflow:hidden; }}
+        th {{ background:#1e293b;color:#f1c40f;padding:12px 10px;
+             text-align:left;font-size:12px;font-weight:600;
+             border-bottom:2px solid #f1c40f;white-space:nowrap; }}
+        tr:hover {{ background:rgba(241,196,15,0.04); }}
+        td {{ padding:12px 10px; }}
+    </style></head><body>
+    <table>
+        <thead><tr>{headers_html}</tr></thead>
+        <tbody>{rows_html}</tbody>
+    </table></body></html>"""
+    st.components.v1.html(table, height=height, scrolling=True)
 
 # ====================== Date Selector ======================
 def render_date_selector(db_daily):
-    db = db_daily.copy()
-    db['Date'] = pd.to_datetime(db['Date']).dt.date
-    all_dates = db['Date'].sort_values(ascending=False).tolist()
-    options, date_map = [], {}
+    db_daily = db_daily.copy()
+    db_daily['Date'] = pd.to_datetime(db_daily['Date']).dt.date
+    all_dates = db_daily['Date'].sort_values(ascending=False).tolist()
+
+    date_options, date_map = [], {}
     for d in all_dates:
         ds    = d.strftime("%Y-%m-%d")
         label = f"📅 {ds}  ·  Latest" if d == all_dates[0] else f"📅 {ds}"
-        options.append(label)
+        date_options.append(label)
         date_map[label] = d
-    st.markdown("""<div style='background:#0f172a;border:1px solid rgba(241,196,15,0.25);
-        border-radius:10px;padding:10px 16px;margin-bottom:1.2rem;'>
+
+    st.markdown("""
+    <div style='background:#0f172a;border:1px solid rgba(241,196,15,0.25);
+                border-radius:10px;padding:10px 16px;margin-bottom:1.2rem;'>
         <span style='color:#f1c40f;font-size:13px;font-weight:600;'>DATE</span>
         <span style='color:#334155;font-size:11px;'> | </span>
         <span style='color:#64748b;font-size:11px;'>Choose The Date</span>
     </div>""", unsafe_allow_html=True)
-    _,c2,_ = st.columns([1,2,1])
-    with c2:
-        sel = st.selectbox("", options=options, index=0,
-                           key="global_date_selector", label_visibility="collapsed")
-    selected = date_map[sel]
-    st.session_state['selected_date'] = selected
-    return selected
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        selected_label = st.selectbox(
+            "", options=date_options, index=0,
+            key="global_date_selector", label_visibility="collapsed"
+        )
+    selected_date = date_map[selected_label]
+    st.session_state['selected_date'] = selected_date
+    return selected_date
 
 # ══════════════════════════════════════════════════════════════
-# ENGINE 1 — Economic Direction per Currency
+# TAB 1 — Daily Signals
 # ══════════════════════════════════════════════════════════════
-def calc_eco_direction(currency, db_economy, selected_date, lookback=12):
-    """
-    يحسب الاتجاه الاقتصادي للعملة
-    Returns: direction (+/-/=), current_val, prev_val, range_high, range_low
-    """
-    if db_economy.empty or currency not in db_economy.columns:
-        return "=", None, None, None, None
+def render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, selected_date):
 
-    db = db_economy.copy()
-    db['Date'] = pd.to_datetime(db['Date']).dt.date
-    history = db[db['Date'] <= selected_date].sort_values('Date').reset_index(drop=True)
-
-    if len(history) < 2:
-        return "=", None, None, None, None
-
-    curr_val = safe_float(history.iloc[-1][currency])
-    prev_val = safe_float(history.iloc[-2][currency])
-
-    lookback_data = history.iloc[-(lookback+1):-1]
-    range_high = lookback_data[currency].max() if not lookback_data.empty else None
-    range_low  = lookback_data[currency].min() if not lookback_data.empty else None
-
-    if curr_val is None or prev_val is None:
-        return "=", curr_val, prev_val, range_high, range_low
-
-    if curr_val > prev_val:
-        return "+", curr_val, prev_val, range_high, range_low
-    elif curr_val < prev_val:
-        return "-", curr_val, prev_val, range_high, range_low
-    else:
-        return "=", curr_val, prev_val, range_high, range_low
-
-# ══════════════════════════════════════════════════════════════
-# ENGINE 2 — Event Direction per Currency
-# ══════════════════════════════════════════════════════════════
-def calc_event_directions(currency, db_news, selected_date):
-    """
-    يحسب اتجاه التوقعات واتجاه النتيجة بالأوزان
-    Returns:
-        forecast_dir: + / = / -
-        actual_dir:   + / = / -
-        has_events:   bool
-        details:      list
-    """
-    if db_news.empty:
-        return "=", "=", False, []
-
-    db = db_news.copy()
-    db['Date'] = pd.to_datetime(db['Date']).dt.date
-    today = db[(db['Date'] == selected_date) & (db['Currency'] == currency)]
-
-    if today.empty:
-        return "=", "=", False, []
-
-    weights     = {'High': 0.5, 'Moderate': 0.3, 'Low': 0.2}
-    fore_score  = 0.0
-    actual_score = 0.0
-    details     = []
-
-    for _, evt in today.iterrows():
-        w        = weights.get(evt.get('Importance','Low'), 0.2)
-        forecast = safe_float(evt.get('Forecast'))
-        previous = safe_float(evt.get('Previous'))
-        actual   = safe_float(evt.get('Actual'))
-
-        # Forecast vs Previous
-        f_dir = "="
-        if forecast is not None and previous is not None:
-            if forecast > previous:
-                fore_score += w
-                f_dir = "+"
-            elif forecast < previous:
-                fore_score -= w
-                f_dir = "-"
-
-        # Actual vs Forecast
-        a_dir = "="
-        if actual is not None and forecast is not None:
-            if actual > forecast:
-                actual_score += w
-                a_dir = "+"
-            elif actual < forecast:
-                actual_score -= w
-                a_dir = "-"
-
-        details.append({
-            'time':       evt.get('TimeOnly','—'),
-            'importance': evt.get('Importance','Low'),
-            'f_dir':      f_dir,
-            'a_dir':      a_dir,
-            'forecast':   forecast,
-            'previous':   previous,
-            'actual':     actual,
-        })
-
-    forecast_dir = "+" if fore_score > 0 else "-" if fore_score < 0 else "="
-    actual_dir   = "+" if actual_score > 0 else "-" if actual_score < 0 else "="
-
-    return forecast_dir, actual_dir, True, details
-
-# ══════════════════════════════════════════════════════════════
-# ENGINE 3 — Currency State
-# ══════════════════════════════════════════════════════════════
-def calc_currency_state(currency, db_economy, db_news, selected_date, lookback=12):
-    """
-    يجمع الـ 3 مدخلات ويحدد الحالة النهائية للعملة
-
-    Returns dict:
-        state:        STRONG TREND / TREND / WEAK TREND / RANGE / REVERSAL
-        direction:    UP / DOWN / NEUTRAL
-        eco_dir:      + / - / =
-        fore_dir:     + / - / =
-        actual_dir:   + / - / =
-        pattern:      (eco, fore, actual)
-        has_events:   bool
-        details:      event details
-        eco_val / eco_high / eco_low
-    """
-    eco_dir, eco_val, eco_prev, eco_high, eco_low = calc_eco_direction(
-        currency, db_economy, selected_date, lookback
-    )
-    fore_dir, actual_dir, has_events, details = calc_event_directions(
-        currency, db_news, selected_date
-    )
-
-    pattern = (eco_dir, fore_dir, actual_dir)
-
-    # تحديد الحالة بناءً على الـ pattern
-    STRONG_PATTERNS = {
-        ("+","+","+"),("+","=","+"),("+","+","="),
-        ("-","-","-"),("-","=","-"),("-","-","="),
-    }
-    TREND_PATTERNS = {
-        ("+","+","="),("+","=","+"),("+","=","="),
-        ("-","-","="),("-","=","-"),("-","=","="),
-    }
-    WEAK_PATTERNS = {
-        ("+","+","-"),("+","=","-"),
-        ("-","-","+"),(("-","=","+")),
-    }
-    RANGE_PATTERNS = {
-        ("+","=","="),("+","-","="),
-        ("-","=","="),("-","+","="),
-        ("=","=","="),("=","+","="),("=","-","="),
-        ("=","=","+"),(("=","=","-")),
-    }
-    REVERSAL_PATTERNS = {
-        ("+","-","-"),("+","-","+"),
-        ("-","+","+"),(("-","+","-")),
-    }
-
-    if pattern in STRONG_PATTERNS:
-        state = "STRONG TREND"
-    elif pattern in TREND_PATTERNS:
-        state = "TREND"
-    elif pattern in WEAK_PATTERNS:
-        state = "WEAK TREND"
-    elif pattern in REVERSAL_PATTERNS:
-        state = "REVERSAL"
-    else:
-        state = "RANGE"
-
-    # الاتجاه العام
-    if eco_dir == "+":
-        direction = "UP"
-    elif eco_dir == "-":
-        direction = "DOWN"
-    else:
-        direction = "NEUTRAL"
-
-    return {
-        'currency':   currency,
-        'state':      state,
-        'direction':  direction,
-        'eco_dir':    eco_dir,
-        'fore_dir':   fore_dir,
-        'actual_dir': actual_dir,
-        'pattern':    pattern,
-        'has_events': has_events,
-        'details':    details,
-        'eco_val':    eco_val,
-        'eco_high':   eco_high,
-        'eco_low':    eco_low,
-    }
-
-# ══════════════════════════════════════════════════════════════
-# ENGINE 4 — Pair Opportunity
-# ══════════════════════════════════════════════════════════════
-def calc_pair_opportunity(base_state, quote_state):
-    """
-    يقارن حالة العملتين ويحدد نوع الفرصة والأولوية
-
-    Returns:
-        scenario_label: وصف السيناريو
-        confidence:     نسبة الثقة (0 = تجنب)
-        direction:      BUY / SELL / AVOID
-        priority:       رقم للترتيب
-    """
-    b_state = base_state['state']
-    q_state = quote_state['state']
-    b_dir   = base_state['direction']
-    q_dir   = quote_state['direction']
-
-    # هل الاتجاهين عكس بعض؟
-    if b_dir == "UP" and q_dir == "DOWN":
-        rel = "opposite"
-        trade_dir = "BUY"
-    elif b_dir == "DOWN" and q_dir == "UP":
-        rel = "opposite"
-        trade_dir = "SELL"
-    elif b_dir == "UP" and q_dir in ("NEUTRAL","UP"):
-        rel = "same"
-        trade_dir = "BUY" if b_dir == "UP" else "SELL"
-    elif b_dir == "DOWN" and q_dir in ("NEUTRAL","DOWN"):
-        rel = "same"
-        trade_dir = "SELL"
-    else:
-        rel = "any"
-        trade_dir = "AVOID"
-
-    # ترتيب الحالات للمقارنة (الأقوى أولاً)
-    state_order = ["STRONG TREND","REVERSAL","TREND","WEAK TREND","RANGE"]
-
-    def sort_states(s1, s2):
-        """يرتب الحالتين بحيث الأقوى أولاً"""
-        i1 = state_order.index(s1) if s1 in state_order else 99
-        i2 = state_order.index(s2) if s2 in state_order else 99
-        if i1 <= i2:
-            return s1, s2, False
-        return s2, s1, True  # True = تم العكس
-
-    s1, s2, swapped = sort_states(b_state, q_state)
-
-    # البحث في SCENARIO_CONFIG
-    key1 = (s1, s2, rel)
-    key2 = (s1, s2, "any")
-    key3 = (s2, s1, rel)
-    key4 = (s2, s1, "any")
-
-    scenario = None
-    for key in [key1, key2, key3, key4]:
-        if key in SCENARIO_CONFIG:
-            scenario = SCENARIO_CONFIG[key]
-            break
-
-    if scenario is None:
-        # حكم عام بناءً على الأولوية
-        b_priority = STATE_CONFIG.get(b_state, {}).get('priority', 0)
-        q_priority = STATE_CONFIG.get(q_state, {}).get('priority', 0)
-        total_priority = b_priority + q_priority
-
-        if rel == "opposite" and total_priority >= 8:
-            scenario = {"label": f"📊 {b_state} vs {q_state}", "confidence": 60, "trade": True}
-        elif rel == "opposite" and total_priority >= 5:
-            scenario = {"label": f"📊 {b_state} vs {q_state}", "confidence": 55, "trade": True}
-        else:
-            scenario = {"label": f"🔄 {b_state} vs {q_state}", "confidence": 0, "trade": False}
-
-    if not scenario['trade']:
-        trade_dir = "AVOID"
-
-    return {
-        'scenario':   scenario['label'],
-        'confidence': scenario['confidence'],
-        'direction':  trade_dir,
-        'rel':        rel,
-    }
-
-# ══════════════════════════════════════════════════════════════
-# ENGINE 5 — Scalp Signal
-# ══════════════════════════════════════════════════════════════
-def calc_scalp_signal(pair, daily_curr, weekly_curr):
-    """
-    يحسب حالة السكالب والتسارع
-
-    Returns:
-        scalp_state: STRONG TREND / WEAK TREND / RANGE / REVERSAL SETUP
-        direction:   UP / DOWN / NEUTRAL
-        acceleration
-        daily_score
-        weekly_score
-    """
-    base, quote = pair[:3], pair[3:]
-
-    b_d = safe_float(daily_curr.get(base))  if daily_curr  is not None else None
-    q_d = safe_float(daily_curr.get(quote)) if daily_curr  is not None else None
-    b_w = safe_float(weekly_curr.get(base)) if weekly_curr is not None else None
-    q_w = safe_float(weekly_curr.get(quote))if weekly_curr is not None else None
-
-    if any(x is None for x in [b_d, q_d, b_w, q_w]):
-        return "RANGE", "NEUTRAL", 0, 0, 0
-
-    daily_score  = b_d - q_d
-    weekly_score = b_w - q_w
-    acceleration = daily_score - weekly_score
-
-    weekly_up   = weekly_score > 0
-    weekly_down = weekly_score < 0
-    acc_pos     = acceleration > 0
-    acc_neg     = acceleration < 0
-
-    if weekly_up and acc_pos:
-        return "STRONG TREND", "UP",      round(acceleration,2), round(daily_score,2), round(weekly_score,2)
-    elif weekly_up and acc_neg:
-        return "WEAK TREND",   "UP",      round(acceleration,2), round(daily_score,2), round(weekly_score,2)
-    elif weekly_down and acc_neg:
-        return "STRONG TREND", "DOWN",    round(acceleration,2), round(daily_score,2), round(weekly_score,2)
-    elif weekly_down and acc_pos:
-        return "REVERSAL SETUP","DOWN",   round(acceleration,2), round(daily_score,2), round(weekly_score,2)
-    else:
-        return "RANGE",        "NEUTRAL", round(acceleration,2), round(daily_score,2), round(weekly_score,2)
-
-# ══════════════════════════════════════════════════════════════
-# ENGINE 6 — Final Decision
-# ══════════════════════════════════════════════════════════════
-def calc_final_decision(pair_opportunity, scalp_state, scalp_direction, eco_direction):
-    """
-    يربط فرصة الزوج بحالة السكالب
-
-    منطق القرار:
-    - Scalp STRONG TREND يوافق eco_direction → تأكيد كامل
-    - Scalp WEAK TREND → تخفيض الثقة
-    - Scalp REVERSAL SETUP → تحذير
-    - Scalp RANGE → تجنب
-
-    Returns:
-        final_signal:     BUY / SELL / AVOID
-        final_confidence: نسبة الثقة النهائية
-        scalp_note:       ملاحظة السكالب
-    """
-    base_conf  = pair_opportunity['confidence']
-    base_dir   = pair_opportunity['direction']
-
-    if base_dir == "AVOID" or base_conf == 0:
-        return "AVOID", 0, "❌ No opportunity"
-
-    if scalp_state == "RANGE":
-        return "AVOID", 0, "❌ Scalp: Range — No Entry"
-
-    # توافق اتجاه السكالب مع الـ eco
-    scalp_confirms = (
-        (base_dir == "BUY"  and scalp_direction == "UP") or
-        (base_dir == "SELL" and scalp_direction == "DOWN")
-    )
-
-    if scalp_state == "STRONG TREND" and scalp_confirms:
-        final_conf = base_conf
-        note       = "✅ Scalp: Strong Confirm"
-    elif scalp_state == "TREND" and scalp_confirms:
-        final_conf = max(base_conf - 5, 60)
-        note       = "✅ Scalp: Confirm"
-    elif scalp_state == "WEAK TREND" and scalp_confirms:
-        final_conf = max(base_conf - 10, 55)
-        note       = "⚠️ Scalp: Weak Confirm"
-    elif scalp_state == "REVERSAL SETUP":
-        final_conf = max(base_conf - 15, 50)
-        note       = "💣 Scalp: Reversal Warning"
-    else:
-        # السكالب مخالف
-        final_conf = max(base_conf - 20, 50)
-        note       = "⚠️ Scalp: Against Direction"
-
-    return base_dir, final_conf, note
-
-# ══════════════════════════════════════════════════════════════
-# TAB 1 — Currency States
-# ══════════════════════════════════════════════════════════════
-def render_states_tab(db_economy, db_news, selected_date):
-    if db_economy.empty:
-        st.info("📊 يرجى إدخال بيانات ECONOMY أولاً")
+    if db_daily.empty or db_economy.empty:
+        st.info("📊 يرجى إدخال بيانات Daily و ECONOMY أولاً")
         return
 
-    states = {}
-    for curr in currencies:
-        states[curr] = calc_currency_state(curr, db_economy, db_news, selected_date)
+    daily_curr, daily_prev     = get_row_for_date(db_daily,   'Date', selected_date)
+    eco_curr,   eco_prev       = get_row_for_date(db_economy,  'Date', selected_date)
+    yield_curr, yield_prev     = get_row_for_date(db_yield,    'Date', selected_date) if not db_yield.empty else (None, None)
+    weekly_curr, weekly_prev   = get_weekly_row(db_weekly,   selected_date)
+    monthly_curr, monthly_prev = get_monthly_row(db_monthly, selected_date)
 
-    # ملخص
-    up_count   = sum(1 for s in states.values() if s['direction'] == "UP")
-    down_count = sum(1 for s in states.values() if s['direction'] == "DOWN")
-    summary_cards(up_count, down_count, "Neutral",
-                  sum(1 for s in states.values() if s['direction'] == "NEUTRAL"))
+    if daily_curr is None or eco_curr is None:
+        st.error(f"❌ لا توجد بيانات للتاريخ {selected_date}")
+        return
+
+    def get_pair_signal(base, quote):
+        eco_base  = get_direction(eco_curr,   eco_prev,   base)
+        eco_quote = get_direction(eco_curr,   eco_prev,   quote)
+        yld_base  = get_direction(yield_curr, yield_prev, base)  if yield_curr is not None else None
+        yld_quote = get_direction(yield_curr, yield_prev, quote) if yield_curr is not None else None
+
+        daily_val = None
+        b = daily_curr.get(base, 0)
+        q = daily_curr.get(quote, 0)
+        if pd.notna(b) and pd.notna(q):
+            diff      = b - q
+            daily_val = 'up' if diff > 0 else 'down' if diff < 0 else 'flat'
+
+        if eco_base == 'up' and eco_quote == 'down':
+            signal     = 'BUY'
+            confidence = 80 if daily_val == 'up' else 75
+        elif eco_base == 'down' and eco_quote == 'up':
+            signal     = 'SELL'
+            confidence = 80 if daily_val == 'down' else 75
+        elif (eco_base == 'up' and eco_quote != 'down') or (eco_quote == 'down' and eco_base != 'up'):
+            signal     = 'BUY'
+            confidence = 70 if daily_val == 'up' else 65
+        elif (eco_base == 'down' and eco_quote != 'up') or (eco_quote == 'up' and eco_base != 'down'):
+            signal     = 'SELL'
+            confidence = 70 if daily_val == 'down' else 65
+        elif eco_base in ('flat', None) or eco_quote in ('flat', None):
+            yld_signal = None
+            if yld_base is not None and yld_quote is not None:
+                if (yld_base == 'up' and yld_quote != 'up') or (yld_quote == 'down' and yld_base != 'down'):
+                    yld_signal = 'BUY'
+                elif (yld_base == 'down' and yld_quote != 'down') or (yld_quote == 'up' and yld_base != 'up'):
+                    yld_signal = 'SELL'
+            if yld_signal == 'BUY' and daily_val == 'up':
+                signal, confidence = 'BUY', 60
+            elif yld_signal == 'SELL' and daily_val == 'down':
+                signal, confidence = 'SELL', 60
+            else:
+                signal, confidence = 'WAIT', 0
+        else:
+            signal, confidence = 'WAIT', 0
+
+        # Scores
+        daily_score  = (daily_curr.get(base, 0)   - daily_curr.get(quote, 0))   if daily_curr  is not None else None
+        weekly_score = (weekly_curr.get(base, 0)   - weekly_curr.get(quote, 0))  if weekly_curr is not None else None
+        monthly_score= (monthly_curr.get(base, 0)  - monthly_curr.get(quote, 0)) if monthly_curr is not None else None
+
+        return {
+            'signal': signal, 'confidence': confidence,
+            'daily_score': daily_score,
+            'weekly_score': weekly_score,
+            'monthly_score': monthly_score,
+        }
+
+    results = []
+    for pair in pairs:
+        base, quote = pair[:3], pair[3:]
+        r = get_pair_signal(base, quote)
+        r['pair'] = pair
+        results.append(r)
+
+    df = pd.DataFrame(results)
+    df = df[df['signal'] != 'WAIT'].sort_values('confidence', ascending=False)
+
+    # ── ملخص ──
+    buy_count  = len(df[df['signal'] == 'BUY'])
+    sell_count = len(df[df['signal'] == 'SELL'])
+
+    count_80 = len(df[df['confidence'] == 80])
+    count_75 = len(df[df['confidence'] == 75])
+    count_70 = len(df[df['confidence'] == 70])
+    count_65 = len(df[df['confidence'] == 65])
+    count_60 = len(df[df['confidence'] == 60])
+
+    summary_cards(buy_count, sell_count)
     st.markdown("---")
 
-    # كروت العملات
-    st.markdown('<div class="section-header">💱 Currency State Analysis</div>', unsafe_allow_html=True)
-
-    sorted_states = sorted(states.values(),
-                           key=lambda x: STATE_CONFIG.get(x['state'],{}).get('priority',0),
-                           reverse=True)
-
-    cols = st.columns(4)
-    for idx, s in enumerate(sorted_states):
-        with cols[idx % 4]:
-            cfg      = STATE_CONFIG.get(s['state'], {"icon":"❓","color":"#64748b"})
-            flag     = currency_flags.get(s['currency'], "")
-            dir_icon = "📈" if s['direction']=="UP" else "📉" if s['direction']=="DOWN" else "➖"
-            dir_col  = "#10b981" if s['direction']=="UP" else "#ef4444" if s['direction']=="DOWN" else "#64748b"
-
-            # pattern display
-            p = s['pattern']
-            def dir_badge(d):
-                if d == "+": return f'<span style="color:#10b981;font-weight:700;">+</span>'
-                if d == "-": return f'<span style="color:#ef4444;font-weight:700;">-</span>'
-                return f'<span style="color:#64748b;font-weight:700;">=</span>'
-
-            pattern_html = f"Eco:{dir_badge(p[0])} | News:{dir_badge(p[1])} | Result:{dir_badge(p[2])}"
-
+    c1, c2, c3, c4, c5 = st.columns(5)
+    for col, label, count, color, desc in [
+        (c1, "80%", count_80, '#059669', 'Cross + Daily'),
+        (c2, "75%", count_75, '#10b981', 'Cross Only'),
+        (c3, "70%", count_70, '#f1c40f', 'One-Side + Daily'),
+        (c4, "65%", count_65, '#f97316', 'One-Side Only'),
+        (c5, "60%", count_60, '#8b5cf6', 'Yield + Daily'),
+    ]:
+        with col:
             st.markdown(f"""
-            <div style="background:#0f172a;border:2px solid {cfg['color']}40;
-                        border-top:3px solid {cfg['color']};
-                        border-radius:14px;padding:16px;margin-bottom:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:22px;">{flag}</span>
-                        <span style="font-size:17px;font-weight:700;color:#e2e8f0;">{s['currency']}</span>
-                    </div>
-                    <span style="font-size:20px;">{cfg['icon']}</span>
-                </div>
-                <div style="font-size:13px;font-weight:700;color:{cfg['color']};margin-bottom:8px;">
-                    {s['state']}
-                </div>
-                <div style="font-size:12px;color:{dir_col};margin-bottom:8px;">
-                    {dir_icon} {s['direction']}
-                </div>
-                <div style="font-size:11px;color:#64748b;">{pattern_html}</div>
-                {'<div style="font-size:10px;color:#334155;margin-top:6px;">No events today</div>' if not s['has_events'] else ''}
+            <div style='background:rgba(0,0,0,0.2);border:1px solid {color};
+                        border-radius:12px;padding:14px;text-align:center;'>
+                <div style='font-size:20px;font-weight:bold;color:{color};'>{count}</div>
+                <div style='font-size:13px;font-weight:bold;color:{color};'>{label}</div>
+                <div style='font-size:10px;color:#64748b;'>{desc}</div>
             </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # جدول تفصيلي
-    st.markdown('<div class="section-header">📋 Detailed State Table</div>', unsafe_allow_html=True)
-
-    def build_state_rows():
+    # ── جدول الإشارات ──
+    def build_rows(df):
         rows = ""
-        for s in sorted_states:
-            cfg     = STATE_CONFIG.get(s['state'], {"icon":"❓","color":"#64748b"})
-            flag    = currency_flags.get(s['currency'], "")
-            dir_col = "#10b981" if s['direction']=="UP" else "#ef4444" if s['direction']=="DOWN" else "#64748b"
+        for _, row in df.iterrows():
+            sc, sbg = signal_color(row['signal'])
+            conf    = row['confidence']
 
-            eco_html  = f'<span style="color:{"#10b981" if s["eco_dir"]=="+" else "#ef4444" if s["eco_dir"]=="-" else "#64748b"};">{s["eco_dir"]}</span>'
-            fore_html = f'<span style="color:{"#10b981" if s["fore_dir"]=="+" else "#ef4444" if s["fore_dir"]=="-" else "#64748b"};">{s["fore_dir"]}</span>'
-            act_html  = f'<span style="color:{"#10b981" if s["actual_dir"]=="+" else "#ef4444" if s["actual_dir"]=="-" else "#64748b"};">{s["actual_dir"]}</span>'
+            conf_colors = {80:'#059669', 75:'#10b981', 70:'#f1c40f', 65:'#f97316', 60:'#8b5cf6'}
+            cc = conf_colors.get(conf, '#64748b')
 
-            eco_val_str = f"{s['eco_val']:.2f}" if s['eco_val'] is not None else "—"
+            def fmt_score(val):
+                if val is None or pd.isna(val): return '<span style="color:#64748b;">—</span>'
+                c = '#10b981' if val > 0 else '#ef4444'
+                t = 'Target High' if val > 0 else 'Target Low'
+                return f'<span style="color:{c};font-weight:600;">{abs(val):.1f}% ({t})</span>'
 
             rows += f"""
             <tr style="border-bottom:1px solid #1e293b;">
-                <td style="font-weight:700;color:#e2e8f0;">{flag} {s['currency']}</td>
-                <td style="color:{cfg['color']};font-weight:600;">{cfg['icon']} {s['state']}</td>
-                <td style="color:{dir_col};font-weight:600;">{s['direction']}</td>
-                <td style="text-align:center;">{eco_html}</td>
-                <td style="text-align:center;">{fore_html}</td>
-                <td style="text-align:center;">{act_html}</td>
-                <td style="color:#64748b;font-size:12px;">{eco_val_str}</td>
-                <td style="color:#475569;font-size:11px;">{'✅' if s['has_events'] else '—'}</td>
+                <td style="font-weight:700;color:#e2e8f0;font-size:14px;">{row['pair']}</td>
+                <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
+                             padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="background:#1e293b;border-radius:4px;height:6px;width:60px;overflow:hidden;">
+                            <div style="background:{cc};height:100%;width:{conf}%;border-radius:4px;"></div>
+                        </div>
+                        <span style="color:{cc};font-weight:700;">{conf}%</span>
+                    </div>
+                </td>
+                <td>{fmt_score(row['daily_score'])}</td>
+                <td>{fmt_score(row['weekly_score'])}</td>
+                <td>{fmt_score(row['monthly_score'])}</td>
             </tr>"""
         return rows
 
     html_table(
-        ["Currency","State","Direction","Eco","Forecast","Actual","Eco Val","Events"],
-        build_state_rows(),
-        height=max(250, len(currencies)*52+60)
+        ["Pair", "Signal", "Confidence", "🎯 Daily", "📆 Weekly", "🗓️ Monthly"],
+        build_rows(df),
+        height=max(200, len(df) * 52 + 60)
     )
 
 # ══════════════════════════════════════════════════════════════
 # TAB 2 — Scalping Signals
 # ══════════════════════════════════════════════════════════════
-def render_scalping_tab(db_daily, db_weekly, selected_date):
+def render_scalping_signals(db_daily, db_weekly, selected_date):
+
     if db_daily.empty or db_weekly.empty:
         st.info("📊 يرجى إدخال بيانات Daily و Weekly أولاً")
         return
 
-    daily_curr,  _ = get_row_for_date(db_daily,  'Date', selected_date)
-    weekly_curr, _ = get_weekly_row(db_weekly, selected_date)
+    daily_curr, _          = get_row_for_date(db_daily, 'Date', selected_date)
+    weekly_curr, weekly_prev = get_weekly_row(db_weekly, selected_date)
 
     if daily_curr is None:
         st.error(f"❌ لا توجد بيانات يومية للتاريخ {selected_date}")
@@ -727,374 +441,553 @@ def render_scalping_tab(db_daily, db_weekly, selected_date):
 
     results = []
     for pair in pairs:
-        scalp_state, scalp_dir, acc, d_score, w_score = calc_scalp_signal(
-            pair, daily_curr, weekly_curr
-        )
-        if scalp_state == "RANGE":
+        base, quote = pair[:3], pair[3:]
+
+        b_d = daily_curr.get(base, None)
+        q_d = daily_curr.get(quote, None)
+        b_w = weekly_curr.get(base, None)
+        q_w = weekly_curr.get(quote, None)
+
+        if any(x is None or pd.isna(x) for x in [b_d, q_d, b_w, q_w]):
             continue
+
+        daily_score  = b_d - q_d
+        weekly_score = b_w - q_w
+        acceleration = daily_score - weekly_score
+        weekly_bias  = "Bullish" if weekly_score > 0 else "Bearish"
+
+        if acceleration > 0 and weekly_score > 0:
+            signal = "BUY"
+        elif acceleration < 0 and weekly_score < 0:
+            signal = "SELL"
+        else:
+            signal = "WAIT"
+
         results.append({
-            'pair':        pair,
-            'scalp_state': scalp_state,
-            'direction':   scalp_dir,
-            'acceleration':acc,
-            'daily_score': d_score,
-            'weekly_score':w_score,
+            "pair":         pair,
+            "signal":       signal,
+            "daily_score":  round(daily_score,  2),
+            "weekly_score": round(weekly_score, 2),
+            "acceleration": round(acceleration, 2),
+            "weekly_bias":  weekly_bias,
         })
 
     df = pd.DataFrame(results)
-    if df.empty:
-        st.info("لا توجد إشارات سكالب للتاريخ المختار")
-        return
-
+    df = df[df['signal'] != 'WAIT']
     df = df.reindex(df['acceleration'].abs().sort_values(ascending=False).index)
 
-    up_count   = len(df[df['direction']=="UP"])
-    down_count = len(df[df['direction']=="DOWN"])
-    summary_cards(up_count, down_count, "Total", len(df))
+    buy_count  = len(df[df['signal'] == 'BUY'])
+    sell_count = len(df[df['signal'] == 'SELL'])
+    summary_cards(buy_count, sell_count)
     st.markdown("---")
 
-    state_colors = {
-        "STRONG TREND":  "#059669",
-        "WEAK TREND":    "#f97316",
-        "REVERSAL SETUP":"#ef4444",
-        "RANGE":         "#64748b",
-    }
-    state_icons = {
-        "STRONG TREND":  "💥",
-        "WEAK TREND":    "⚠️",
-        "REVERSAL SETUP":"💣",
-        "RANGE":         "🔄",
-    }
-
-    def build_scalp_rows(df):
+    def build_rows(df):
         rows = ""
         for _, row in df.iterrows():
-            sc      = state_colors.get(row['scalp_state'],"#64748b")
-            icon    = state_icons.get(row['scalp_state'],"")
-            dir_col = "#10b981" if row['direction']=="UP" else "#ef4444" if row['direction']=="DOWN" else "#64748b"
-            dir_ico = "📈" if row['direction']=="UP" else "📉" if row['direction']=="DOWN" else "➖"
-            acc_col = "#10b981" if row['acceleration']>0 else "#ef4444"
+            sc, sbg    = signal_color(row['signal'])
+            acc_color  = '#10b981' if row['acceleration'] > 0 else '#ef4444'
+            bias_color = '#10b981' if row['weekly_bias'] == 'Bullish' else '#ef4444'
+            bias_icon  = '📈' if row['weekly_bias'] == 'Bullish' else '📉'
 
             rows += f"""
             <tr style="border-bottom:1px solid #1e293b;">
                 <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
-                <td style="color:{sc};font-weight:700;">{icon} {row['scalp_state']}</td>
-                <td style="color:{dir_col};font-weight:600;">{dir_ico} {row['direction']}</td>
-                <td style="color:{acc_col};font-weight:700;">{row['acceleration']:+.2f}</td>
+                <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
+                             padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
+                <td style="color:{acc_color};font-weight:700;font-size:15px;">{row['acceleration']:+.2f}</td>
                 <td style="color:#e2e8f0;">{row['daily_score']:+.2f}</td>
                 <td style="color:#e2e8f0;">{row['weekly_score']:+.2f}</td>
+                <td style="color:{bias_color};font-weight:600;">{bias_icon} {row['weekly_bias']}</td>
             </tr>"""
         return rows
 
     html_table(
-        ["Pair","Scalp State","Direction","⚡ Acceleration","📅 Daily","📆 Weekly"],
-        build_scalp_rows(df),
-        height=max(200, len(df)*52+60)
+        ["Pair", "Signal", "⚡ Acceleration", "📅 Daily Score", "📆 Weekly Score", "Weekly Bias"],
+        build_rows(df),
+        height=max(200, len(df) * 52 + 60)
     )
 
 # ══════════════════════════════════════════════════════════════
 # TAB 3 — Market Events
 # ══════════════════════════════════════════════════════════════
-def render_events_tab(db_news, selected_date):
+def render_market_events(db_news, db_daily, selected_date):
+
     if db_news.empty:
         st.info("📊 لا توجد بيانات أحداث")
         return
 
-    db = db_news.copy()
-    db['Date'] = pd.to_datetime(db['Date']).dt.date
-    today = db[db['Date'] == selected_date]
+    db_news['Date'] = pd.to_datetime(db_news['Date']).dt.date
+    today_events    = db_news[db_news['Date'] == selected_date]
 
-    if today.empty:
+    if today_events.empty:
         st.info(f"📭 لا توجد أحداث للتاريخ {selected_date}")
         return
 
-    active_currencies = today['Currency'].unique()
+    # ── حساب إشارة كل عملة ──
+    currency_signals = {}
+    for curr in currencies:
+        curr_events = today_events[today_events['Currency'] == curr]
+        if curr_events.empty:
+            continue
 
-    # حساب اتجاه كل عملة
-    currency_data = []
-    for curr in active_currencies:
-        f_dir, a_dir, _, details = calc_event_directions(curr, db_news, selected_date)
-        currency_data.append({
-            'currency': curr,
-            'fore_dir': f_dir,
-            'actual_dir': a_dir,
-            'details': details,
+        buy_score = sell_score = 0
+        for _, evt in curr_events.iterrows():
+            importance = evt.get('Importance', 'Low')
+            weight     = {'High': 3, 'Moderate': 2, 'Low': 1}.get(importance, 1)
+
+            try:
+                actual   = float(evt['Actual'])   if pd.notna(evt.get('Actual'))   and evt.get('Actual')   != '' else None
+                forecast = float(evt['Forecast']) if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '' else None
+                previous = float(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else None
+            except:
+                actual = forecast = previous = None
+
+            # بعد الخبر: Actual vs Forecast
+            if actual is not None and forecast is not None:
+                if actual > forecast:   buy_score  += weight
+                elif actual < forecast: sell_score += weight
+            # قبل الخبر: Forecast vs Previous
+            elif forecast is not None and previous is not None:
+                if forecast > previous:   buy_score  += weight
+                elif forecast < previous: sell_score += weight
+
+        if buy_score > sell_score:
+            signal    = 'BUY'
+            net_score = buy_score
+        elif sell_score > buy_score:
+            signal    = 'SELL'
+            net_score = sell_score
+        else:
+            signal    = 'NEUTRAL'
+            net_score = 0
+
+        currency_signals[curr] = {
+            'signal':    signal,
+            'buy_score': buy_score,
+            'sell_score':sell_score,
+            'net_score': net_score,
+            'events':    len(curr_events),
+        }
+
+    # ── أزواج لها إشارة من الأحداث ──
+    pair_signals = []
+    for pair in pairs:
+        base, quote = pair[:3], pair[3:]
+        base_sig  = currency_signals.get(base,  {}).get('signal', None)
+        quote_sig = currency_signals.get(quote, {}).get('signal', None)
+
+        if base_sig is None and quote_sig is None:
+            continue
+
+        if base_sig == 'BUY' and quote_sig == 'SELL':
+            signal   = 'BUY'
+            strength = currency_signals[base]['net_score'] + currency_signals[quote]['net_score']
+        elif base_sig == 'SELL' and quote_sig == 'BUY':
+            signal   = 'SELL'
+            strength = currency_signals[base]['net_score'] + currency_signals[quote]['net_score']
+        elif base_sig == 'BUY' and quote_sig != 'SELL':
+            signal   = 'BUY'
+            strength = currency_signals[base]['net_score']
+        elif base_sig == 'SELL' and quote_sig != 'BUY':
+            signal   = 'SELL'
+            strength = currency_signals[base]['net_score']
+        elif quote_sig == 'SELL' and base_sig != 'BUY':
+            signal   = 'BUY'
+            strength = currency_signals[quote]['net_score']
+        elif quote_sig == 'BUY' and base_sig != 'SELL':
+            signal   = 'SELL'
+            strength = currency_signals[quote]['net_score']
+        else:
+            continue
+
+        pair_signals.append({
+            'pair':     pair,
+            'signal':   signal,
+            'strength': strength,
+            'base_sig': base_sig  or '—',
+            'quote_sig':quote_sig or '—',
         })
 
-    bull = sum(1 for c in currency_data if c['fore_dir']=="+")
-    bear = sum(1 for c in currency_data if c['fore_dir']=="-")
-    summary_cards(bull, bear, "Total Events", len(today))
+    df_pairs = pd.DataFrame(pair_signals).sort_values('strength', ascending=False) if pair_signals else pd.DataFrame()
+
+    buy_count  = len(df_pairs[df_pairs['signal'] == 'BUY'])  if not df_pairs.empty else 0
+    sell_count = len(df_pairs[df_pairs['signal'] == 'SELL']) if not df_pairs.empty else 0
+    summary_cards(buy_count, sell_count)
     st.markdown("---")
 
-    # كروت العملات
+    # ── كروت العملات النشطة ──
     st.markdown('<div class="section-header">🎯 Active Currencies</div>', unsafe_allow_html=True)
-    cols = st.columns(min(len(currency_data),4))
-    for idx, cd in enumerate(currency_data):
-        with cols[idx%4]:
-            flag     = currency_flags.get(cd['currency'],"")
-            fc       = "#10b981" if cd['fore_dir']=="+" else "#ef4444" if cd['fore_dir']=="-" else "#64748b"
-            ac       = "#10b981" if cd['actual_dir']=="+" else "#ef4444" if cd['actual_dir']=="-" else "#64748b"
-            f_label  = "Bullish" if cd['fore_dir']=="+" else "Bearish" if cd['fore_dir']=="-" else "Neutral"
-            a_label  = "Positive" if cd['actual_dir']=="+" else "Negative" if cd['actual_dir']=="-" else "Awaiting"
-            st.markdown(f"""
-            <div style="background:#0f172a;border:2px solid {fc};border-radius:14px;
-                        padding:16px;text-align:center;margin-bottom:10px;">
-                <div style="font-size:26px;">{flag}</div>
-                <div style="font-size:17px;font-weight:700;color:#e2e8f0;">{cd['currency']}</div>
-                <div style="margin-top:8px;font-size:12px;color:#94a3b8;">
-                    Forecast: <span style="color:{fc};font-weight:700;">{f_label}</span>
-                </div>
-                <div style="font-size:12px;color:#94a3b8;">
-                    Result: <span style="color:{ac};font-weight:700;">{a_label}</span>
-                </div>
-                <div style="font-size:11px;color:#475569;margin-top:4px;">{len(cd['details'])} events</div>
-            </div>""", unsafe_allow_html=True)
+
+    active = {k: v for k, v in currency_signals.items() if v['signal'] != 'NEUTRAL'}
+    if active:
+        cols = st.columns(min(len(active), 4))
+        for idx, (curr, data) in enumerate(active.items()):
+            with cols[idx % 4]:
+                sc, sbg   = signal_color(data['signal'])
+                flag      = currency_flags.get(curr, "")
+                st.markdown(f"""
+                <div style="background:#0f172a;border:2px solid {sc};border-radius:14px;
+                            padding:16px;text-align:center;margin-bottom:10px;">
+                    <div style="font-size:28px;">{flag}</div>
+                    <div style="font-size:18px;font-weight:bold;color:{sc};">{curr}</div>
+                    <div style="background:{sbg};color:{sc};border:1px solid {sc};
+                                padding:4px 12px;border-radius:20px;font-weight:700;
+                                font-size:13px;display:inline-block;margin:8px 0;">
+                        {data['signal']}
+                    </div>
+                    <div style="font-size:12px;color:#94a3b8;">{data['events']} Events</div>
+                    <div style="display:flex;justify-content:center;gap:12px;margin-top:8px;">
+                        <span style="color:#10b981;font-size:12px;">📈 {data['buy_score']}</span>
+                        <span style="color:#ef4444;font-size:12px;">📉 {data['sell_score']}</span>
+                    </div>
+                </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # جدول الأحداث
+    # ── أزواج متأثرة بالأحداث ──
+    st.markdown('<div class="section-header">📊 Affected Pairs</div>', unsafe_allow_html=True)
+
+    if not df_pairs.empty:
+        def build_rows(df):
+            rows = ""
+            for _, row in df.iterrows():
+                sc, sbg   = signal_color(row['signal'])
+                bsc, bsbg = signal_color(row['base_sig'])
+                qsc, qsbg = signal_color(row['quote_sig'])
+                rows += f"""
+                <tr style="border-bottom:1px solid #1e293b;">
+                    <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
+                    <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
+                                 padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
+                    <td style="color:#f1c40f;font-weight:700;">{row['strength']}</td>
+                    <td><span style="color:{bsc};font-weight:600;">{row['base_sig']}</span></td>
+                    <td><span style="color:{qsc};font-weight:600;">{row['quote_sig']}</span></td>
+                </tr>"""
+            return rows
+
+        html_table(
+            ["Pair", "Signal", "⚡ Strength", "Base Currency", "Quote Currency"],
+            build_rows(df_pairs),
+            height=max(200, len(df_pairs) * 52 + 60)
+        )
+    else:
+        st.info("لا توجد أزواج متأثرة بأحداث اليوم")
+
+    st.markdown("---")
+
+    # ── جدول الأحداث ──
     st.markdown('<div class="section-header">📋 Events Timeline</div>', unsafe_allow_html=True)
-    sorted_today = today.sort_values('TimeOnly') if 'TimeOnly' in today.columns else today
+
+    sorted_events = today_events.sort_values('TimeOnly') if 'TimeOnly' in today_events.columns else today_events
 
     def build_event_rows(df):
         rows = ""
         for _, evt in df.iterrows():
-            imp      = evt.get('Importance','Low')
-            imp_icon = {"High":"🔴","Moderate":"🟡","Low":"🟢"}.get(imp,"⚪")
-            fc  = safe_float(evt.get('Forecast'))
-            prv = safe_float(evt.get('Previous'))
-            act = safe_float(evt.get('Actual'))
+            imp_icon = {"High":"🔴","Moderate":"🟡","Low":"🟢"}.get(evt.get('Importance',''), "⚪")
 
-            fc_col,fc_ico   = '#e2e8f0',''
-            act_col,act_ico = '#e2e8f0',''
+            try:
+                fc   = float(evt['Forecast']) if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '' else None
+                prev = float(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else None
+                act  = float(evt['Actual'])   if pd.notna(evt.get('Actual'))   and evt.get('Actual')   != '' else None
+            except:
+                fc = prev = act = None
 
-            if fc is not None and prv is not None:
-                if fc>prv:  fc_col,fc_ico  = '#10b981','📈'
-                elif fc<prv:fc_col,fc_ico  = '#ef4444','📉'
+            fc_color = '#e2e8f0'
+            fc_icon  = ''
+            if fc is not None and prev is not None:
+                if fc > prev:   fc_color, fc_icon = '#10b981', '📈'
+                elif fc < prev: fc_color, fc_icon = '#ef4444', '📉'
 
+            act_color = '#e2e8f0'
+            act_icon  = ''
             if act is not None and fc is not None:
-                if act>fc:  act_col,act_ico = '#10b981','✅'
-                elif act<fc:act_col,act_ico = '#ef4444','❌'
+                if act > fc:   act_color, act_icon = '#10b981', '✅'
+                elif act < fc: act_color, act_icon = '#ef4444', '❌'
 
-            fc_s  = str(evt['Forecast']) if pd.notna(evt.get('Forecast')) and str(evt.get('Forecast')).strip()!='' else '—'
-            prv_s = str(evt['Previous']) if pd.notna(evt.get('Previous')) and str(evt.get('Previous')).strip()!='' else '—'
-            act_s = str(evt['Actual'])   if pd.notna(evt.get('Actual'))   and str(evt.get('Actual')).strip()!=''   else '—'
+            time_val = evt.get('TimeOnly', '—')
+            curr_val = evt.get('Currency', '—')
+            name_val = str(evt.get('EventName', '—'))[:50]
+            fc_val   = str(evt['Forecast']) if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '' else '—'
+            prev_val = str(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else '—'
+            act_val  = str(evt['Actual'])   if pd.notna(evt.get('Actual'))   and evt.get('Actual')   != '' else '—'
 
             rows += f"""
             <tr style="border-bottom:1px solid #334155;">
-                <td style="color:white;">{imp_icon} {evt.get('TimeOnly','—')}</td>
-                <td style="font-weight:bold;color:white;">{evt.get('Currency','—')}</td>
-                <td style="color:#94a3b8;font-size:12px;">{str(evt.get('EventName','—'))[:45]}</td>
-                <td style="color:{fc_col};font-weight:bold;">{fc_ico} {fc_s}</td>
-                <td style="color:#64748b;">{prv_s}</td>
-                <td style="color:{act_col};font-weight:bold;">{act_ico} {act_s}</td>
+                <td style="color:white;">{imp_icon} {time_val}</td>
+                <td style="font-weight:bold;color:white;">{curr_val}</td>
+                <td style="color:#94a3b8;">{name_val}</td>
+                <td style="color:{fc_color};font-weight:bold;">{fc_icon} {fc_val}</td>
+                <td style="color:#64748b;">{prev_val}</td>
+                <td style="color:{act_color};font-weight:bold;">{act_icon} {act_val}</td>
             </tr>"""
         return rows
 
     html_table(
-        ["Time","Curr","Event","Forecast","Previous","Actual"],
-        build_event_rows(sorted_today),
-        height=min(500, len(sorted_today)*45+60)
+        ["Time", "Curr", "Event", "Forecast", "Previous", "Actual"],
+        build_event_rows(sorted_events),
+        height=min(500, len(sorted_events) * 45 + 60)
     )
 
 # ══════════════════════════════════════════════════════════════
-# TAB 4 — Confluence (القرار النهائي)
+# TAB 4 — Confluence
 # ══════════════════════════════════════════════════════════════
-def render_confluence_tab(db_daily, db_economy, db_news, db_weekly, selected_date):
+def render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_news, selected_date):
+
     if db_daily.empty or db_economy.empty:
         st.info("📊 يرجى إدخال بيانات أولاً")
         return
 
-    daily_curr,  _ = get_row_for_date(db_daily,  'Date', selected_date)
-    weekly_curr, _ = get_weekly_row(db_weekly, selected_date)
+    # ── جلب كل البيانات ──
+    daily_curr,   daily_prev   = get_row_for_date(db_daily,   'Date', selected_date)
+    eco_curr,     eco_prev     = get_row_for_date(db_economy,  'Date', selected_date)
+    yield_curr,   yield_prev   = get_row_for_date(db_yield,    'Date', selected_date) if not db_yield.empty else (None, None)
+    weekly_curr,  weekly_prev  = get_weekly_row(db_weekly,  selected_date)
+    monthly_curr, monthly_prev = get_monthly_row(db_monthly, selected_date)
 
-    if daily_curr is None:
+    if daily_curr is None or eco_curr is None:
         st.error(f"❌ لا توجد بيانات للتاريخ {selected_date}")
         return
 
-    # حساب حالة كل عملة
-    states = {}
-    for curr in currencies:
-        states[curr] = calc_currency_state(curr, db_economy, db_news, selected_date)
+    # ── إشارة Daily (Economic) ──
+    def get_daily_signal(base, quote):
+        eco_base  = get_direction(eco_curr, eco_prev, base)
+        eco_quote = get_direction(eco_curr, eco_prev, quote)
+        b = daily_curr.get(base, 0)
+        q = daily_curr.get(quote, 0)
+        daily_val = None
+        if pd.notna(b) and pd.notna(q):
+            diff = b - q
+            daily_val = 'up' if diff > 0 else 'down' if diff < 0 else 'flat'
 
+        if eco_base == 'up' and eco_quote == 'down':
+            return 'BUY', 80 if daily_val == 'up' else 75
+        elif eco_base == 'down' and eco_quote == 'up':
+            return 'SELL', 80 if daily_val == 'down' else 75
+        elif (eco_base == 'up' and eco_quote != 'down') or (eco_quote == 'down' and eco_base != 'up'):
+            return 'BUY', 70 if daily_val == 'up' else 65
+        elif (eco_base == 'down' and eco_quote != 'up') or (eco_quote == 'up' and eco_base != 'down'):
+            return 'SELL', 70 if daily_val == 'down' else 65
+        return 'WAIT', 0
+
+    # ── إشارة Scalping (Acceleration) ──
+    def get_scalp_signal(base, quote):
+        if weekly_curr is None:
+            return 'WAIT', 0
+        b_d = daily_curr.get(base, None)
+        q_d = daily_curr.get(quote, None)
+        b_w = weekly_curr.get(base, None)
+        q_w = weekly_curr.get(quote, None)
+        if any(x is None or pd.isna(x) for x in [b_d, q_d, b_w, q_w]):
+            return 'WAIT', 0
+        daily_score  = b_d - q_d
+        weekly_score = b_w - q_w
+        acceleration = daily_score - weekly_score
+        if acceleration > 0 and weekly_score > 0:
+            return 'BUY',  round(abs(acceleration), 2)
+        elif acceleration < 0 and weekly_score < 0:
+            return 'SELL', round(abs(acceleration), 2)
+        return 'WAIT', 0
+
+    # ── إشارة Events ──
+    def get_event_signal(base, quote):
+        if db_news.empty:
+            return 'WAIT', 0
+        db_news_copy = db_news.copy()
+        db_news_copy['Date'] = pd.to_datetime(db_news_copy['Date']).dt.date
+        today_events = db_news_copy[db_news_copy['Date'] == selected_date]
+        if today_events.empty:
+            return 'WAIT', 0
+
+        def currency_event_signal(curr):
+            curr_events = today_events[today_events['Currency'] == curr]
+            if curr_events.empty:
+                return None, 0
+            buy_score = sell_score = 0
+            for _, evt in curr_events.iterrows():
+                weight = {'High': 3, 'Moderate': 2, 'Low': 1}.get(evt.get('Importance', 'Low'), 1)
+                try:
+                    actual   = float(evt['Actual'])   if pd.notna(evt.get('Actual'))   and evt.get('Actual')   != '' else None
+                    forecast = float(evt['Forecast']) if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '' else None
+                    previous = float(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else None
+                except:
+                    actual = forecast = previous = None
+                if actual is not None and forecast is not None:
+                    if actual > forecast:   buy_score  += weight
+                    elif actual < forecast: sell_score += weight
+                elif forecast is not None and previous is not None:
+                    if forecast > previous:   buy_score  += weight
+                    elif forecast < previous: sell_score += weight
+            if buy_score > sell_score:   return 'BUY',  buy_score
+            elif sell_score > buy_score: return 'SELL', sell_score
+            return 'NEUTRAL', 0
+
+        base_sig,  base_score  = currency_event_signal(base)
+        quote_sig, quote_score = currency_event_signal(quote)
+
+        if base_sig == 'BUY' and quote_sig == 'SELL':
+            return 'BUY',  base_score + quote_score
+        elif base_sig == 'SELL' and quote_sig == 'BUY':
+            return 'SELL', base_score + quote_score
+        elif base_sig == 'BUY':
+            return 'BUY',  base_score
+        elif base_sig == 'SELL':
+            return 'SELL', base_score
+        elif quote_sig == 'SELL':
+            return 'BUY',  quote_score
+        elif quote_sig == 'BUY':
+            return 'SELL', quote_score
+        return 'WAIT', 0
+
+    # ── حساب الـ Confluence لكل زوج ──
     results = []
     for pair in pairs:
         base, quote = pair[:3], pair[3:]
-        base_state  = states[base]
-        quote_state = states[quote]
 
-        # فرصة الزوج
-        opportunity = calc_pair_opportunity(base_state, quote_state)
-        if opportunity['confidence'] == 0:
-            continue
+        daily_sig,  daily_conf  = get_daily_signal(base, quote)
+        scalp_sig,  scalp_acc   = get_scalp_signal(base, quote)
+        event_sig,  event_score = get_event_signal(base, quote)
 
-        # حالة السكالب
-        scalp_state, scalp_dir, acc, d_score, w_score = calc_scalp_signal(
-            pair, daily_curr, weekly_curr
-        )
+        signals = [s for s in [daily_sig, scalp_sig, event_sig] if s != 'WAIT']
 
-        # القرار النهائي
-        final_sig, final_conf, scalp_note = calc_final_decision(
-            opportunity, scalp_state, scalp_dir, base_state['direction']
-        )
+        buy_count  = signals.count('BUY')
+        sell_count = signals.count('SELL')
 
-        if final_sig == "AVOID":
+        if buy_count == 3:
+            final_signal, confluence = 'BUY',  3
+        elif sell_count == 3:
+            final_signal, confluence = 'SELL', 3
+        elif buy_count == 2:
+            final_signal, confluence = 'BUY',  2
+        elif sell_count == 2:
+            final_signal, confluence = 'SELL', 2
+        elif buy_count == 1:
+            final_signal, confluence = 'BUY',  1
+        elif sell_count == 1:
+            final_signal, confluence = 'SELL', 1
+        else:
             continue
 
         results.append({
-            'pair':         pair,
-            'signal':       final_sig,
-            'confidence':   final_conf,
-            'scenario':     opportunity['scenario'],
-            'scalp_state':  scalp_state,
-            'scalp_note':   scalp_note,
-            'acceleration': acc,
-            'base_state':   base_state['state'],
-            'quote_state':  quote_state['state'],
-            'base_dir':     base_state['direction'],
-            'quote_dir':    quote_state['direction'],
-            'base_pattern': base_state['pattern'],
-            'quote_pattern':quote_state['pattern'],
+            'pair':        pair,
+            'signal':      final_signal,
+            'confluence':  confluence,
+            'daily_sig':   daily_sig,
+            'daily_conf':  daily_conf,
+            'scalp_sig':   scalp_sig,
+            'scalp_acc':   scalp_acc,
+            'event_sig':   event_sig,
+            'event_score': event_score,
         })
 
     df = pd.DataFrame(results)
     if df.empty:
-        st.info("لا توجد إشارات نهائية للتاريخ المختار")
+        st.info("لا توجد إشارات متوافقة")
         return
 
-    df = df.sort_values(['confidence'], ascending=False).reset_index(drop=True)
+    df = df.sort_values(['confluence', 'daily_conf'], ascending=[False, False])
 
-    buy_count  = len(df[df['signal']=="BUY"])
-    sell_count = len(df[df['signal']=="SELL"])
+    # ── ملخص ──
+    count_3 = len(df[df['confluence'] == 3])
+    count_2 = len(df[df['confluence'] == 2])
+    count_1 = len(df[df['confluence'] == 1])
 
-    # نسب الثقة
-    conf_bands = {80:0, 75:0, 70:0, 65:0, 60:0}
-    for c in df['confidence']:
-        if c >= 80:   conf_bands[80] += 1
-        elif c >= 75: conf_bands[75] += 1
-        elif c >= 70: conf_bands[70] += 1
-        elif c >= 65: conf_bands[65] += 1
-        else:         conf_bands[60] += 1
-
+    buy_count  = len(df[df['signal'] == 'BUY'])
+    sell_count = len(df[df['signal'] == 'SELL'])
     summary_cards(buy_count, sell_count)
     st.markdown("---")
 
-    cols = st.columns(5)
-    for col, (pct, count), color in zip(cols, conf_bands.items(),
-        ['#059669','#10b981','#f1c40f','#f97316','#8b5cf6']):
+    c1, c2, c3 = st.columns(3)
+    for col, label, count, color, desc in [
+        (c1, "✅✅✅", count_3, '#059669', 'Strong — 3/3 Signals'),
+        (c2, "✅✅⬜", count_2, '#f1c40f', 'Good — 2/3 Signals'),
+        (c3, "✅⬜⬜", count_1, '#f97316', 'Weak — 1/3 Signals'),
+    ]:
         with col:
             st.markdown(f"""
             <div style='background:rgba(0,0,0,0.2);border:1px solid {color};
                         border-radius:12px;padding:14px;text-align:center;'>
-                <div style='font-size:24px;font-weight:bold;color:{color};'>{count}</div>
-                <div style='font-size:13px;font-weight:bold;color:{color};'>{pct}%</div>
+                <div style='font-size:22px;'>{label}</div>
+                <div style='font-size:28px;font-weight:bold;color:{color};'>{count}</div>
+                <div style='font-size:11px;color:#64748b;'>{desc}</div>
             </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # الجدول النهائي
-    conf_colors = {80:'#059669',75:'#10b981',70:'#f1c40f',65:'#f97316',60:'#8b5cf6'}
-    state_icons_map = {
-        "STRONG TREND":"💥","TREND":"📈","WEAK TREND":"⚠️",
-        "RANGE":"🔄","REVERSAL":"💣","REVERSAL SETUP":"💣"
-    }
-
-    def build_confluence_rows(df):
+    # ── جدول الـ Confluence ──
+    def build_rows(df):
         rows = ""
         for _, row in df.iterrows():
-            sig_col  = "#10b981" if row['signal']=="BUY" else "#ef4444"
-            sig_bg   = "rgba(16,185,129,0.15)" if row['signal']=="BUY" else "rgba(239,68,68,0.15)"
-            cc       = conf_colors.get(row['confidence'],'#64748b')
+            sc, sbg = signal_color(row['signal'])
 
-            b_cfg    = STATE_CONFIG.get(row['base_state'],  {"color":"#64748b"})
-            q_cfg    = STATE_CONFIG.get(row['quote_state'], {"color":"#64748b"})
-            b_icon   = state_icons_map.get(row['base_state'],  "")
-            q_icon   = state_icons_map.get(row['quote_state'], "")
+            conf_colors = {3: '#059669', 2: '#f1c40f', 1: '#f97316'}
+            cc = conf_colors.get(row['confluence'], '#64748b')
+            stars = '✅' * row['confluence'] + '⬜' * (3 - row['confluence'])
 
-            def pattern_str(p):
-                icons = {"+":"<span style='color:#10b981'>+</span>",
-                         "-":"<span style='color:#ef4444'>-</span>",
-                         "=":"<span style='color:#64748b'>=</span>"}
-                return f"{icons.get(p[0],'?')}{icons.get(p[1],'?')}{icons.get(p[2],'?')}"
-
-            acc_col = "#10b981" if row['acceleration']>0 else "#ef4444"
+            def sig_badge(sig):
+                if sig == 'WAIT': return '<span style="color:#475569;">—</span>'
+                c, bg = signal_color(sig)
+                return f'<span style="background:{bg};color:{c};border:1px solid {c};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">{sig}</span>'
 
             rows += f"""
             <tr style="border-bottom:1px solid #1e293b;">
                 <td style="font-weight:700;color:#e2e8f0;font-size:14px;">{row['pair']}</td>
-                <td>
-                    <span style="background:{sig_bg};color:{sig_col};border:1px solid {sig_col};
-                                 padding:5px 12px;border-radius:20px;font-weight:700;">
-                        {row['signal']}
-                    </span>
-                </td>
-                <td>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <div style="background:#1e293b;border-radius:4px;height:6px;width:50px;overflow:hidden;">
-                            <div style="background:{cc};height:100%;width:{row['confidence']}%;border-radius:4px;"></div>
-                        </div>
-                        <span style="color:{cc};font-weight:700;font-size:13px;">{row['confidence']}%</span>
-                    </div>
-                </td>
-                <td style="font-size:12px;color:#94a3b8;">{row['scenario']}</td>
-                <td style="font-size:12px;">
-                    <span style="color:{b_cfg['color']};">{b_icon} {row['base_state']}</span>
-                    {pattern_str(row['base_pattern'])}
-                </td>
-                <td style="font-size:12px;">
-                    <span style="color:{q_cfg['color']};">{q_icon} {row['quote_state']}</span>
-                    {pattern_str(row['quote_pattern'])}
-                </td>
-                <td style="font-size:12px;color:#94a3b8;">{row['scalp_note']}</td>
-                <td style="color:{acc_col};font-weight:700;">{row['acceleration']:+.2f}</td>
+                <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
+                             padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
+                <td style="color:{cc};font-size:16px;">{stars}</td>
+                <td>{sig_badge(row['daily_sig'])} <span style="color:#64748b;font-size:11px;">({row['daily_conf']}%)</span></td>
+                <td>{sig_badge(row['scalp_sig'])} <span style="color:#64748b;font-size:11px;">acc:{row['scalp_acc']}</span></td>
+                <td>{sig_badge(row['event_sig'])} <span style="color:#64748b;font-size:11px;">score:{row['event_score']}</span></td>
             </tr>"""
         return rows
 
     html_table(
-        ["Pair","Signal","Confidence","Scenario",
-         "Base State","Quote State","Scalp","⚡ Acc"],
-        build_confluence_rows(df),
-        height=max(300, len(df)*55+60)
+        ["Pair", "Signal", "Confluence", "📅 Daily (Eco)", "⚡ Scalp (Acc)", "📰 Events (Score)"],
+        build_rows(df),
+        height=max(200, len(df) * 52 + 60)
     )
 
 # ══════════════════════════════════════════════════════════════
-# MAIN
+# MAIN APP
 # ══════════════════════════════════════════════════════════════
 inject_custom_css()
 
 st.markdown("""
 <div class="main-header">
     <h1>🏦 Institutional Currency Strength Engine</h1>
-    <p>Currency States • Scalping • Market Events • Confluence</p>
+    <p>Daily Signals • Scalping • Market Events • Confluence</p>
 </div>""", unsafe_allow_html=True)
 
-# تحميل البيانات
-db_daily   = load_data(DAILY_WS,  "Date")
-db_weekly  = load_data(WEEKLY_WS, "Week_Start")
-db_economy = load_data(ECONOMY_WS,"Date")
+# ── تحميل البيانات ──
+db_daily   = load_data(DAILY_WS,   "Date")
+db_weekly  = load_data(WEEKLY_WS,  "Week_Start")
+db_monthly = load_data(MONTHLY_WS, "Month_Start")
+db_economy = load_data(ECONOMY_WS, "Date")
+db_yield   = load_data(YIELD_WS,   "Date")
 db_news    = load_news_data()
 
+# ── Date Selector ──
 if db_daily.empty:
     st.warning("⚠️ لا توجد بيانات يومية")
     st.stop()
 
 selected_date = render_date_selector(db_daily)
 
+# ── التبويبات ──
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🧠 Currency States",
+    "📅 Daily Signals",
     "⚡ Scalping Signals",
     "📰 Market Events",
     "🎯 Confluence",
 ])
 
 with tab1:
-    render_states_tab(db_economy, db_news, selected_date)
+    render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, selected_date)
 
 with tab2:
-    render_scalping_tab(db_daily, db_weekly, selected_date)
+    render_scalping_signals(db_daily, db_weekly, selected_date)
 
 with tab3:
-    render_events_tab(db_news, selected_date)
+    render_market_events(db_news, db_daily, selected_date)
 
 with tab4:
-    render_confluence_tab(db_daily, db_economy, db_news, db_weekly, selected_date)
+    render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_news, selected_date)
