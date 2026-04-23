@@ -265,6 +265,292 @@ def render_date_selector(db_daily):
     st.session_state['selected_date'] = selected_date
     return selected_date
 
+# ====================== NEW TAB: Acceleration History Charts ======================
+def render_acceleration_charts(db_daily, db_weekly):
+    """
+    تبويب جديد يعرض 28 شارت خطي لكل زوج
+    يقارن نتيجة الـ Acceleration (التسارع) عبر التاريخ
+    المحور الأفقي: التاريخ
+    المحور العمودي: نتيجة التسارع اليومية
+    """
+    st.markdown('<div class="section-header">⚡ Acceleration History Charts (28 Pairs)</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style='background:rgba(241,196,15,0.1);border-left:3px solid #f1c40f;
+                padding:12px 16px;margin-bottom:20px;border-radius:8px;'>
+        <span style='color:#f1c40f;font-weight:600;'>📊 Interpretation:</span>
+        <span style='color:#94a3b8;font-size:13px;'>
+            Positive acceleration → Momentum increasing (Bullish signal)<br>
+            Negative acceleration → Momentum decreasing (Bearish signal)<br>
+            Values represent daily score minus weekly score
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if db_daily.empty or db_weekly.empty:
+        st.warning("⚠️ تحتاج بيانات Daily و Weekly لرسم رسوم التسارع")
+        return
+    
+    # تحضير بيانات الديلي والأسبوعي
+    daily_df = db_daily.copy()
+    daily_df['Date'] = pd.to_datetime(daily_df['Date'])
+    daily_df = daily_df.sort_values('Date')
+    
+    weekly_df = db_weekly.copy()
+    weekly_df['Week_Start'] = pd.to_datetime(weekly_df['Week_Start'])
+    weekly_df = weekly_df.sort_values('Week_Start')
+    
+    # إنشاء قاموس لتخزين بيانات التسارع لكل زوج
+    acceleration_data = {}
+    
+    for pair in pairs:
+        base, quote = pair[:3], pair[3:]
+        acc_values = []
+        dates = []
+        
+        # حساب التسارع لكل تاريخ متاح
+        for idx, row in daily_df.iterrows():
+            current_date = row['Date']
+            
+            # الحصول على قيمة الديلي للعملتين
+            b_daily = row.get(base, None)
+            q_daily = row.get(quote, None)
+            
+            if b_daily is None or q_daily is None or pd.isna(b_daily) or pd.isna(q_daily):
+                continue
+            
+            daily_score = b_daily - q_daily
+            
+            # الحصول على أقرب قيمة أسبوعية
+            weekly_rows = weekly_df[weekly_df['Week_Start'] <= current_date]
+            if weekly_rows.empty:
+                continue
+            
+            latest_week = weekly_rows.iloc[-1]
+            b_weekly = latest_week.get(base, None)
+            q_weekly = latest_week.get(quote, None)
+            
+            if b_weekly is None or q_weekly is None or pd.isna(b_weekly) or pd.isna(q_weekly):
+                continue
+            
+            weekly_score = b_weekly - q_weekly
+            acceleration = daily_score - weekly_score
+            
+            acc_values.append(acceleration)
+            dates.append(current_date)
+        
+        if len(dates) > 0:
+            acceleration_data[pair] = {
+                'dates': dates,
+                'values': acc_values
+            }
+    
+    if not acceleration_data:
+        st.warning("⚠️ لا توجد بيانات كافية لحساب التسارع")
+        return
+    
+    # إضافة خيارات التحكم في الرسم البياني
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        st.markdown("### 📈 Select Pair to View")
+    
+    with col2:
+        # منظم عرض الأزواج (Grid أو Dropdown)
+        view_mode = st.selectbox("View Mode", ["Grid View (4x7)", "Dropdown Selector"], key="acc_view_mode")
+    
+    with col3:
+        # اختيار عدد التواريخ المعروضة
+        date_limit = st.selectbox("Date Range", ["Last 30 Days", "Last 60 Days", "Last 90 Days", "All Data"], index=0, key="acc_date_range")
+    
+    date_limits_map = {
+        "Last 30 Days": 30,
+        "Last 60 Days": 60,
+        "Last 90 Days": 90,
+        "All Data": None
+    }
+    limit_days = date_limits_map[date_limit]
+    
+    if view_mode == "Dropdown Selector":
+        # وضع القائمة المنسدلة
+        selected_pair = st.selectbox("Choose a currency pair:", list(acceleration_data.keys()), key="acc_pair_select")
+        
+        if selected_pair and selected_pair in acceleration_data:
+            data = acceleration_data[selected_pair]
+            dates = data['dates']
+            values = data['values']
+            
+            # تطبيق تحديد عدد الأيام
+            if limit_days and len(dates) > limit_days:
+                dates = dates[-limit_days:]
+                values = values[-limit_days:]
+            
+            # رسم الشارت
+            fig = go.Figure()
+            
+            # إضافة خط التسارع
+            fig.add_trace(go.Scatter(
+                x=dates,
+                y=values,
+                mode='lines+markers',
+                name=f'{selected_pair} Acceleration',
+                line=dict(color='#f1c40f', width=2.5),
+                marker=dict(size=6, color='#f1c40f', symbol='circle'),
+                fill='tozeroy',
+                fillcolor='rgba(241,196,15,0.1)'
+            ))
+            
+            # إضافة خط الصفر كمرجع
+            fig.add_hline(y=0, line_dash="dash", line_color="#ef4444", 
+                         annotation_text="Zero Line", annotation_position="bottom right")
+            
+            # تخصيص الشارت
+            fig.update_layout(
+                title=dict(
+                    text=f"<b>{selected_pair}</b> - Acceleration History (Daily Score - Weekly Score)",
+                    font=dict(size=18, color='#f1c40f'),
+                    x=0.5
+                ),
+                xaxis=dict(
+                    title="Date",
+                    title_font=dict(size=14, color='#94a3b8'),
+                    tickfont=dict(size=11, color='#94a3b8'),
+                    gridcolor='#1e293b',
+                    showgrid=True
+                ),
+                yaxis=dict(
+                    title="Acceleration Value",
+                    title_font=dict(size=14, color='#94a3b8'),
+                    tickfont=dict(size=11, color='#94a3b8'),
+                    gridcolor='#1e293b',
+                    showgrid=True,
+                    zeroline=True,
+                    zerolinecolor='#ef4444',
+                    zerolinewidth=1
+                ),
+                plot_bgcolor='#0f172a',
+                paper_bgcolor='#0f172a',
+                hovermode='x unified',
+                height=500,
+                margin=dict(l=50, r=50, t=80, b=50)
+            )
+            
+            # تخصيص الـ hover
+            fig.update_traces(
+                hovertemplate='<b>%{x|%Y-%m-%d}</b><br>Acceleration: <b>%{y:+.3f}</b><extra></extra>'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # إضافة إحصائيات سريعة
+            if values:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Current Acceleration", f"{values[-1]:+.3f}")
+                with col2:
+                    st.metric("Max Acceleration", f"{max(values):+.3f}")
+                with col3:
+                    st.metric("Min Acceleration", f"{min(values):+.3f}")
+                with col4:
+                    st.metric("Average", f"{sum(values)/len(values):+.3f}")
+    
+    else:
+        # وضع الشبكة: عرض 28 رسم بياني صغير (4×7)
+        st.markdown("### 🎯 All Pairs Acceleration Grid")
+        st.markdown("*Click on any chart to expand* — Positive = Green, Negative = Red")
+        
+        # ترتيب الأزواج في شبكة 4×7
+        rows, cols = 4, 7
+        pair_grid = []
+        for i in range(0, len(pairs), cols):
+            pair_grid.append(pairs[i:i+cols])
+        
+        # لكل صف في الشبكة
+        for row_idx, row_pairs in enumerate(pair_grid):
+            cols_display = st.columns(cols)
+            for col_idx, pair in enumerate(row_pairs):
+                with cols_display[col_idx]:
+                    if pair in acceleration_data:
+                        data = acceleration_data[pair]
+                        dates = data['dates']
+                        values = data['values']
+                        
+                        # تطبيق تحديد عدد الأيام
+                        if limit_days and len(dates) > limit_days:
+                            display_dates = dates[-limit_days:]
+                            display_values = values[-limit_days:]
+                        else:
+                            display_dates = dates
+                            display_values = values
+                        
+                        # إنشاء رسم بياني صغير
+                        fig = go.Figure()
+                        
+                        # لون الخط حسب آخر قيمة
+                        last_value = display_values[-1] if display_values else 0
+                        line_color = '#10b981' if last_value > 0 else '#ef4444' if last_value < 0 else '#f1c40f'
+                        
+                        fig.add_trace(go.Scatter(
+                            x=display_dates,
+                            y=display_values,
+                            mode='lines',
+                            name=pair,
+                            line=dict(color=line_color, width=1.5),
+                            showlegend=False
+                        ))
+                        
+                        fig.add_hline(y=0, line_dash="dash", line_color="#64748b", line_width=0.8)
+                        
+                        fig.update_layout(
+                            title=dict(
+                                text=f"<b>{pair}</b>",
+                                font=dict(size=11, color='#e2e8f0'),
+                                x=0.5
+                            ),
+                            xaxis=dict(
+                                showticklabels=False,
+                                showgrid=False,
+                                title=""
+                            ),
+                            yaxis=dict(
+                                showticklabels=False,
+                                showgrid=False,
+                                title=""
+                            ),
+                            plot_bgcolor='#0f172a',
+                            paper_bgcolor='#0f172a',
+                            height=220,
+                            margin=dict(l=5, r=5, t=35, b=5),
+                            hovermode='x unified'
+                        )
+                        
+                        # تحديث تنسيق hover
+                        fig.update_traces(
+                            hovertemplate='<b>%{x|%Y-%m-%d}</b><br>Acc: <b>%{y:+.3f}</b><extra></extra>'
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True, key=f"acc_chart_{pair}_{row_idx}_{col_idx}")
+                        
+                        # عرض القيمة الحالية أسفل الرسم البياني
+                        current_val = display_values[-1] if display_values else 0
+                        val_color = '#10b981' if current_val > 0 else '#ef4444' if current_val < 0 else '#f1c40f'
+                        st.markdown(f"""
+                        <div style='text-align:center;margin-top:-15px;margin-bottom:10px;'>
+                            <span style='font-size:11px;color:{val_color};font-weight:600;'>
+                                {current_val:+.2f}
+                            </span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style='background:#1e293b;border-radius:8px;padding:40px 10px;
+                                    text-align:center;height:220px;'>
+                            <span style='color:#475569;font-size:12px;'>{pair}<br>No Data</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        st.caption("💡 **Tip:** Hover over any chart to see exact values. Green = Positive Acceleration, Red = Negative Acceleration")
+
 # ══════════════════════════════════════════════════════════════
 # TAB 1 — Daily Signals
 # ══════════════════════════════════════════════════════════════
@@ -954,7 +1240,7 @@ inject_custom_css()
 st.markdown("""
 <div class="main-header">
     <h1>🏦 Institutional Currency Strength Engine</h1>
-    <p>Daily Signals • Scalping • Market Events • Confluence</p>
+    <p>Daily Signals • Scalping • Market Events • Confluence • Acceleration History</p>
 </div>""", unsafe_allow_html=True)
 
 # ── تحميل البيانات ──
@@ -972,12 +1258,13 @@ if db_daily.empty:
 
 selected_date = render_date_selector(db_daily)
 
-# ── التبويبات ──
-tab1, tab2, tab3, tab4 = st.tabs([
+# ── التبويبات (تمت إضافة تبويب خامس) ──
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📅 Daily Signals",
     "⚡ Scalping Signals",
     "📰 Market Events",
     "🎯 Confluence",
+    "📈 Acceleration Charts",  # التبويب الجديد
 ])
 
 with tab1:
@@ -991,3 +1278,6 @@ with tab3:
 
 with tab4:
     render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_news, selected_date)
+
+with tab5:
+    render_acceleration_charts(db_daily, db_weekly)  # التبويب الجديد
