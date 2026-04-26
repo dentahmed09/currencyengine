@@ -4,7 +4,16 @@ import plotly.graph_objects as go
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
-
+# أضفه في أعلى الكود بعد imports
+import time
+st_autorefresh = st.empty()
+if 'last_refresh' not in st.session_state:
+    st.session_state['last_refresh'] = time.time()
+if time.time() - st.session_state['last_refresh'] > 3600:
+    st.session_state['last_refresh'] = time.time()
+    st.cache_data.clear()
+    st.rerun()
+    
 st.set_page_config(page_title="Institutional Currency Strength Engine", layout="wide", page_icon="🏦")
 
 # ====================== Google Sheets Configuration ======================
@@ -1034,6 +1043,265 @@ def render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_
     )
 
 # ══════════════════════════════════════════════════════════════
+# TAB 5 — H1 vs H4 Live Signals
+# ══════════════════════════════════════════════════════════════
+
+import yfinance as yf
+from datetime import datetime, timedelta
+
+PAIRS_YF = {
+    "EURUSD": "EURUSD=X", "EURGBP": "EURGBP=X", "EURAUD": "EURAUD=X",
+    "EURNZD": "EURNZD=X", "EURCAD": "EURCAD=X", "EURCHF": "EURCHF=X",
+    "EURJPY": "EURJPY=X", "GBPUSD": "GBPUSD=X", "GBPAUD": "GBPAUD=X",
+    "GBPNZD": "GBPNZD=X", "GBPCAD": "GBPCAD=X", "GBPCHF": "GBPCHF=X",
+    "GBPJPY": "GBPJPY=X", "AUDUSD": "AUDUSD=X", "AUDNZD": "AUDNZD=X",
+    "AUDCAD": "AUDCAD=X", "AUDCHF": "AUDCHF=X", "AUDJPY": "AUDJPY=X",
+    "NZDUSD": "NZDUSD=X", "NZDCAD": "NZDCAD=X", "NZDCHF": "NZDCHF=X",
+    "NZDJPY": "NZDJPY=X", "USDCAD": "USDCAD=X", "USDCHF": "USDCHF=X",
+    "USDJPY": "USDJPY=X", "CADCHF": "CADCHF=X", "CADJPY": "CADJPY=X",
+    "CHFJPY": "CHFJPY=X"
+}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_h1_h4_data():
+    end   = datetime.utcnow()
+    start = end - timedelta(days=30)
+    h1_data, h4_data = {}, {}
+
+    for pair, ticker in PAIRS_YF.items():
+        try:
+            # H1
+            df1 = yf.download(ticker, start=start, end=end,
+                              interval='1h', progress=False, auto_adjust=True)
+            if not df1.empty:
+                if isinstance(df1.columns, pd.MultiIndex):
+                    df1.columns = df1.columns.get_level_values(0)
+                df1.index = df1.index.tz_localize(None)
+                h1_data[pair] = {dt: {'open': float(r['Open']), 'high': float(r['High']),
+                                       'low': float(r['Low']),  'close': float(r['Close'])}
+                                 for dt, r in df1.iterrows()}
+            # H4
+            df4 = yf.download(ticker, start=start, end=end,
+                              interval='4h', progress=False, auto_adjust=True)
+            if not df4.empty:
+                if isinstance(df4.columns, pd.MultiIndex):
+                    df4.columns = df4.columns.get_level_values(0)
+                df4.index = df4.index.tz_localize(None)
+                h4_data[pair] = {dt: {'open': float(r['Open']), 'high': float(r['High']),
+                                       'low': float(r['Low']),  'close': float(r['Close'])}
+                                 for dt, r in df4.iterrows()}
+        except:
+            h1_data[pair] = {}
+            h4_data[pair] = {}
+
+    return h1_data, h4_data
+
+def calc_strength_live(pair_closes):
+    CURRENCIES_LOCAL = ["USD","CAD","EUR","GBP","CHF","AUD","NZD","JPY"]
+    scores   = {c: 0 for c in CURRENCIES_LOCAL}
+    pair_dir = {}
+    for p in PAIRS_YF:
+        if p in pair_closes:
+            pair_dir[p] = 1 if pair_closes[p]['close'] > pair_closes[p]['open'] else -1
+        else:
+            pair_dir[p] = 0
+
+    def add(curr, p, d):
+        if p in pair_dir and pair_dir[p] != 0:
+            scores[curr] += 1 if pair_dir[p] == d else 0
+
+    add('EUR','EURUSD', 1); add('EUR','EURGBP', 1); add('EUR','EURCAD', 1)
+    add('EUR','EURAUD', 1); add('EUR','EURNZD', 1); add('EUR','EURCHF', 1); add('EUR','EURJPY', 1)
+    add('GBP','EURGBP',-1); add('GBP','GBPUSD', 1); add('GBP','GBPCAD', 1)
+    add('GBP','GBPAUD', 1); add('GBP','GBPNZD', 1); add('GBP','GBPCHF', 1); add('GBP','GBPJPY', 1)
+    add('AUD','EURAUD',-1); add('AUD','GBPAUD',-1); add('AUD','AUDUSD', 1)
+    add('AUD','AUDNZD', 1); add('AUD','AUDCAD', 1); add('AUD','AUDCHF', 1); add('AUD','AUDJPY', 1)
+    add('NZD','EURNZD',-1); add('NZD','GBPNZD',-1); add('NZD','AUDNZD',-1)
+    add('NZD','NZDUSD', 1); add('NZD','NZDCAD', 1); add('NZD','NZDCHF', 1); add('NZD','NZDJPY', 1)
+    add('USD','EURUSD',-1); add('USD','GBPUSD',-1); add('USD','AUDUSD',-1)
+    add('USD','NZDUSD',-1); add('USD','USDCAD', 1); add('USD','USDCHF', 1); add('USD','USDJPY', 1)
+    add('CAD','EURCAD',-1); add('CAD','GBPCAD',-1); add('CAD','AUDCAD',-1)
+    add('CAD','NZDCAD',-1); add('CAD','USDCAD',-1); add('CAD','CADCHF', 1); add('CAD','CADJPY', 1)
+    add('CHF','EURCHF',-1); add('CHF','GBPCHF',-1); add('CHF','AUDCHF',-1)
+    add('CHF','NZDCHF',-1); add('CHF','USDCHF',-1); add('CHF','CADCHF',-1); add('CHF','CHFJPY', 1)
+    add('JPY','EURJPY',-1); add('JPY','GBPJPY',-1); add('JPY','AUDJPY',-1)
+    add('JPY','NZDJPY',-1); add('JPY','USDJPY',-1); add('JPY','CADJPY',-1); add('JPY','CHFJPY',-1)
+
+    return {c: round((scores[c] / 7) * 100) for c in CURRENCIES_LOCAL}
+
+def get_live_signals(h1_data, h4_data):
+    # آخر شمعة H4 مغلقة
+    h4_times_all = sorted({dt for p in PAIRS_YF for dt in h4_data.get(p, {})})
+    h1_times_all = sorted({dt for p in PAIRS_YF for dt in h1_data.get(p, {})})
+
+    if not h4_times_all or not h1_times_all:
+        return pd.DataFrame()
+
+    now = datetime.utcnow()
+
+    # آخر شمعة H1 مغلقة (ليست الحالية)
+    closed_h1 = [t for t in h1_times_all if t < now - timedelta(minutes=5)]
+    if not closed_h1:
+        return pd.DataFrame()
+    last_h1_time = closed_h1[-1]
+
+    # آخر شمعة H4 مغلقة قبل H1
+    closed_h4 = [t for t in h4_times_all if t < last_h1_time]
+    if not closed_h4:
+        return pd.DataFrame()
+    last_h4_time = closed_h4[-1]
+
+    # حساب الـ Strength
+    h1_closes = {}
+    h4_closes = {}
+    for pair in PAIRS_YF:
+        if last_h1_time in h1_data.get(pair, {}):
+            h1_closes[pair] = h1_data[pair][last_h1_time]
+        if last_h4_time in h4_data.get(pair, {}):
+            h4_closes[pair] = h4_data[pair][last_h4_time]
+
+    if len(h1_closes) < 20 or len(h4_closes) < 20:
+        return pd.DataFrame()
+
+    h1_strength = calc_strength_live(h1_closes)
+    h4_strength = calc_strength_live(h4_closes)
+
+    signals = []
+    for pair in PAIRS_YF:
+        base, quote = pair[:3], pair[3:]
+
+        b_h1 = h1_strength.get(base);  q_h1 = h1_strength.get(quote)
+        b_h4 = h4_strength.get(base);  q_h4 = h4_strength.get(quote)
+
+        if any(x is None for x in [b_h1, q_h1, b_h4, q_h4]):
+            continue
+
+        h1_score = b_h1 - q_h1
+        h4_score = b_h4 - q_h4
+
+        h1_bar = h1_data.get(pair, {}).get(last_h1_time)
+        h4_bar = h4_data.get(pair, {}).get(last_h4_time)
+
+        if not h1_bar or not h4_bar:
+            continue
+
+        # BUY
+        if h4_score > 0 and h1_score > h4_score:
+            if h1_bar['high'] >= h4_bar['high']:
+                continue
+            signals.append({
+                'pair':         pair,
+                'signal':       'BUY',
+                'h1_score':     h1_score,
+                'h4_score':     h4_score,
+                'acceleration': round(h1_score - h4_score, 2),
+                'entry':        round(h1_bar['close'], 5),
+                'target':       round(h4_bar['high'], 5),
+                'space':        round(h4_bar['high'] - h1_bar['close'], 5),
+                'h4_time':      last_h4_time.strftime('%H:%M'),
+                'h1_time':      last_h1_time.strftime('%H:%M'),
+            })
+
+        # SELL
+        elif h4_score < 0 and h1_score < h4_score:
+            if h1_bar['low'] <= h4_bar['low']:
+                continue
+            signals.append({
+                'pair':         pair,
+                'signal':       'SELL',
+                'h1_score':     h1_score,
+                'h4_score':     h4_score,
+                'acceleration': round(h4_score - h1_score, 2),
+                'entry':        round(h1_bar['close'], 5),
+                'target':       round(h4_bar['low'], 5),
+                'space':        round(h1_bar['close'] - h4_bar['low'], 5),
+                'h4_time':      last_h4_time.strftime('%H:%M'),
+                'h1_time':      last_h1_time.strftime('%H:%M'),
+            })
+
+    df = pd.DataFrame(signals)
+    if not df.empty:
+        df = df.sort_values('acceleration', ascending=False)
+    return df
+
+def render_h1_h4_signals():
+
+    # ── هيدر + آخر تحديث ──
+    col_t, col_r = st.columns([3, 1])
+    with col_t:
+        st.markdown("""
+        <div style='background:#0f172a;border:1px solid rgba(241,196,15,0.2);
+                    border-radius:12px;padding:14px 20px;margin-bottom:1rem;'>
+            <span style='color:#f1c40f;font-size:15px;font-weight:700;'>⚡ H1 vs H4 — Live Acceleration Signals</span><br>
+            <span style='color:#64748b;font-size:11px;'>
+                BUY: H4 Score &gt; 0 &amp; H1 Score &gt; H4 Score &amp; High H1 &lt; High H4<br>
+                SELL: H4 Score &lt; 0 &amp; H1 Score &lt; H4 Score &amp; Low H1 &gt; Low H4
+            </span>
+        </div>""", unsafe_allow_html=True)
+    with col_r:
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid #1e293b;border-radius:12px;
+                    padding:14px;text-align:center;margin-bottom:1rem;'>
+            <div style='color:#64748b;font-size:11px;'>آخر تحديث</div>
+            <div style='color:#f1c40f;font-size:13px;font-weight:700;'>
+                {datetime.utcnow().strftime('%H:%M UTC')}
+            </div>
+            <div style='color:#475569;font-size:10px;'>يتجدد كل ساعة</div>
+        </div>""", unsafe_allow_html=True)
+
+    # ── جلب البيانات ──
+    with st.spinner("⏳ جاري جلب بيانات H1 و H4..."):
+        h1_data, h4_data = fetch_h1_h4_data()
+
+    # ── حساب الإشارات ──
+    df = get_live_signals(h1_data, h4_data)
+
+    if df.empty:
+        st.info("📭 لا توجد إشارات حالياً — يتم التحديث كل ساعة")
+        return
+
+    # ── ملخص ──
+    buy_count  = len(df[df['signal'] == 'BUY'])
+    sell_count = len(df[df['signal'] == 'SELL'])
+    summary_cards(buy_count, sell_count)
+    st.markdown("---")
+
+    # ── جدول الإشارات ──
+    def build_rows(df):
+        rows = ""
+        for _, row in df.iterrows():
+            sc, sbg   = signal_color(row['signal'])
+            acc_color = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
+            tgt_color = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
+
+            rows += f"""
+            <tr style="border-bottom:1px solid #1e293b;">
+                <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
+                <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
+                             padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
+                <td style="color:{acc_color};font-weight:700;font-size:15px;">+{row['acceleration']}</td>
+                <td style="color:#e2e8f0;">{row['h1_score']:+.0f}</td>
+                <td style="color:#64748b;">{row['h4_score']:+.0f}</td>
+                <td style="color:#e2e8f0;font-family:monospace;">{row['entry']}</td>
+                <td style="color:{tgt_color};font-weight:600;font-family:monospace;">{row['target']}</td>
+                <td style="color:#64748b;font-size:12px;">{row['h4_time']} → {row['h1_time']}</td>
+            </tr>"""
+        return rows
+
+    html_table(
+        ["Pair", "Signal", "⚡ Acceleration", "H1 Score", "H4 Score",
+         "Entry", "🎯 Target", "H4→H1 Time"],
+        build_rows(df),
+        height=max(250, len(df) * 52 + 60)
+    )
+
+    # ── زر تحديث يدوي ──
+    st.markdown("---")
+    if st.button("🔄 تحديث يدوي", key="refresh_h1h4"):
+        st.cache_data.clear()
+        st.rerun()
+
+# ══════════════════════════════════════════════════════════════
 # MAIN APP
 # ══════════════════════════════════════════════════════════════
 inject_custom_css()
@@ -1060,11 +1328,12 @@ if db_daily.empty:
 selected_date = render_date_selector(db_daily)
 
 # ── التبويبات ──
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📅 Daily Signals",
     "⚡ Scalping Signals",
     "📰 Market Events",
     "🎯 Confluence",
+    "🔴 H1 vs H4 Live",
 ])
 
 with tab1:
@@ -1078,3 +1347,6 @@ with tab3:
 
 with tab4:
     render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_news, selected_date)
+
+with tab5:
+    render_h1_h4_signals()
