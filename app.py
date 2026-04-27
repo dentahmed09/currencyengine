@@ -1043,7 +1043,7 @@ def render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_
     )
 
 # ══════════════════════════════════════════════════════════════
-# TAB 5 — H1 vs H4 Live Signals
+# TAB 5 — H1 vs H4 Live Signals (Liquidity Rule)
 # ══════════════════════════════════════════════════════════════
 
 import yfinance as yf
@@ -1070,7 +1070,6 @@ def fetch_h1_h4_data():
 
     for pair, ticker in PAIRS_YF.items():
         try:
-            # H1
             df1 = yf.download(ticker, start=start, end=end,
                               interval='1h', progress=False, auto_adjust=True)
             if not df1.empty:
@@ -1080,7 +1079,6 @@ def fetch_h1_h4_data():
                 h1_data[pair] = {dt: {'open': float(r['Open']), 'high': float(r['High']),
                                        'low': float(r['Low']),  'close': float(r['Close'])}
                                  for dt, r in df1.iterrows()}
-            # H4
             df4 = yf.download(ticker, start=start, end=end,
                               interval='4h', progress=False, auto_adjust=True)
             if not df4.empty:
@@ -1130,134 +1128,209 @@ def calc_strength_live(pair_closes):
     return {c: round((scores[c] / 7) * 100) for c in CURRENCIES_LOCAL}
 
 def get_live_signals(h1_data, h4_data):
-    # آخر شمعة H4 مغلقة
     h4_times_all = sorted({dt for p in PAIRS_YF for dt in h4_data.get(p, {})})
     h1_times_all = sorted({dt for p in PAIRS_YF for dt in h1_data.get(p, {})})
 
     if not h4_times_all or not h1_times_all:
-        return pd.DataFrame()
+        return pd.DataFrame(), None, None
 
     now = datetime.utcnow()
 
-    # آخر شمعة H1 مغلقة (ليست الحالية)
-    closed_h1 = [t for t in h1_times_all if t < now - timedelta(minutes=5)]
-    if not closed_h1:
-        return pd.DataFrame()
-    last_h1_time = closed_h1[-1]
-
-    # آخر شمعة H4 مغلقة قبل H1
-    closed_h4 = [t for t in h4_times_all if t < last_h1_time]
+    # آخر شمعة H4 مغلقة
+    closed_h4 = [t for t in h4_times_all if t < now - timedelta(minutes=2)]
     if not closed_h4:
-        return pd.DataFrame()
+        return pd.DataFrame(), None, None
     last_h4_time = closed_h4[-1]
 
-    # حساب الـ Strength
-    h1_closes = {}
-    h4_closes = {}
-    for pair in PAIRS_YF:
-        if last_h1_time in h1_data.get(pair, {}):
-            h1_closes[pair] = h1_data[pair][last_h1_time]
-        if last_h4_time in h4_data.get(pair, {}):
-            h4_closes[pair] = h4_data[pair][last_h4_time]
+    # الدورة الحالية = 4 شموع H1 بعد إغلاق H4
+    cycle_end  = last_h4_time + timedelta(hours=4)
+    cycle_h1s  = [t for t in h1_times_all
+                  if last_h4_time <= t < cycle_end and t < now - timedelta(minutes=2)]
 
-    if len(h1_closes) < 20 or len(h4_closes) < 20:
-        return pd.DataFrame()
-
-    h1_strength = calc_strength_live(h1_closes)
-    h4_strength = calc_strength_live(h4_closes)
+    if not cycle_h1s:
+        return pd.DataFrame(), last_h4_time, None
 
     signals = []
+
     for pair in PAIRS_YF:
         base, quote = pair[:3], pair[3:]
 
-        b_h1 = h1_strength.get(base);  q_h1 = h1_strength.get(quote)
-        b_h4 = h4_strength.get(base);  q_h4 = h4_strength.get(quote)
-
-        if any(x is None for x in [b_h1, q_h1, b_h4, q_h4]):
-            continue
-
-        h1_score = b_h1 - q_h1
-        h4_score = b_h4 - q_h4
-
-        h1_bar = h1_data.get(pair, {}).get(last_h1_time)
         h4_bar = h4_data.get(pair, {}).get(last_h4_time)
-
-        if not h1_bar or not h4_bar:
+        if not h4_bar:
             continue
 
-        # BUY
-        if h4_score > 0 and h1_score > h4_score:
-            if h1_bar['high'] >= h4_bar['high']:
-                continue
-            signals.append({
-                'pair':         pair,
-                'signal':       'BUY',
-                'h1_score':     h1_score,
-                'h4_score':     h4_score,
-                'acceleration': round(h1_score - h4_score, 2),
-                'entry':        round(h1_bar['close'], 5),
-                'target':       round(h4_bar['high'], 5),
-                'space':        round(h4_bar['high'] - h1_bar['close'], 5),
-                'h4_time':      last_h4_time.strftime('%H:%M'),
-                'h1_time':      last_h1_time.strftime('%H:%M'),
-            })
+        # ── حساب H4 Score من إغلاقات كل الأزواج عند H4 ──
+        h4_closes = {}
+        for p in PAIRS_YF:
+            if last_h4_time in h4_data.get(p, {}):
+                h4_closes[p] = h4_data[p][last_h4_time]
+        if len(h4_closes) < 20:
+            continue
+        h4_strength = calc_strength_live(h4_closes)
 
-        # SELL
-        elif h4_score < 0 and h1_score < h4_score:
-            if h1_bar['low'] <= h4_bar['low']:
+        b_h4 = h4_strength.get(base)
+        q_h4 = h4_strength.get(quote)
+        if any(x is None for x in [b_h4, q_h4]):
+            continue
+
+        h4_score = b_h4 - q_h4
+        if h4_score == 0:
+            continue
+
+        # ── فحص السيولة والإشارة لكل شمعة في الدورة ──
+        liquidity_taken  = False
+        signal_this_pair = None
+
+        for idx, h1_time in enumerate(cycle_h1s):
+            h1_bar = h1_data.get(pair, {}).get(h1_time)
+            if not h1_bar:
                 continue
-            signals.append({
-                'pair':         pair,
-                'signal':       'SELL',
-                'h1_score':     h1_score,
-                'h4_score':     h4_score,
-                'acceleration': round(h4_score - h1_score, 2),
-                'entry':        round(h1_bar['close'], 5),
-                'target':       round(h4_bar['low'], 5),
-                'space':        round(h1_bar['close'] - h4_bar['low'], 5),
-                'h4_time':      last_h4_time.strftime('%H:%M'),
-                'h1_time':      last_h1_time.strftime('%H:%M'),
-            })
+
+            # فحص السيولة أولاً
+            if h4_score > 0 and h1_bar['high'] >= h4_bar['high']:
+                liquidity_taken = True
+                break
+            if h4_score < 0 and h1_bar['low'] <= h4_bar['low']:
+                liquidity_taken = True
+                break
+
+            # حساب H1 Score
+            h1_closes = {}
+            for p in PAIRS_YF:
+                if h1_time in h1_data.get(p, {}):
+                    h1_closes[p] = h1_data[p][h1_time]
+            if len(h1_closes) < 20:
+                continue
+
+            h1_strength = calc_strength_live(h1_closes)
+            b_h1 = h1_strength.get(base)
+            q_h1 = h1_strength.get(quote)
+            if any(x is None for x in [b_h1, q_h1]):
+                continue
+
+            h1_score = b_h1 - q_h1
+
+            # BUY
+            if h4_score > 0 and h1_score > h4_score:
+                if h1_bar['high'] >= h4_bar['high']:
+                    continue
+                signal_this_pair = {
+                    'pair':          pair,
+                    'signal':        'BUY',
+                    'h1_score':      h1_score,
+                    'h4_score':      h4_score,
+                    'acceleration':  round(h1_score - h4_score, 2),
+                    'entry':         round(h1_bar['close'], 5),
+                    'target':        round(h4_bar['high'], 5),
+                    'space':         round(h4_bar['high'] - h1_bar['close'], 5),
+                    'cycle_candle':  idx + 1,
+                    'h4_time':       last_h4_time.strftime('%H:%M'),
+                    'h1_time':       h1_time.strftime('%H:%M'),
+                    'cycle_end':     cycle_end.strftime('%H:%M'),
+                }
+
+            # SELL
+            elif h4_score < 0 and h1_score < h4_score:
+                if h1_bar['low'] <= h4_bar['low']:
+                    continue
+                signal_this_pair = {
+                    'pair':          pair,
+                    'signal':        'SELL',
+                    'h1_score':      h1_score,
+                    'h4_score':      h4_score,
+                    'acceleration':  round(h4_score - h1_score, 2),
+                    'entry':         round(h1_bar['close'], 5),
+                    'target':        round(h4_bar['low'], 5),
+                    'space':         round(h1_bar['close'] - h4_bar['low'], 5),
+                    'cycle_candle':  idx + 1,
+                    'h4_time':       last_h4_time.strftime('%H:%M'),
+                    'h1_time':       h1_time.strftime('%H:%M'),
+                    'cycle_end':     cycle_end.strftime('%H:%M'),
+                }
+
+        # أضف آخر إشارة صالحة فقط (لم تُلغَ بالسيولة)
+        if not liquidity_taken and signal_this_pair:
+            signals.append(signal_this_pair)
 
     df = pd.DataFrame(signals)
     if not df.empty:
         df = df.sort_values('acceleration', ascending=False)
-    return df
+
+    return df, last_h4_time, cycle_end
 
 def render_h1_h4_signals():
-
-    # ── هيدر + آخر تحديث ──
-    col_t, col_r = st.columns([3, 1])
-    with col_t:
-        st.markdown("""
-        <div style='background:#0f172a;border:1px solid rgba(241,196,15,0.2);
-                    border-radius:12px;padding:14px 20px;margin-bottom:1rem;'>
-            <span style='color:#f1c40f;font-size:15px;font-weight:700;'>⚡ H1 vs H4 — Live Acceleration Signals</span><br>
-            <span style='color:#64748b;font-size:11px;'>
-                BUY: H4 Score &gt; 0 &amp; H1 Score &gt; H4 Score &amp; High H1 &lt; High H4<br>
-                SELL: H4 Score &lt; 0 &amp; H1 Score &lt; H4 Score &amp; Low H1 &gt; Low H4
-            </span>
-        </div>""", unsafe_allow_html=True)
-    with col_r:
-        st.markdown(f"""
-        <div style='background:#0f172a;border:1px solid #1e293b;border-radius:12px;
-                    padding:14px;text-align:center;margin-bottom:1rem;'>
-            <div style='color:#64748b;font-size:11px;'>آخر تحديث</div>
-            <div style='color:#f1c40f;font-size:13px;font-weight:700;'>
-                {datetime.utcnow().strftime('%H:%M UTC')}
-            </div>
-            <div style='color:#475569;font-size:10px;'>يتجدد كل ساعة</div>
-        </div>""", unsafe_allow_html=True)
 
     # ── جلب البيانات ──
     with st.spinner("⏳ جاري جلب بيانات H1 و H4..."):
         h1_data, h4_data = fetch_h1_h4_data()
 
-    # ── حساب الإشارات ──
-    df = get_live_signals(h1_data, h4_data)
+    df, last_h4_time, cycle_end = get_live_signals(h1_data, h4_data)
+
+    now = datetime.utcnow()
+
+    # ── هيدر ──
+    col_t, col_r = st.columns([3, 1])
+    with col_t:
+        h4_str    = last_h4_time.strftime('%H:%M') if last_h4_time else '—'
+        cycle_str = cycle_end.strftime('%H:%M')    if cycle_end    else '—'
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid rgba(241,196,15,0.2);
+                    border-radius:12px;padding:14px 20px;margin-bottom:1rem;'>
+            <span style='color:#f1c40f;font-size:15px;font-weight:700;'>
+                ⚡ H1 vs H4 — Live Signals
+            </span><br>
+            <span style='color:#64748b;font-size:11px;'>
+                الدورة الحالية: H4 أغلقت {h4_str} UTC ← نافذة العمل تنتهي {cycle_str} UTC
+            </span><br>
+            <span style='color:#475569;font-size:11px;'>
+                BUY: H4&gt;0 &amp; H1&gt;H4 &amp; مساحة &amp; السيولة لسه موجودة |
+                SELL: H4&lt;0 &amp; H1&lt;H4 &amp; مساحة &amp; السيولة لسه موجودة
+            </span>
+        </div>""", unsafe_allow_html=True)
+    with col_r:
+        # شمعة رقم كام في الدورة
+        if last_h4_time:
+            elapsed       = int((now - last_h4_time).total_seconds() / 3600) + 1
+            candle_num    = min(elapsed, 4)
+            candle_color  = ['#10b981','#f1c40f','#f97316','#ef4444'][candle_num - 1]
+        else:
+            candle_num, candle_color = 0, '#64748b'
+
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid #1e293b;border-radius:12px;
+                    padding:14px;text-align:center;margin-bottom:1rem;'>
+            <div style='color:#64748b;font-size:11px;'>شمعة الدورة</div>
+            <div style='color:{candle_color};font-size:28px;font-weight:700;'>
+                H1[{candle_num}]
+            </div>
+            <div style='color:#475569;font-size:10px;'>{now.strftime('%H:%M')} UTC</div>
+        </div>""", unsafe_allow_html=True)
+
+    # ── حالة الدورة ──
+    if last_h4_time:
+        candle_icons = ""
+        for c in range(1, 5):
+            if c < candle_num:
+                candle_icons += f"<span style='color:#475569;'>▓</span> "
+            elif c == candle_num:
+                candle_icons += f"<span style='color:#f1c40f;font-weight:700;'>▓</span> "
+            else:
+                candle_icons += f"<span style='color:#1e293b;'>▓</span> "
+
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid #1e293b;border-radius:10px;
+                    padding:10px 16px;margin-bottom:1rem;text-align:center;font-size:22px;'>
+            {candle_icons}
+            <span style='color:#64748b;font-size:11px;margin-right:10px;'>
+                [{candle_num}/4] شموع مرت
+            </span>
+        </div>""", unsafe_allow_html=True)
 
     if df.empty:
-        st.info("📭 لا توجد إشارات حالياً — يتم التحديث كل ساعة")
+        st.info("📭 لا توجد إشارات في الدورة الحالية — السيولة اتأخدت أو لا يوجد تسارع")
+        if st.button("🔄 تحديث يدوي", key="refresh_h1h4"):
+            st.cache_data.clear()
+            st.rerun()
         return
 
     # ── ملخص ──
@@ -1273,29 +1346,36 @@ def render_h1_h4_signals():
             sc, sbg   = signal_color(row['signal'])
             acc_color = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
             tgt_color = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
+            c_colors  = {1:'#10b981', 2:'#f1c40f', 3:'#f97316', 4:'#ef4444'}
+            c_color   = c_colors.get(row['cycle_candle'], '#64748b')
 
             rows += f"""
             <tr style="border-bottom:1px solid #1e293b;">
                 <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
                 <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
-                             padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
-                <td style="color:{acc_color};font-weight:700;font-size:15px;">+{row['acceleration']}</td>
+                             padding:5px 14px;border-radius:20px;font-weight:700;">
+                             {row['signal']}</span></td>
+                <td style="color:{acc_color};font-weight:700;font-size:15px;">
+                    +{row['acceleration']}</td>
                 <td style="color:#e2e8f0;">{row['h1_score']:+.0f}</td>
                 <td style="color:#64748b;">{row['h4_score']:+.0f}</td>
                 <td style="color:#e2e8f0;font-family:monospace;">{row['entry']}</td>
-                <td style="color:{tgt_color};font-weight:600;font-family:monospace;">{row['target']}</td>
-                <td style="color:#64748b;font-size:12px;">{row['h4_time']} → {row['h1_time']}</td>
+                <td style="color:{tgt_color};font-weight:600;font-family:monospace;">
+                    {row['target']}</td>
+                <td style="color:{c_color};font-weight:700;">
+                    H1[{row['cycle_candle']}]</td>
+                <td style="color:#64748b;font-size:11px;">
+                    ينتهي {row['cycle_end']}</td>
             </tr>"""
         return rows
 
     html_table(
         ["Pair", "Signal", "⚡ Acceleration", "H1 Score", "H4 Score",
-         "Entry", "🎯 Target", "H4→H1 Time"],
+         "Entry", "🎯 Target", "شمعة", "نافذة"],
         build_rows(df),
         height=max(250, len(df) * 52 + 60)
     )
 
-    # ── زر تحديث يدوي ──
     st.markdown("---")
     if st.button("🔄 تحديث يدوي", key="refresh_h1h4"):
         st.cache_data.clear()
