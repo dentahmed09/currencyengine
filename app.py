@@ -876,13 +876,13 @@ def render_h1_h4_signals():
                     padding:10px 16px;margin-bottom:1rem;text-align:center;font-size:22px;'>
             {candle_icons}
             <span style='color:#64748b;font-size:11px;margin-right:10px;'>
-                [{candle_num}/4] شموع مرت
+                [{candle_num}/4]  Candle Number
             </span>
         </div>""", unsafe_allow_html=True)
 
     if df.empty:
-        st.info("📭 لا توجد إشارات في الدورة الحالية — السيولة اتأخدت أو لا يوجد تسارع")
-        if st.button("🔄 تحديث يدوي", key="refresh_h1h4"):
+        st.info("📭 No Signals Expert Hunter Must Wait")
+        if st.button("🔄 Refresh", key="refresh_h1h4"):
             st.cache_data.clear()
             st.rerun()
         return
