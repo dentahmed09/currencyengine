@@ -853,7 +853,7 @@ def render_h1_h4_signals():
         st.markdown(f"""
         <div style='background:#0f172a;border:1px solid #1e293b;border-radius:12px;
                     padding:14px;text-align:center;margin-bottom:1rem;'>
-            <div style='color:#64748b;font-size:11px;'>شمعة الدورة</div>
+            <div style='color:#64748b;font-size:11px;'>Candle Number</div>
             <div style='color:{candle_color};font-size:28px;font-weight:700;'>
                 H1[{candle_num}]
             </div>
