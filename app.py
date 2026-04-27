@@ -819,4 +819,4 @@ with tab2:
     render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date)
 
 with tab3:
-    render_h1_h4_signals()
+    render_ultra_scalping()
