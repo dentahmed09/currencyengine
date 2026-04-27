@@ -597,7 +597,7 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
     )
     
 # ══════════════════════════════════════════════════════════════
-# TAB — Ultra Scalping Signals (Hybrid Version V3)
+# TAB — H1 vs H4 (FINAL CLEAN SYSTEM)
 # ══════════════════════════════════════════════════════════════
 
 import yfinance as yf
@@ -606,178 +606,191 @@ import pandas as pd
 import streamlit as st
 
 PAIRS_YF = {
-    "EURUSD": "EURUSD=X","GBPUSD": "GBPUSD=X","USDJPY": "USDJPY=X",
-    "USDCHF": "USDCHF=X","USDCAD": "USDCAD=X","AUDUSD": "AUDUSD=X",
-    "NZDUSD": "NZDUSD=X","EURJPY": "EURJPY=X","GBPJPY": "GBPJPY=X"
+    "EURUSD": "EURUSD=X", "GBPUSD": "GBPUSD=X",
+    "USDJPY": "USDJPY=X", "USDCHF": "USDCHF=X",
+    "USDCAD": "USDCAD=X", "AUDUSD": "AUDUSD=X",
+    "NZDUSD": "NZDUSD=X"
 }
 
 # ============================================================
-# DATA
+# جلب البيانات (H1 و H4 منفصلين)
 # ============================================================
 def fetch_data():
     end = datetime.utcnow()
-    start = end - timedelta(days=5)
+    start = end - timedelta(days=3)  # فقط آخر بيانات
 
     h1_data, h4_data = {}, {}
 
     for pair, ticker in PAIRS_YF.items():
         try:
+            # ── H1 ──
             df1 = yf.download(ticker, start=start, end=end, interval='1h', progress=False)
-            df4 = yf.download(ticker, start=start, end=end, interval='4h', progress=False)
-
             if not df1.empty:
-                df1.index = df1.index.tz_localize(None)
-                h1_data[pair] = {dt: row for dt, row in df1.iterrows()}
+                df1.columns = df1.columns.get_level_values(0)
+                df1.index = pd.to_datetime(df1.index).tz_localize(None)
+                h1_data[pair] = df1
             else:
-                h1_data[pair] = {}
+                h1_data[pair] = pd.DataFrame()
 
+            # ── H4 ── (مهم: منفصل)
+            df4 = yf.download(ticker, start=start, end=end, interval='4h', progress=False)
             if not df4.empty:
-                df4.index = df4.index.tz_localize(None)
-                h4_data[pair] = {dt: row for dt, row in df4.iterrows()}
+                df4.columns = df4.columns.get_level_values(0)
+                df4.index = pd.to_datetime(df4.index).tz_localize(None)
+                h4_data[pair] = df4
             else:
-                h4_data[pair] = {}
+                h4_data[pair] = pd.DataFrame()
 
         except:
-            h1_data[pair], h4_data[pair] = {}, {}
+            h1_data[pair] = pd.DataFrame()
+            h4_data[pair] = pd.DataFrame()
 
     return h1_data, h4_data
 
+
 # ============================================================
-# STRENGTH
+# حساب القوة
 # ============================================================
 def calc_strength(pair_closes):
-    currencies = ["USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD"]
-    scores = {c: 0 for c in currencies}
+    currencies = ["USD","EUR","GBP","JPY","CHF","AUD","NZD","CAD"]
+    score = {c: 0 for c in currencies}
 
-    for p, v in pair_closes.items():
-        if v['Close'] > v['Open']:
-            base, quote = p[:3], p[3:]
-            scores[base] += 1
-        else:
-            base, quote = p[:3], p[3:]
-            scores[quote] += 1
+    for pair, row in pair_closes.items():
+        if row is None:
+            continue
 
-    return scores
+        base, quote = pair[:3], pair[3:]
+        direction = 1 if row["Close"] > row["Open"] else -1
+
+        score[base] += direction
+        score[quote] -= direction
+
+    return score
+
 
 # ============================================================
-# SIGNAL ENGINE
+# الإشارات
 # ============================================================
 def get_signals(h1_data, h4_data):
-
     now = datetime.utcnow()
-
-    h4_times = sorted({t for p in h4_data for t in h4_data[p]})
-    last_h4 = [t for t in h4_times if t < now][-1]
-
-    cycle_end = last_h4 + timedelta(hours=4)
-
     signals = []
 
     for pair in PAIRS_YF:
 
-        base, quote = pair[:3], pair[3:]
+        df4 = h4_data.get(pair)
+        df1 = h1_data.get(pair)
 
-        h4_bar = h4_data[pair].get(last_h4)
-        if not h4_bar:
+        if df4 is None or df4.empty or df1 is None or df1.empty:
             continue
 
-        # ===== H4 SCORE =====
-        h4_closes = {p: h4_data[p][last_h4] for p in h4_data if last_h4 in h4_data[p]}
-        if len(h4_closes) < 5:
+        # ── آخر H4 مغلقة ──
+        df4_closed = df4[df4.index < now]
+        if df4_closed.empty:
+            continue
+
+        last_h4_time = df4_closed.index[-1]
+        h4_bar = df4_closed.loc[last_h4_time]
+
+        # مهم: حل خطأ pandas
+        if h4_bar is None or len(h4_bar) == 0:
+            continue
+
+        # ── H4 Score ──
+        h4_closes = {}
+        for p in PAIRS_YF:
+            dfp = h4_data.get(p)
+            if dfp is not None and not dfp.empty:
+                dfp_closed = dfp[dfp.index < now]
+                if not dfp_closed.empty:
+                    h4_closes[p] = dfp_closed.iloc[-1]
+
+        if len(h4_closes) < 3:
             continue
 
         h4_strength = calc_strength(h4_closes)
-        h4_score = h4_strength.get(base,0) - h4_strength.get(quote,0)
+        base, quote = pair[:3], pair[3:]
+        h4_score = h4_strength[base] - h4_strength[quote]
 
-        # ===== H1 CYCLE =====
-        h1_times = sorted(h1_data[pair].keys())
+        if h4_score == 0:
+            continue
 
-        for idx, t in enumerate(h1_times):
+        # ── دورة H1 ──
+        cycle_end = last_h4_time + timedelta(hours=4)
 
-            if not (last_h4 <= t < cycle_end):
-                continue
+        h1_cycle = df1[
+            (df1.index >= last_h4_time) &
+            (df1.index < cycle_end) &
+            (df1.index < now)
+        ]
 
-            h1_bar = h1_data[pair][t]
+        if h1_cycle.empty:
+            continue
 
-            # ===== H1 SCORE =====
-            h1_closes = {p: h1_data[p][t] for p in h1_data if t in h1_data[p]}
-            if len(h1_closes) < 5:
+        pair_signals = []
+        liquidity_taken = False
+
+        for i, (t, row) in enumerate(h1_cycle.iterrows()):
+
+            # ── شرط السيولة (قديم) ──
+            if row["High"] >= h4_bar["High"] or row["Low"] <= h4_bar["Low"]:
+                liquidity_taken = True
+                break
+
+            # ── H1 Score ──
+            h1_closes = {}
+            for p in PAIRS_YF:
+                dfp = h1_data.get(p)
+                if dfp is not None:
+                    dfp_sub = dfp[dfp.index <= t]
+                    if not dfp_sub.empty:
+                        h1_closes[p] = dfp_sub.iloc[-1]
+
+            if len(h1_closes) < 3:
                 continue
 
             h1_strength = calc_strength(h1_closes)
-            h1_score = h1_strength.get(base,0) - h1_strength.get(quote,0)
+            h1_score = h1_strength[base] - h1_strength[quote]
 
-            signal = None
-
+            # ── تسارع ──
             if h4_score > 0 and h1_score > h4_score:
-                signal = "BUY"
-                target = h4_bar['High']
-
-            elif h4_score < 0 and h1_score < h4_score:
-                signal = "SELL"
-                target = h4_bar['Low']
-
-            if not signal:
-                continue
-
-            # ===== LIQUIDITY TRACKING =====
-            liquidity_taken = False
-
-            future_candles = [x for x in h1_times if x >= t and x < cycle_end]
-
-            for ft in future_candles:
-                f_bar = h1_data[pair][ft]
-
-                if signal == "BUY" and f_bar['High'] >= target:
-                    liquidity_taken = True
-                    break
-
-                if signal == "SELL" and f_bar['Low'] <= target:
-                    liquidity_taken = True
-                    break
-
-            # ✅ فقط الإشارات اللي السيولة متاخدتش
-            if not liquidity_taken:
-                signals.append({
+                pair_signals.append({
                     "pair": pair,
-                    "signal": signal,
-                    "entry": round(h1_bar['Close'],5),
-                    "target": round(target,5),
-                    "h1_score": h1_score,
-                    "h4_score": h4_score,
-                    "candle": idx+1
+                    "type": "BUY",
+                    "entry": row["Close"],
+                    "target": h4_bar["High"],
+                    "candle": i + 1
                 })
 
-    df = pd.DataFrame(signals)
-    if not df.empty:
-        df = df.sort_values("candle")
+            elif h4_score < 0 and h1_score < h4_score:
+                pair_signals.append({
+                    "pair": pair,
+                    "type": "SELL",
+                    "entry": row["Close"],
+                    "target": h4_bar["Low"],
+                    "candle": i + 1
+                })
 
-    return df, last_h4
+        # ── الفلترة النهائية ──
+        if not liquidity_taken:
+            signals.extend(pair_signals)
+
+    return pd.DataFrame(signals)
+
 
 # ============================================================
 # UI
 # ============================================================
 def render_h1_h4_signals():
-
-    st.subheader("⚡ Ultra Scalping V3")
+    st.title("⚡ H1 vs H4 Live")
 
     h1_data, h4_data = fetch_data()
-    df, last_h4 = get_signals(h1_data, h4_data)
+    df = get_signals(h1_data, h4_data)
 
     if df.empty:
-        st.warning("📭 No Active Signals")
+        st.warning("❌ لا توجد إشارات حالياً")
         return
 
-    for _, row in df.iterrows():
-        color = "green" if row['signal']=="BUY" else "red"
-
-        st.markdown(f"""
-        **{row['pair']}** | {row['signal']}  
-        Entry: {row['entry']}  
-        Target: {row['target']}  
-        H1: {row['h1_score']} | H4: {row['h4_score']}  
-        Candle: {row['candle']}
-        """)
+    st.dataframe(df, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════
 # MAIN APP
