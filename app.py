@@ -4,18 +4,16 @@ import plotly.graph_objects as go
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
+# أضفه في أعلى الكود بعد imports
 import time
-import yfinance as yf
-from datetime import datetime, timedelta
-
-# Auto-refresh
+st_autorefresh = st.empty()
 if 'last_refresh' not in st.session_state:
     st.session_state['last_refresh'] = time.time()
 if time.time() - st.session_state['last_refresh'] > 3600:
     st.session_state['last_refresh'] = time.time()
     st.cache_data.clear()
     st.rerun()
-
+    
 st.set_page_config(page_title="Institutional Currency Strength Engine", layout="wide", page_icon="🏦")
 
 # ====================== Google Sheets Configuration ======================
@@ -111,19 +109,6 @@ currency_flags = {
     "CHF":"🇨🇭","CAD":"🇨🇦","AUD":"🇦🇺","NZD":"🇳🇿"
 }
 
-PAIRS_YF = {
-    "EURUSD": "EURUSD=X", "EURGBP": "EURGBP=X", "EURAUD": "EURAUD=X",
-    "EURNZD": "EURNZD=X", "EURCAD": "EURCAD=X", "EURCHF": "EURCHF=X",
-    "EURJPY": "EURJPY=X", "GBPUSD": "GBPUSD=X", "GBPAUD": "GBPAUD=X",
-    "GBPNZD": "GBPNZD=X", "GBPCAD": "GBPCAD=X", "GBPCHF": "GBPCHF=X",
-    "GBPJPY": "GBPJPY=X", "AUDUSD": "AUDUSD=X", "AUDNZD": "AUDNZD=X",
-    "AUDCAD": "AUDCAD=X", "AUDCHF": "AUDCHF=X", "AUDJPY": "AUDJPY=X",
-    "NZDUSD": "NZDUSD=X", "NZDCAD": "NZDCAD=X", "NZDCHF": "NZDCHF=X",
-    "NZDJPY": "NZDJPY=X", "USDCAD": "USDCAD=X", "USDCHF": "USDCHF=X",
-    "USDJPY": "USDJPY=X", "CADCHF": "CADCHF=X", "CADJPY": "CADJPY=X",
-    "CHFJPY": "CHFJPY=X"
-}
-
 # ====================== Load Functions ======================
 def load_data(worksheet_name: str, date_col: str = "Date"):
     client = get_gspread_client()
@@ -157,6 +142,7 @@ def load_news_data():
 
 # ====================== Helper Functions ======================
 def get_row_for_date(df, date_col, sel_date):
+    """يجيب الصف الحالي والسابق لتاريخ معين"""
     df = df.copy()
     df[date_col] = pd.to_datetime(df[date_col]).dt.date
     row = df[df[date_col] == sel_date]
@@ -168,6 +154,7 @@ def get_row_for_date(df, date_col, sel_date):
     return curr, prev
 
 def get_weekly_row(db_weekly, selected_date):
+    """يجيب أقرب أسبوع قبل أو يساوي التاريخ المختار"""
     db_weekly = db_weekly.copy()
     db_weekly['Week_Start'] = pd.to_datetime(db_weekly['Week_Start']).dt.date
     available = db_weekly[db_weekly['Week_Start'] <= selected_date]
@@ -178,6 +165,7 @@ def get_weekly_row(db_weekly, selected_date):
     return curr, prev
 
 def get_monthly_row(db_monthly, selected_date):
+    """يجيب أقرب شهر قبل أو يساوي التاريخ المختار"""
     db_monthly = db_monthly.copy()
     db_monthly['Month_Start'] = pd.to_datetime(db_monthly['Month_Start']).dt.date
     available = db_monthly[db_monthly['Month_Start'] <= selected_date]
@@ -188,6 +176,7 @@ def get_monthly_row(db_monthly, selected_date):
     return curr, prev
 
 def get_direction(curr_row, prev_row, col):
+    """يحدد اتجاه العملة مقارنة بالسابق"""
     if curr_row is None or prev_row is None:
         return None
     if col not in curr_row.index or col not in prev_row.index:
@@ -205,6 +194,7 @@ def signal_color(signal):
     return '#f1c40f', 'rgba(241,196,15,0.15)'
 
 def summary_cards(buy_count, sell_count, extra_label="", extra_count=0):
+    """ملخص BUY/SELL في أعلى كل تبويب"""
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown(f"""
@@ -231,22 +221,27 @@ def summary_cards(buy_count, sell_count, extra_label="", extra_count=0):
         </div>""", unsafe_allow_html=True)
 
 def html_table(headers, rows_html, height=400):
-    headers_html = "".join([f"<th style='background:#1e293b;color:#f1c40f;padding:12px 10px;text-align:left;font-size:12px;font-weight:600;border-bottom:2px solid #f1c40f;white-space:nowrap;'>{h}</th>" for h in headers])
-    
-    table_html = f"""
-    <div style='border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#0f172a,#1e293b);'>
-    <table style='width:100%;border-collapse:collapse;color:#e2e8f0;font-size:13px;'>
+    """جدول HTML موحد الشكل"""
+    headers_html = "".join([f"<th>{h}</th>" for h in headers])
+    table = f"""
+    <!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+        body {{ margin:0;padding:0;background:transparent;
+               font-family:-apple-system,BlinkMacSystemFont,sans-serif; }}
+        table {{ width:100%;border-collapse:collapse;
+                background:linear-gradient(135deg,#0f172a,#1e293b);
+                border-radius:12px;overflow:hidden; }}
+        th {{ background:#1e293b;color:#f1c40f;padding:12px 10px;
+             text-align:left;font-size:12px;font-weight:600;
+             border-bottom:2px solid #f1c40f;white-space:nowrap; }}
+        tr:hover {{ background:rgba(241,196,15,0.04); }}
+        td {{ padding:12px 10px; }}
+    </style></head><body>
+    <table>
         <thead><tr>{headers_html}</tr></thead>
         <tbody>{rows_html}</tbody>
-    </table>
-    </div>
-    <style>
-        tr:hover {{ background:rgba(241,196,15,0.04); }}
-        td {{ padding:12px 10px; border-bottom:1px solid #1e293b; }}
-    </style>
-    """
-    
-    st.components.v1.html(table_html, height=height, scrolling=True)
+    </table></body></html>"""
+    st.components.v1.html(table, height=height, scrolling=True)
 
 # ====================== Date Selector ======================
 def render_date_selector(db_daily):
@@ -339,6 +334,7 @@ def render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, 
         else:
             signal, confidence = 'WAIT', 0
 
+        # Scores
         daily_score  = (daily_curr.get(base, 0)   - daily_curr.get(quote, 0))   if daily_curr  is not None else None
         weekly_score = (weekly_curr.get(base, 0)   - weekly_curr.get(quote, 0))  if weekly_curr is not None else None
         monthly_score= (monthly_curr.get(base, 0)  - monthly_curr.get(quote, 0)) if monthly_curr is not None else None
@@ -360,6 +356,7 @@ def render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, 
     df = pd.DataFrame(results)
     df = df[df['signal'] != 'WAIT'].sort_values('confidence', ascending=False)
 
+    # ── ملخص ──
     buy_count  = len(df[df['signal'] == 'BUY'])
     sell_count = len(df[df['signal'] == 'SELL'])
 
@@ -391,6 +388,7 @@ def render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, 
 
     st.markdown("---")
 
+    # ── جدول الإشارات ──
     def build_rows(df):
         rows = ""
         for _, row in df.iterrows():
@@ -407,7 +405,7 @@ def render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, 
                 return f'<span style="color:{c};font-weight:600;">{abs(val):.1f}% ({t})</span>'
 
             rows += f"""
-            <tr>
+            <tr style="border-bottom:1px solid #1e293b;">
                 <td style="font-weight:700;color:#e2e8f0;font-size:14px;">{row['pair']}</td>
                 <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
                              padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
@@ -454,7 +452,7 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
         st.error("❌ لا توجد بيانات شهرية")
         return
 
-    # القسم الأول: اليومي vs الأسبوعي
+    # ========== القسم الأول: اليومي vs الأسبوعي ==========
     results_daily_vs_weekly = []
     for pair in pairs:
         base, quote = pair[:3], pair[3:]
@@ -492,9 +490,9 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
     df_daily_vs_weekly = df_daily_vs_weekly[df_daily_vs_weekly['signal'] != 'WAIT']
     df_daily_vs_weekly = df_daily_vs_weekly.reindex(df_daily_vs_weekly['acceleration'].abs().sort_values(ascending=False).index)
 
+    # عرض الجدول الأول
     buy_count_1  = len(df_daily_vs_weekly[df_daily_vs_weekly['signal'] == 'BUY'])
     sell_count_1 = len(df_daily_vs_weekly[df_daily_vs_weekly['signal'] == 'SELL'])
-    
     st.markdown("### 📈 Daily vs Weekly")
     summary_cards(buy_count_1, sell_count_1)
     st.markdown("---")
@@ -508,7 +506,7 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
             bias_icon  = '📈' if row['weekly_bias'] == 'Bullish' else '📉'
 
             rows += f"""
-            <tr>
+            <tr style="border-bottom:1px solid #1e293b;">
                 <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
                 <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
                              padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
@@ -520,7 +518,7 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
         return rows
 
     html_table(
-        ["Pair", "Signal", "⚡ Acceleration", "📅 Daily Score", "📆 Weekly Score", "Weekly Bias"],
+        ["Pair", "Signal", "⚡ Acceleration (Daily - Weekly)", "📅 Daily Score", "📆 Weekly Score", "Weekly Bias"],
         build_rows_daily_vs_weekly(df_daily_vs_weekly),
         height=max(200, len(df_daily_vs_weekly) * 52 + 60)
     )
@@ -528,7 +526,7 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
     st.markdown("---")
     st.markdown("### 🗓️ Weekly vs Monthly")
 
-    # القسم الثاني: الأسبوعي vs الشهري
+    # ========== القسم الثاني: الأسبوعي vs الشهري (الجديد) ==========
     results_weekly_vs_monthly = []
     for pair in pairs:
         base, quote = pair[:3], pair[3:]
@@ -566,9 +564,10 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
     df_weekly_vs_monthly = df_weekly_vs_monthly[df_weekly_vs_monthly['signal'] != 'WAIT']
     df_weekly_vs_monthly = df_weekly_vs_monthly.reindex(df_weekly_vs_monthly['acceleration_monthly'].abs().sort_values(ascending=False).index)
 
+    # عرض الجدول الثاني
     buy_count_2  = len(df_weekly_vs_monthly[df_weekly_vs_monthly['signal'] == 'BUY'])
     sell_count_2 = len(df_weekly_vs_monthly[df_weekly_vs_monthly['signal'] == 'SELL'])
-    summary_cards(buy_count_2, sell_count_2)
+    summary_cards(buy_count_2, sell_count_2, extra_label="Total Signals", extra_count=buy_count_2 + sell_count_2)
     st.markdown("---")
 
     def build_rows_weekly_vs_monthly(df):
@@ -580,7 +579,7 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
             bias_icon  = '📈' if row['monthly_bias'] == 'Bullish' else '📉'
 
             rows += f"""
-            <tr>
+            <tr style="border-bottom:1px solid #1e293b;">
                 <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
                 <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
                              padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
@@ -592,101 +591,77 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
         return rows
 
     html_table(
-        ["Pair", "Signal", "⚡ Acceleration", "📆 Weekly Score", "🗓️ Monthly Score", "Monthly Bias"],
+        ["Pair", "Signal", "⚡ Acceleration (Weekly - Monthly)", "📆 Weekly Score", "🗓️ Monthly Score", "Monthly Bias"],
         build_rows_weekly_vs_monthly(df_weekly_vs_monthly),
         height=max(200, len(df_weekly_vs_monthly) * 52 + 60)
     )
-
+    
 # ══════════════════════════════════════════════════════════════
-# TAB 3 — Ultra Scalping Signals (MULTI-FRAME TIME)
+# TAB 3 — Ultra Scalping Signals
 # ══════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=300, show_spinner=False)
+import yfinance as yf
+from datetime import datetime, timedelta
+
+PAIRS_YF = {
+    "EURUSD": "EURUSD=X", "EURGBP": "EURGBP=X", "EURAUD": "EURAUD=X",
+    "EURNZD": "EURNZD=X", "EURCAD": "EURCAD=X", "EURCHF": "EURCHF=X",
+    "EURJPY": "EURJPY=X", "GBPUSD": "GBPUSD=X", "GBPAUD": "GBPAUD=X",
+    "GBPNZD": "GBPNZD=X", "GBPCAD": "GBPCAD=X", "GBPCHF": "GBPCHF=X",
+    "GBPJPY": "GBPJPY=X", "AUDUSD": "AUDUSD=X", "AUDNZD": "AUDNZD=X",
+    "AUDCAD": "AUDCAD=X", "AUDCHF": "AUDCHF=X", "AUDJPY": "AUDJPY=X",
+    "NZDUSD": "NZDUSD=X", "NZDCAD": "NZDCAD=X", "NZDCHF": "NZDCHF=X",
+    "NZDJPY": "NZDJPY=X", "USDCAD": "USDCAD=X", "USDCHF": "USDCHF=X",
+    "USDJPY": "USDJPY=X", "CADCHF": "CADCHF=X", "CADJPY": "CADJPY=X",
+    "CHFJPY": "CHFJPY=X"
+}
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_h1_h4_data():
-    """جلب بيانات H1 و H4 من Yahoo Finance"""
-    end = datetime.utcnow()
-    start = end - timedelta(days=10)
-    
+    end   = datetime.utcnow()
+    start = end - timedelta(days=30)
     h1_data, h4_data = {}, {}
-    
+
     for pair, ticker in PAIRS_YF.items():
         try:
-            # H1 data
             df1 = yf.download(ticker, start=start, end=end,
-                            interval='1h', progress=False, auto_adjust=True)
-            
+                              interval='1h', progress=False, auto_adjust=True)
             if not df1.empty:
                 if isinstance(df1.columns, pd.MultiIndex):
                     df1.columns = df1.columns.get_level_values(0)
-                df1.index = pd.to_datetime(df1.index)
-                if df1.index.tz is not None:
-                    df1.index = df1.index.tz_localize(None)
-                
-                h1_data[pair] = {
-                    dt: {
-                        'open': float(r['Open']),
-                        'high': float(r['High']),
-                        'low': float(r['Low']),
-                        'close': float(r['Close'])
-                    }
-                    for dt, r in df1.iterrows()
-                }
-            else:
-                h1_data[pair] = {}
-            
-            # H4 data (aggregate from 1h)
+                df1.index = df1.index.tz_localize(None)
+                h1_data[pair] = {dt: {'open': float(r['Open']), 'high': float(r['High']),
+                                       'low': float(r['Low']),  'close': float(r['Close'])}
+                                 for dt, r in df1.iterrows()}
             df4 = yf.download(ticker, start=start, end=end,
-                            interval='1h', progress=False, auto_adjust=True)
-            
+                              interval='4h', progress=False, auto_adjust=True)
             if not df4.empty:
                 if isinstance(df4.columns, pd.MultiIndex):
                     df4.columns = df4.columns.get_level_values(0)
-                df4.index = pd.to_datetime(df4.index)
-                if df4.index.tz is not None:
-                    df4.index = df4.index.tz_localize(None)
-                
-                df4_agg = df4.resample('4h').agg({
-                    'Open': 'first',
-                    'High': 'max',
-                    'Low': 'min',
-                    'Close': 'last'
-                }).dropna()
-                
-                h4_data[pair] = {
-                    dt: {
-                        'open': float(r['Open']),
-                        'high': float(r['High']),
-                        'low': float(r['Low']),
-                        'close': float(r['Close'])
-                    }
-                    for dt, r in df4_agg.iterrows()
-                }
-            else:
-                h4_data[pair] = {}
-                
-        except Exception as e:
+                df4.index = df4.index.tz_localize(None)
+                h4_data[pair] = {dt: {'open': float(r['Open']), 'high': float(r['High']),
+                                       'low': float(r['Low']),  'close': float(r['Close'])}
+                                 for dt, r in df4.iterrows()}
+        except:
             h1_data[pair] = {}
             h4_data[pair] = {}
-    
+
     return h1_data, h4_data
 
-
 def calc_strength_live(pair_closes):
-    """حساب قوة العملات من بيانات OHLC"""
     CURRENCIES_LOCAL = ["USD","CAD","EUR","GBP","CHF","AUD","NZD","JPY"]
-    scores = {c: 0 for c in CURRENCIES_LOCAL}
+    scores   = {c: 0 for c in CURRENCIES_LOCAL}
     pair_dir = {}
-    
     for p in PAIRS_YF:
         if p in pair_closes:
             pair_dir[p] = 1 if pair_closes[p]['close'] > pair_closes[p]['open'] else -1
         else:
             pair_dir[p] = 0
-    
+
     def add(curr, p, d):
         if p in pair_dir and pair_dir[p] != 0:
             scores[curr] += 1 if pair_dir[p] == d else 0
-    
+
     add('EUR','EURUSD', 1); add('EUR','EURGBP', 1); add('EUR','EURCAD', 1)
     add('EUR','EURAUD', 1); add('EUR','EURNZD', 1); add('EUR','EURCHF', 1); add('EUR','EURJPY', 1)
     add('GBP','EURGBP',-1); add('GBP','GBPUSD', 1); add('GBP','GBPCAD', 1)
@@ -703,309 +678,262 @@ def calc_strength_live(pair_closes):
     add('CHF','NZDCHF',-1); add('CHF','USDCHF',-1); add('CHF','CADCHF',-1); add('CHF','CHFJPY', 1)
     add('JPY','EURJPY',-1); add('JPY','GBPJPY',-1); add('JPY','AUDJPY',-1)
     add('JPY','NZDJPY',-1); add('JPY','USDJPY',-1); add('JPY','CADJPY',-1); add('JPY','CHFJPY',-1)
-    
+
     return {c: round((scores[c] / 7) * 100) for c in CURRENCIES_LOCAL}
 
-
 def get_live_signals(h1_data, h4_data):
-    """استخراج إشارات H1 vs H4 الحية"""
     h4_times_all = sorted({dt for p in PAIRS_YF for dt in h4_data.get(p, {})})
     h1_times_all = sorted({dt for p in PAIRS_YF for dt in h1_data.get(p, {})})
-    
+
     if not h4_times_all or not h1_times_all:
-        return pd.DataFrame(), None, None, 0
-    
+        return pd.DataFrame(), None, None
+
     now = datetime.utcnow()
-    
-    closed_h4 = [t for t in h4_times_all if t < now]
+
+    # آخر شمعة H4 مغلقة
+    closed_h4 = [t for t in h4_times_all if t < now - timedelta(minutes=2)]
     if not closed_h4:
-        return pd.DataFrame(), None, None, 0
-    
+        return pd.DataFrame(), None, None
     last_h4_time = closed_h4[-1]
-    hours_passed = (now - last_h4_time).total_seconds() / 3600
-    current_candle = min(int(hours_passed) + 1, 4)
-    cycle_end = last_h4_time + timedelta(hours=4)
-    
-    cycle_h1s = [
-        t for t in h1_times_all
-        if last_h4_time <= t < cycle_end and t < now - timedelta(minutes=1)
-    ]
-    
+
+    # الدورة الحالية = 4 شموع H1 بعد إغلاق H4
+    cycle_end  = last_h4_time + timedelta(hours=4)
+    cycle_h1s  = [t for t in h1_times_all
+                  if last_h4_time <= t < cycle_end and t < now - timedelta(minutes=2)]
+
     if not cycle_h1s:
-        return pd.DataFrame(), last_h4_time, cycle_end, current_candle
-    
+        return pd.DataFrame(), last_h4_time, None
+
     signals = []
-    
+
     for pair in PAIRS_YF:
         base, quote = pair[:3], pair[3:]
-        
+
         h4_bar = h4_data.get(pair, {}).get(last_h4_time)
         if not h4_bar:
             continue
-        
+
+        # ── حساب H4 Score من إغلاقات كل الأزواج عند H4 ──
         h4_closes = {}
         for p in PAIRS_YF:
             if last_h4_time in h4_data.get(p, {}):
                 h4_closes[p] = h4_data[p][last_h4_time]
-        
         if len(h4_closes) < 20:
             continue
-        
         h4_strength = calc_strength_live(h4_closes)
+
         b_h4 = h4_strength.get(base)
         q_h4 = h4_strength.get(quote)
-        
         if any(x is None for x in [b_h4, q_h4]):
             continue
-        
+
         h4_score = b_h4 - q_h4
         if h4_score == 0:
             continue
-        
-        liquidity_taken = False
-        
+
+        # ── فحص السيولة والإشارة لكل شمعة في الدورة ──
+        liquidity_taken  = False
+        signal_this_pair = None
+
         for idx, h1_time in enumerate(cycle_h1s):
             h1_bar = h1_data.get(pair, {}).get(h1_time)
             if not h1_bar:
                 continue
-            
-            h4_range = abs(h4_bar['high'] - h4_bar['low'])
-            tolerance = h4_range * 0.05
-            
-            if h4_score > 0 and h1_bar['high'] >= (h4_bar['high'] - tolerance):
+
+            # فحص السيولة أولاً
+            if h4_score > 0 and h1_bar['high'] >= h4_bar['high']:
                 liquidity_taken = True
                 break
-            
-            if h4_score < 0 and h1_bar['low'] <= (h4_bar['low'] + tolerance):
+            if h4_score < 0 and h1_bar['low'] <= h4_bar['low']:
                 liquidity_taken = True
                 break
-            
+
+            # حساب H1 Score
             h1_closes = {}
             for p in PAIRS_YF:
                 if h1_time in h1_data.get(p, {}):
                     h1_closes[p] = h1_data[p][h1_time]
-            
             if len(h1_closes) < 20:
                 continue
-            
+
             h1_strength = calc_strength_live(h1_closes)
             b_h1 = h1_strength.get(base)
             q_h1 = h1_strength.get(quote)
-            
             if any(x is None for x in [b_h1, q_h1]):
                 continue
-            
+
             h1_score = b_h1 - q_h1
-            
+
+            # BUY
             if h4_score > 0 and h1_score > h4_score:
                 if h1_bar['high'] >= h4_bar['high']:
                     continue
-                
-                signals.append({
-                    'pair': pair,
-                    'signal': 'BUY',
-                    'h1_score': h1_score,
-                    'h4_score': h4_score,
-                    'acceleration': round(h1_score - h4_score, 2),
-                    'entry': round(h1_bar['close'], 5),
-                    'target': round(h4_bar['high'], 5),
-                    'space': round(h4_bar['high'] - h1_bar['close'], 5),
-                    'cycle_candle': idx + 1,
-                    'h4_time': last_h4_time,
-                    'h1_time': h1_time,
-                    'cycle_end': cycle_end,
-                })
-            
+                signal_this_pair = {
+                    'pair':          pair,
+                    'signal':        'BUY',
+                    'h1_score':      h1_score,
+                    'h4_score':      h4_score,
+                    'acceleration':  round(h1_score - h4_score, 2),
+                    'entry':         round(h1_bar['close'], 5),
+                    'target':        round(h4_bar['high'], 5),
+                    'space':         round(h4_bar['high'] - h1_bar['close'], 5),
+                    'cycle_candle':  idx + 1,
+                    'h4_time':       last_h4_time.strftime('%H:%M'),
+                    'h1_time':       h1_time.strftime('%H:%M'),
+                    'cycle_end':     cycle_end.strftime('%H:%M'),
+                }
+
+            # SELL
             elif h4_score < 0 and h1_score < h4_score:
                 if h1_bar['low'] <= h4_bar['low']:
                     continue
-                
-                signals.append({
-                    'pair': pair,
-                    'signal': 'SELL',
-                    'h1_score': h1_score,
-                    'h4_score': h4_score,
-                    'acceleration': round(h4_score - h1_score, 2),
-                    'entry': round(h1_bar['close'], 5),
-                    'target': round(h4_bar['low'], 5),
-                    'space': round(h1_bar['close'] - h4_bar['low'], 5),
-                    'cycle_candle': idx + 1,
-                    'h4_time': last_h4_time,
-                    'h1_time': h1_time,
-                    'cycle_end': cycle_end,
-                })
-    
+                signal_this_pair = {
+                    'pair':          pair,
+                    'signal':        'SELL',
+                    'h1_score':      h1_score,
+                    'h4_score':      h4_score,
+                    'acceleration':  round(h4_score - h1_score, 2),
+                    'entry':         round(h1_bar['close'], 5),
+                    'target':        round(h4_bar['low'], 5),
+                    'space':         round(h1_bar['close'] - h4_bar['low'], 5),
+                    'cycle_candle':  idx + 1,
+                    'h4_time':       last_h4_time.strftime('%H:%M'),
+                    'h1_time':       h1_time.strftime('%H:%M'),
+                    'cycle_end':     cycle_end.strftime('%H:%M'),
+                }
+
+        # أضف آخر إشارة صالحة فقط (لم تُلغَ بالسيولة)
+        if not liquidity_taken and signal_this_pair:
+            signals.append(signal_this_pair)
+
     df = pd.DataFrame(signals)
     if not df.empty:
         df = df.sort_values('acceleration', ascending=False)
-    
-    return df, last_h4_time, cycle_end, current_candle
 
+    return df, last_h4_time, cycle_end
 
 def render_h1_h4_signals():
-    """عرض تبويب Ultra Scalping Signals"""
-    st.markdown("## ⚡ H1 vs H4 — Multi-Frame Time Signals")
-    
-    with st.spinner("⏳ جاري تحميل البيانات من Yahoo Finance..."):
+
+    # ── جلب البيانات ──
+    with st.spinner("⏳ جاري جلب بيانات H1 و H4..."):
         h1_data, h4_data = fetch_h1_h4_data()
-    
-    df, last_h4_time, cycle_end, current_candle = get_live_signals(h1_data, h4_data)
-    
+
+    df, last_h4_time, cycle_end = get_live_signals(h1_data, h4_data)
+
     now = datetime.utcnow()
-    
-    # Header Card
+
+    # ── هيدر ──
+    col_t, col_r = st.columns([3, 1])
+    with col_t:
+        h4_str    = last_h4_time.strftime('%H:%M') if last_h4_time else '—'
+        cycle_str = cycle_end.strftime('%H:%M')    if cycle_end    else '—'
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid rgba(241,196,15,0.2);
+                    border-radius:12px;padding:14px 20px;margin-bottom:1rem;'>
+            <span style='color:#f1c40f;font-size:15px;font-weight:700;'>
+                ⚡ H1 vs H4 — Live Signals
+            </span><br>
+            <span style='color:#64748b;font-size:11px;'>
+                الدورة الحالية: H4 أغلقت {h4_str} UTC ← نافذة العمل تنتهي {cycle_str} UTC
+            </span><br>
+            <span style='color:#475569;font-size:11px;'>
+                BUY: H4&gt;0 &amp; H1&gt;H4 &amp; مساحة &amp; السيولة لسه موجودة |
+                SELL: H4&lt;0 &amp; H1&lt;H4 &amp; مساحة &amp; السيولة لسه موجودة
+            </span>
+        </div>""", unsafe_allow_html=True)
+    with col_r:
+        # شمعة رقم كام في الدورة
+        if last_h4_time:
+            elapsed       = int((now - last_h4_time).total_seconds() / 3600) + 1
+            candle_num    = min(elapsed, 4)
+            candle_color  = ['#10b981','#f1c40f','#f97316','#ef4444'][candle_num - 1]
+        else:
+            candle_num, candle_color = 0, '#64748b'
+
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid #1e293b;border-radius:12px;
+                    padding:14px;text-align:center;margin-bottom:1rem;'>
+            <div style='color:#64748b;font-size:11px;'>Candle Number</div>
+            <div style='color:{candle_color};font-size:28px;font-weight:700;'>
+                H1[{candle_num}]
+            </div>
+            <div style='color:#475569;font-size:10px;'>{now.strftime('%H:%M')} UTC</div>
+        </div>""", unsafe_allow_html=True)
+
+    # ── حالة الدورة ──
     if last_h4_time:
-        h4_str = last_h4_time.strftime('%H:%M UTC')
-        cycle_str = cycle_end.strftime('%H:%M UTC') if cycle_end else '—'
-        
-        elapsed = int((now - last_h4_time).total_seconds() / 60)
-        remaining = max(0, 240 - elapsed)
-        
-        candle_colors = ['#10b981', '#f1c40f', '#f97316', '#ef4444']
-        candle_color = candle_colors[current_candle - 1] if 1 <= current_candle <= 4 else '#64748b'
-        
-        # استخدام st.container بدل markdown للـ header
-        with st.container():
-            col_info, col_candle = st.columns([3, 1])
-            
-            with col_info:
-                st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-                            border: 1px solid #334155; border-radius: 16px;
-                            padding: 20px;'>
-                    <h3 style='color: #f1c40f; margin: 0 0 8px 0; font-size: 18px;'>
-                        ⚡ Multi-Frame Time Analysis
-                    </h3>
-                    <p style='color: #94a3b8; margin: 0; font-size: 13px;'>
-                        🕐 دورة H4 بدأت: {h4_str} → ⏰ تنتهي: {cycle_str}
-                    </p>
-                    <div style='margin-top: 12px;'>
-                        <div style='background: #1e293b; border-radius: 10px; height: 6px;'>
-                            <div style='background: {candle_color}; 
-                                        width: {min(100, (elapsed/240)*100)}%;
-                                        height: 100%; border-radius: 10px;'>
-                            </div>
-                        </div>
-                        <p style='color: #64748b; font-size: 11px; margin: 5px 0 0 0;'>
-                            ⏱️ متبقي: {remaining} دقيقة | 
-                            📊 تقدم الدورة: {min(100, int((elapsed/240)*100))}%
-                        </p>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col_candle:
-                st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-                            border: 1px solid #334155; border-radius: 16px;
-                            padding: 20px; text-align: center; height: 100%;
-                            display: flex; flex-direction: column; justify-content: center;'>
-                    <div style='color: #64748b; font-size: 12px; margin-bottom: 8px;'>
-                        الشمعة الحالية
-                    </div>
-                    <div style='color: {candle_color}; font-size: 48px; font-weight: 900;
-                                line-height: 1;'>
-                        H1[{current_candle}]
-                    </div>
-                    <div style='color: #475569; font-size: 11px; margin-top: 8px;'>
-                        {now.strftime('%H:%M UTC')}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # إذا مفيش إشارات
+        candle_icons = ""
+        for c in range(1, 5):
+            if c < candle_num:
+                candle_icons += f"<span style='color:#475569;'>▓</span> "
+            elif c == candle_num:
+                candle_icons += f"<span style='color:#f1c40f;font-weight:700;'>▓</span> "
+            else:
+                candle_icons += f"<span style='color:#1e293b;'>▓</span> "
+
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid #1e293b;border-radius:10px;
+                    padding:10px 16px;margin-bottom:1rem;text-align:center;font-size:22px;'>
+            {candle_icons}
+            <span style='color:#64748b;font-size:11px;margin-right:10px;'>
+                [{candle_num}/4]  Candle Number
+            </span>
+        </div>""", unsafe_allow_html=True)
+
     if df.empty:
-        st.warning("📭 لا توجد إشارات حالية في هذه الدورة")
-        
-        with st.expander("💡 تحليل الأسباب", expanded=True):
-            st.markdown("""
-            **الأسباب المحتملة لعدم وجود إشارات:**
-            
-            1. ⏳ **لم تغلق شمعة H1 بعد** - انتظر إغلاق الشمعة الحالية
-            2. 🚫 **السيولة تم أخذها** - السعر اخترق High/Low شمعة H4
-            3. 📉 **ضعف الزخم** - لا يوجد تسارع كافي بين H1 و H4
-            4. 🔄 **عدد أزواج غير كافي** - تحتاج 20 زوج على الأقل للحساب
-            
-            **توصية:** جرب التحديث بعد إغلاق شمعة H1 القادمة
-            """)
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            if st.button("🔄 تحديث الآن", key="refresh_empty", use_container_width=True):
-                st.cache_data.clear()
-                st.rerun()
-        return
-    
-    # عرض الإحصائيات
-    buy_count = len(df[df['signal'] == 'BUY'])
-    sell_count = len(df[df['signal'] == 'SELL'])
-    
-    summary_cards(buy_count, sell_count, extra_label="أفضل تسارع", 
-                  extra_count=f"{df['acceleration'].max():.0f}")
-    
-    st.markdown("---")
-    
-    # عرض كل إشارة في كرت منفصل
-    for _, row in df.iterrows():
-        signal_color_val = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
-        signal_bg = 'rgba(16, 185, 129, 0.08)' if row['signal'] == 'BUY' else 'rgba(239, 68, 68, 0.08)'
-        
-        col1, col2 = st.columns([3, 1])
-        
-        with col1:
-            st.markdown(f"""
-            <div style='background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-                        border: 1px solid {signal_color_val}30; border-radius: 12px;
-                        padding: 16px; margin-bottom: 8px;'>
-                <div style='display: flex; align-items: center; gap: 12px; margin-bottom: 10px;'>
-                    <span style='color: #f1f5f9; font-size: 18px; font-weight: 700;'>
-                        {row['pair']}
-                    </span>
-                    <span style='background: {signal_bg}; color: {signal_color_val};
-                                border: 1px solid {signal_color_val}; padding: 4px 16px;
-                                border-radius: 20px; font-weight: 700; font-size: 13px;'>
-                        {row['signal']}
-                    </span>
-                    <span style='color: #64748b; font-size: 12px;'>
-                        ⚡ +{row['acceleration']}
-                    </span>
-                </div>
-                <div style='display: flex; gap: 20px; font-size: 13px; color: #94a3b8;'>
-                    <span>🎯 دخول: <b style='color:#e2e8f0;'>{row['entry']}</b></span>
-                    <span>🏁 هدف: <b style='color:{signal_color_val};'>{row['target']}</b></span>
-                    <span>📏 مساحة: <b style='color:#cbd5e1;'>{row['space']}</b></span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            candle_colors = {1: '#10b981', 2: '#f1c40f', 3: '#f97316', 4: '#ef4444'}
-            c_color = candle_colors.get(row['cycle_candle'], '#64748b')
-            
-            h1_time_str = row['h1_time'].strftime('%H:%M')
-            
-            st.markdown(f"""
-            <div style='background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-                        border: 1px solid #334155; border-radius: 12px;
-                        padding: 16px; text-align: center;'>
-                <div style='color: {c_color}; font-size: 28px; font-weight: 900;'>
-                    H1[{row['cycle_candle']}]
-                </div>
-                <div style='color: #64748b; font-size: 11px; margin-top: 4px;'>
-                    🕐 {h1_time_str}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("🔄 تحديث الإشارات", key="refresh_signals", use_container_width=True):
+        st.info("📭 No Signals Expert Hunter Must Wait")
+        if st.button("🔄 Refresh", key="refresh_h1h4"):
             st.cache_data.clear()
             st.rerun()
+        return
+
+    # ── ملخص ──
+    buy_count  = len(df[df['signal'] == 'BUY'])
+    sell_count = len(df[df['signal'] == 'SELL'])
+    summary_cards(buy_count, sell_count)
+    st.markdown("---")
+
+    # ── جدول الإشارات ──
+    def build_rows(df):
+        rows = ""
+        for _, row in df.iterrows():
+            sc, sbg   = signal_color(row['signal'])
+            acc_color = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
+            tgt_color = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
+            c_colors  = {1:'#10b981', 2:'#f1c40f', 3:'#f97316', 4:'#ef4444'}
+            c_color   = c_colors.get(row['cycle_candle'], '#64748b')
+
+            rows += f"""
+            <tr style="border-bottom:1px solid #1e293b;">
+                <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
+                <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
+                             padding:5px 14px;border-radius:20px;font-weight:700;">
+                             {row['signal']}</span></td>
+                <td style="color:{acc_color};font-weight:700;font-size:15px;">
+                    +{row['acceleration']}</td>
+                <td style="color:#e2e8f0;">{row['h1_score']:+.0f}</td>
+                <td style="color:#64748b;">{row['h4_score']:+.0f}</td>
+                <td style="color:#e2e8f0;font-family:monospace;">{row['entry']}</td>
+                <td style="color:{tgt_color};font-weight:600;font-family:monospace;">
+                    {row['target']}</td>
+                <td style="color:{c_color};font-weight:700;">
+                    H1[{row['cycle_candle']}]</td>
+                <td style="color:#64748b;font-size:11px;">
+                    ينتهي {row['cycle_end']}</td>
+            </tr>"""
+        return rows
+
+    html_table(
+        ["Pair", "Signal", "⚡ Acceleration", "H1 Score", "H4 Score",
+         "Entry", "🎯 Target", "شمعة", "نافذة"],
+        build_rows(df),
+        height=max(250, len(df) * 52 + 60)
+    )
+
+    st.markdown("---")
+    if st.button("🔄 تحديث يدوي", key="refresh_h1h4"):
+        st.cache_data.clear()
+        st.rerun()
 
 # ══════════════════════════════════════════════════════════════
 # MAIN APP
@@ -1018,7 +946,7 @@ st.markdown("""
     <p>Pro Trader Mindsite</p>
 </div>""", unsafe_allow_html=True)
 
-# تحميل البيانات
+# ── تحميل البيانات ──
 db_daily   = load_data(DAILY_WS,   "Date")
 db_weekly  = load_data(WEEKLY_WS,  "Week_Start")
 db_monthly = load_data(MONTHLY_WS, "Month_Start")
@@ -1026,14 +954,15 @@ db_economy = load_data(ECONOMY_WS, "Date")
 db_yield   = load_data(YIELD_WS,   "Date")
 db_news    = load_news_data()
 
+# ── Date Selector ──
 if db_daily.empty:
     st.warning("⚠️ لا توجد بيانات يومية")
     st.stop()
 
 selected_date = render_date_selector(db_daily)
 
-# التبويبات
-tab1, tab2, tab3 = st.tabs([
+# ── التبويبات ──
+tab1, tab2, tab3, = st.tabs([
     "📅 Daily Signals",
     "⚡ Scalping Signals",
     "🔴 Ultra Scalping Signals",
