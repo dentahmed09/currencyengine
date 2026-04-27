@@ -595,230 +595,9 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
         build_rows_weekly_vs_monthly(df_weekly_vs_monthly),
         height=max(200, len(df_weekly_vs_monthly) * 52 + 60)
     )
-
-# ══════════════════════════════════════════════════════════════
-# TAB 3 — Market Events
-# ══════════════════════════════════════════════════════════════
-def render_market_events(db_news, db_daily, selected_date):
-
-    if db_news.empty:
-        st.info("📊 لا توجد بيانات أحداث")
-        return
-
-    db_news['Date'] = pd.to_datetime(db_news['Date']).dt.date
-    today_events    = db_news[db_news['Date'] == selected_date]
-
-    if today_events.empty:
-        st.info(f"📭 لا توجد أحداث للتاريخ {selected_date}")
-        return
-
-    # ── حساب إشارة كل عملة ──
-    currency_signals = {}
-    for curr in currencies:
-        curr_events = today_events[today_events['Currency'] == curr]
-        if curr_events.empty:
-            continue
-
-        buy_score = sell_score = 0
-        for _, evt in curr_events.iterrows():
-            importance = evt.get('Importance', 'Low')
-            weight     = {'High': 3, 'Moderate': 2, 'Low': 1}.get(importance, 1)
-
-            try:
-                actual   = float(evt['Actual'])   if pd.notna(evt.get('Actual'))   and evt.get('Actual')   != '' else None
-                forecast = float(evt['Forecast']) if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '' else None
-                previous = float(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else None
-            except:
-                actual = forecast = previous = None
-
-            # بعد الخبر: Actual vs Forecast
-            if actual is not None and forecast is not None:
-                if actual > forecast:   buy_score  += weight
-                elif actual < forecast: sell_score += weight
-            # قبل الخبر: Forecast vs Previous
-            elif forecast is not None and previous is not None:
-                if forecast > previous:   buy_score  += weight
-                elif forecast < previous: sell_score += weight
-
-        if buy_score > sell_score:
-            signal    = 'BUY'
-            net_score = buy_score
-        elif sell_score > buy_score:
-            signal    = 'SELL'
-            net_score = sell_score
-        else:
-            signal    = 'NEUTRAL'
-            net_score = 0
-
-        currency_signals[curr] = {
-            'signal':    signal,
-            'buy_score': buy_score,
-            'sell_score':sell_score,
-            'net_score': net_score,
-            'events':    len(curr_events),
-        }
-
-    # ── أزواج لها إشارة من الأحداث ──
-    pair_signals = []
-    for pair in pairs:
-        base, quote = pair[:3], pair[3:]
-        base_sig  = currency_signals.get(base,  {}).get('signal', None)
-        quote_sig = currency_signals.get(quote, {}).get('signal', None)
-
-        if base_sig is None and quote_sig is None:
-            continue
-
-        if base_sig == 'BUY' and quote_sig == 'SELL':
-            signal   = 'BUY'
-            strength = currency_signals[base]['net_score'] + currency_signals[quote]['net_score']
-        elif base_sig == 'SELL' and quote_sig == 'BUY':
-            signal   = 'SELL'
-            strength = currency_signals[base]['net_score'] + currency_signals[quote]['net_score']
-        elif base_sig == 'BUY' and quote_sig != 'SELL':
-            signal   = 'BUY'
-            strength = currency_signals[base]['net_score']
-        elif base_sig == 'SELL' and quote_sig != 'BUY':
-            signal   = 'SELL'
-            strength = currency_signals[base]['net_score']
-        elif quote_sig == 'SELL' and base_sig != 'BUY':
-            signal   = 'BUY'
-            strength = currency_signals[quote]['net_score']
-        elif quote_sig == 'BUY' and base_sig != 'SELL':
-            signal   = 'SELL'
-            strength = currency_signals[quote]['net_score']
-        else:
-            continue
-
-        pair_signals.append({
-            'pair':     pair,
-            'signal':   signal,
-            'strength': strength,
-            'base_sig': base_sig  or '—',
-            'quote_sig':quote_sig or '—',
-        })
-
-    df_pairs = pd.DataFrame(pair_signals).sort_values('strength', ascending=False) if pair_signals else pd.DataFrame()
-
-    buy_count  = len(df_pairs[df_pairs['signal'] == 'BUY'])  if not df_pairs.empty else 0
-    sell_count = len(df_pairs[df_pairs['signal'] == 'SELL']) if not df_pairs.empty else 0
-    summary_cards(buy_count, sell_count)
-    st.markdown("---")
-
-    # ── كروت العملات النشطة ──
-    st.markdown('<div class="section-header">🎯 Active Currencies</div>', unsafe_allow_html=True)
-
-    active = {k: v for k, v in currency_signals.items() if v['signal'] != 'NEUTRAL'}
-    if active:
-        cols = st.columns(min(len(active), 4))
-        for idx, (curr, data) in enumerate(active.items()):
-            with cols[idx % 4]:
-                sc, sbg   = signal_color(data['signal'])
-                flag      = currency_flags.get(curr, "")
-                st.markdown(f"""
-                <div style="background:#0f172a;border:2px solid {sc};border-radius:14px;
-                            padding:16px;text-align:center;margin-bottom:10px;">
-                    <div style="font-size:28px;">{flag}</div>
-                    <div style="font-size:18px;font-weight:bold;color:{sc};">{curr}</div>
-                    <div style="background:{sbg};color:{sc};border:1px solid {sc};
-                                padding:4px 12px;border-radius:20px;font-weight:700;
-                                font-size:13px;display:inline-block;margin:8px 0;">
-                        {data['signal']}
-                    </div>
-                    <div style="font-size:12px;color:#94a3b8;">{data['events']} Events</div>
-                    <div style="display:flex;justify-content:center;gap:12px;margin-top:8px;">
-                        <span style="color:#10b981;font-size:12px;">📈 {data['buy_score']}</span>
-                        <span style="color:#ef4444;font-size:12px;">📉 {data['sell_score']}</span>
-                    </div>
-                </div>""", unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # ── أزواج متأثرة بالأحداث ──
-    st.markdown('<div class="section-header">📊 Affected Pairs</div>', unsafe_allow_html=True)
-
-    if not df_pairs.empty:
-        def build_rows(df):
-            rows = ""
-            for _, row in df.iterrows():
-                sc, sbg   = signal_color(row['signal'])
-                bsc, bsbg = signal_color(row['base_sig'])
-                qsc, qsbg = signal_color(row['quote_sig'])
-                rows += f"""
-                <tr style="border-bottom:1px solid #1e293b;">
-                    <td style="font-weight:700;color:#e2e8f0;font-size:15px;">{row['pair']}</td>
-                    <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
-                                 padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
-                    <td style="color:#f1c40f;font-weight:700;">{row['strength']}</td>
-                    <td><span style="color:{bsc};font-weight:600;">{row['base_sig']}</span></td>
-                    <td><span style="color:{qsc};font-weight:600;">{row['quote_sig']}</span></td>
-                </tr>"""
-            return rows
-
-        html_table(
-            ["Pair", "Signal", "⚡ Strength", "Base Currency", "Quote Currency"],
-            build_rows(df_pairs),
-            height=max(200, len(df_pairs) * 52 + 60)
-        )
-    else:
-        st.info("لا توجد أزواج متأثرة بأحداث اليوم")
-
-    st.markdown("---")
-
-    # ── جدول الأحداث ──
-    st.markdown('<div class="section-header">📋 Events Timeline</div>', unsafe_allow_html=True)
-
-    sorted_events = today_events.sort_values('TimeOnly') if 'TimeOnly' in today_events.columns else today_events
-
-    def build_event_rows(df):
-        rows = ""
-        for _, evt in df.iterrows():
-            imp_icon = {"High":"🔴","Moderate":"🟡","Low":"🟢"}.get(evt.get('Importance',''), "⚪")
-
-            try:
-                fc   = float(evt['Forecast']) if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '' else None
-                prev = float(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else None
-                act  = float(evt['Actual'])   if pd.notna(evt.get('Actual'))   and evt.get('Actual')   != '' else None
-            except:
-                fc = prev = act = None
-
-            fc_color = '#e2e8f0'
-            fc_icon  = ''
-            if fc is not None and prev is not None:
-                if fc > prev:   fc_color, fc_icon = '#10b981', '📈'
-                elif fc < prev: fc_color, fc_icon = '#ef4444', '📉'
-
-            act_color = '#e2e8f0'
-            act_icon  = ''
-            if act is not None and fc is not None:
-                if act > fc:   act_color, act_icon = '#10b981', '✅'
-                elif act < fc: act_color, act_icon = '#ef4444', '❌'
-
-            time_val = evt.get('TimeOnly', '—')
-            curr_val = evt.get('Currency', '—')
-            name_val = str(evt.get('EventName', '—'))[:50]
-            fc_val   = str(evt['Forecast']) if pd.notna(evt.get('Forecast')) and evt.get('Forecast') != '' else '—'
-            prev_val = str(evt['Previous']) if pd.notna(evt.get('Previous')) and evt.get('Previous') != '' else '—'
-            act_val  = str(evt['Actual'])   if pd.notna(evt.get('Actual'))   and evt.get('Actual')   != '' else '—'
-
-            rows += f"""
-            <tr style="border-bottom:1px solid #334155;">
-                <td style="color:white;">{imp_icon} {time_val}</td>
-                <td style="font-weight:bold;color:white;">{curr_val}</td>
-                <td style="color:#94a3b8;">{name_val}</td>
-                <td style="color:{fc_color};font-weight:bold;">{fc_icon} {fc_val}</td>
-                <td style="color:#64748b;">{prev_val}</td>
-                <td style="color:{act_color};font-weight:bold;">{act_icon} {act_val}</td>
-            </tr>"""
-        return rows
-
-    html_table(
-        ["Time", "Curr", "Event", "Forecast", "Previous", "Actual"],
-        build_event_rows(sorted_events),
-        height=min(500, len(sorted_events) * 45 + 60)
-    )
     
 # ══════════════════════════════════════════════════════════════
-# TAB 4 — H1 vs H4 Live Signals (Liquidity Rule)
+# TAB 3 — H1 vs H4 Live Signals (Liquidity Rule)
 # ══════════════════════════════════════════════════════════════
 
 import yfinance as yf
@@ -1183,10 +962,9 @@ if db_daily.empty:
 selected_date = render_date_selector(db_daily)
 
 # ── التبويبات ──
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, = st.tabs([
     "📅 Daily Signals",
     "⚡ Scalping Signals",
-    "📰 Market Events",
     "🔴 H1 vs H4 Live",
 ])
 
@@ -1195,9 +973,6 @@ with tab1:
 
 with tab2:
     render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date)
-    
-with tab3:
-    render_market_events(db_news, db_daily, selected_date)
 
-with tab4:
+with tab3:
     render_h1_h4_signals()
