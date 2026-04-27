@@ -597,7 +597,7 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
     )
     
 # ══════════════════════════════════════════════════════════════
-# TAB 3 — H1 vs H4 Live Signals (Liquidity Rule)
+# TAB 3 — Ultra Scalping Signals
 # ══════════════════════════════════════════════════════════════
 
 import yfinance as yf
@@ -943,7 +943,7 @@ inject_custom_css()
 st.markdown("""
 <div class="main-header">
     <h1>🏦 Institutional Currency Strength Engine</h1>
-    <p>Daily Signals • Scalping • Market Events • Confluence</p>
+    <p>Pro Trader Mindsite</p>
 </div>""", unsafe_allow_html=True)
 
 # ── تحميل البيانات ──
@@ -965,7 +965,7 @@ selected_date = render_date_selector(db_daily)
 tab1, tab2, tab3, = st.tabs([
     "📅 Daily Signals",
     "⚡ Scalping Signals",
-    "🔴 H1 vs H4 Live",
+    "🔴 Ultra Scalping Signals",
 ])
 
 with tab1:
@@ -975,4 +975,4 @@ with tab2:
     render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date)
 
 with tab3:
-    render_h1_h4_signals()
+    render_Ultra_Scalping_Signals()
