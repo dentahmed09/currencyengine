@@ -1408,11 +1408,10 @@ if db_daily.empty:
 selected_date = render_date_selector(db_daily)
 
 # ── التبويبات ──
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📅 Daily Signals",
     "⚡ Scalping Signals",
     "📰 Market Events",
-    "🎯 Confluence",
     "🔴 H1 vs H4 Live",
 ])
 
@@ -1426,7 +1425,4 @@ with tab3:
     render_market_events(db_news, db_daily, selected_date)
 
 with tab4:
-    render_confluence(db_daily, db_economy, db_yield, db_weekly, db_monthly, db_news, selected_date)
-
-with tab5:
     render_h1_h4_signals()
