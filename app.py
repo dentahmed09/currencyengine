@@ -757,7 +757,7 @@ def get_signals(h1_data, h4_data):
 # ============================================================
 # UI
 # ============================================================
-def render_ultra_scalping():
+def render_h1_h4_signals():
 
     st.subheader("⚡ Ultra Scalping V3")
 
@@ -819,4 +819,4 @@ with tab2:
     render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date)
 
 with tab3:
-    render_ultra_scalping()
+    render_h1_h4_signals()
