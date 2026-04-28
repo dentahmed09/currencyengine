@@ -4,5 +4,3 @@ plotly
 gspread
 google-auth
 yfinance
-MetaTrader5==5.0.45
-pytz
