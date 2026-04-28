@@ -597,153 +597,121 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
     )
     
 # ══════════════════════════════════════════════════════════════
-# TAB — Multi-Timeframe Acceleration Signals (MT5 Version)
+# TAB — Multi-Timeframe Acceleration Signals
 # ══════════════════════════════════════════════════════════════
 
-import MetaTrader5 as mt5
+import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
-import streamlit as st
-import time
 
-# ============================================================
-# إعدادات MT5
-# ============================================================
-MT5_CONFIG = {
-    "login": 11834960,        # ⚠️ غيّر إلى حسابك
-    "password": "Z.Q*Ta_0n",  # ⚠️ غيّر إلى كلمة المرور
-    "server": "FundingPips2-SIM",   # ⚠️ غيّر إلى السيرفر
-}
-
-PAIRS_MT5 = {
-    "EURUSD": "EURUSD", "EURGBP": "EURGBP", "EURAUD": "EURAUD",
-    "EURNZD": "EURNZD", "EURCAD": "EURCAD", "EURCHF": "EURCHF",
-    "EURJPY": "EURJPY", "GBPUSD": "GBPUSD", "GBPAUD": "GBPAUD",
-    "GBPNZD": "GBPNZD", "GBPCAD": "GBPCAD", "GBPCHF": "GBPCHF",
-    "GBPJPY": "GBPJPY", "AUDUSD": "AUDUSD", "AUDNZD": "AUDNZD",
-    "AUDCAD": "AUDCAD", "AUDCHF": "AUDCHF", "AUDJPY": "AUDJPY",
-    "NZDUSD": "NZDUSD", "NZDCAD": "NZDCAD", "NZDCHF": "NZDCHF",
-    "NZDJPY": "NZDJPY", "USDCAD": "USDCAD", "USDCHF": "USDCHF",
-    "USDJPY": "USDJPY", "CADCHF": "CADCHF", "CADJPY": "CADJPY",
-    "CHFJPY": "CHFJPY"
+PAIRS_YF = {
+    "EURUSD": "EURUSD=X", "EURGBP": "EURGBP=X", "EURAUD": "EURAUD=X",
+    "EURNZD": "EURNZD=X", "EURCAD": "EURCAD=X", "EURCHF": "EURCHF=X",
+    "EURJPY": "EURJPY=X", "GBPUSD": "GBPUSD=X", "GBPAUD": "GBPAUD=X",
+    "GBPNZD": "GBPNZD=X", "GBPCAD": "GBPCAD=X", "GBPCHF": "GBPCHF=X",
+    "GBPJPY": "GBPJPY=X", "AUDUSD": "AUDUSD=X", "AUDNZD": "AUDNZD=X",
+    "AUDCAD": "AUDCAD=X", "AUDCHF": "AUDCHF=X", "AUDJPY": "AUDJPY=X",
+    "NZDUSD": "NZDUSD=X", "NZDCAD": "NZDCAD=X", "NZDCHF": "NZDCHF=X",
+    "NZDJPY": "NZDJPY=X", "USDCAD": "USDCAD=X", "USDCHF": "USDCHF=X",
+    "USDJPY": "USDJPY=X", "CADCHF": "CADCHF=X", "CADJPY": "CADJPY=X",
+    "CHFJPY": "CHFJPY=X"
 }
 
 CURRENCIES = ["USD", "CAD", "EUR", "GBP", "CHF", "AUD", "NZD", "JPY"]
 
 # ============================================================
-# توصيل MT5
-# ============================================================
-def initialize_mt5():
-    """تهيئة الاتصال بـ MT5 مرة واحدة"""
-    if not mt5.initialize():
-        st.error(f"❌ فشل تهيئة MT5: {mt5.last_error()}")
-        return False
-    
-    # محاولة تسجيل الدخول
-    authorized = mt5.login(
-        login=MT5_CONFIG["login"],
-        password=MT5_CONFIG["password"],
-        server=MT5_CONFIG["server"]
-    )
-    
-    if not authorized:
-        st.error(f"❌ فشل تسجيل الدخول: {mt5.last_error()}")
-        mt5.shutdown()
-        return False
-    
-    return True
-
-# ============================================================
-# دوال مساعدة للتحويل بين Timeframes
-# ============================================================
-TIMEFRAME_MAP = {
-    'MN': mt5.TIMEFRAME_MN1,
-    'W':  mt5.TIMEFRAME_W1,
-    'D':  mt5.TIMEFRAME_D1,
-    'H4': mt5.TIMEFRAME_H4,
-    'H1': mt5.TIMEFRAME_H1,
-}
-
-def get_bars_count(tf):
-    """تحديد عدد الشموع المطلوبة لكل إطار"""
-    return {
-        'MN': 3,   # 3 شهور
-        'W':  6,   # 6 أسابيع
-        'D':  10,  # 10 أيام
-        'H4': 150, # ~25 يوم
-        'H1': 168, # 7 أيام
-    }[tf]
-
-# ============================================================
-# 1. جلب البيانات من MT5
+# 1. جلب البيانات
 # ============================================================
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_mtf_data():
     """
-    يجلب أحدث إغلاق مكتمل لكل TF من MT5
+    يجلب أحدث إغلاق مكتمل لكل TF
+    ttl=60 → كل دقيقة يتحقق هل في إغلاق جديد
     """
-    if not initialize_mt5():
-        return {tf: {} for tf in ['MN', 'W', 'D', 'H4', 'H1']}
-    
-    now = datetime.now()
+    now   = datetime.utcnow()
+    end   = now + timedelta(days=1)
+    start = now - timedelta(days=60)  # شهرين للـ Monthly
+
     data = {tf: {} for tf in ['MN', 'W', 'D', 'H4', 'H1']}
-    
-    for pair, symbol in PAIRS_MT5.items():
+
+    for pair, ticker in PAIRS_YF.items():
         try:
-            # التأكد من توفر الرمز
-            symbol_info = mt5.symbol_info(symbol)
-            if symbol_info is None:
-                continue
-            
-            # تفعيل الرمز في Market Watch إذا لزم الأمر
-            if not symbol_info.visible:
-                mt5.symbol_select(symbol, True)
-                time.sleep(0.01)
-            
-            for tf_name, tf_mt5 in TIMEFRAME_MAP.items():
-                try:
-                    bars_count = get_bars_count(tf_name)
-                    rates = mt5.copy_rates_from_pos(symbol, tf_mt5, 0, bars_count)
-                    
-                    if rates is None or len(rates) == 0:
-                        continue
-                    
-                    # تحويل إلى DataFrame
-                    df = pd.DataFrame(rates)
-                    df['time'] = pd.to_datetime(df['time'], unit='s')
-                    df.set_index('time', inplace=True)
-                    
-                    # إعادة تسمية الأعمدة
-                    df.rename(columns={
-                        'open': 'Open',
-                        'high': 'High',
-                        'low': 'Low',
-                        'close': 'Close'
-                    }, inplace=True)
-                    
-                    # آخر شمعة مغلقة (قبل الآن)
-                    closed = df[df.index < now]
-                    if not closed.empty:
-                        data[tf_name][pair] = closed.iloc[-1]
-                        
-                except Exception as e:
-                    continue
-                    
-        except Exception as e:
-            continue
-    
-    # لا نغلق الاتصال هنا لأنه cached
+            # ── H1 و H4 ──
+            df1h = yf.download(ticker, start=now - timedelta(days=7),
+                               end=end, interval='1h',
+                               progress=False, auto_adjust=True)
+            if not df1h.empty:
+                if isinstance(df1h.columns, pd.MultiIndex):
+                    df1h.columns = df1h.columns.get_level_values(0)
+                df1h.index = pd.to_datetime(df1h.index).tz_localize(None)
+
+                # H1 — آخر شمعة مغلقة
+                h1_closed = df1h[df1h.index < now]
+                if not h1_closed.empty:
+                    data['H1'][pair] = h1_closed.iloc[-1]
+
+                # H4 — تجميع من H1
+                df4h = df1h.resample('4h').agg(
+                    Open=('Open','first'), High=('High','max'),
+                    Low=('Low','min'),   Close=('Close','last')
+                ).dropna()
+                h4_closed = df4h[df4h.index < now]
+                if not h4_closed.empty:
+                    data['H4'][pair] = h4_closed.iloc[-1]
+
+            # ── Daily ──
+            df1d = yf.download(ticker, start=now - timedelta(days=10),
+                               end=end, interval='1d',
+                               progress=False, auto_adjust=True)
+            if not df1d.empty:
+                if isinstance(df1d.columns, pd.MultiIndex):
+                    df1d.columns = df1d.columns.get_level_values(0)
+                df1d.index = pd.to_datetime(df1d.index).tz_localize(None)
+                d_closed = df1d[df1d.index < now]
+                if not d_closed.empty:
+                    data['D'][pair] = d_closed.iloc[-1]
+
+            # ── Weekly ──
+            df1w = yf.download(ticker, start=now - timedelta(days=30),
+                               end=end, interval='1wk',
+                               progress=False, auto_adjust=True)
+            if not df1w.empty:
+                if isinstance(df1w.columns, pd.MultiIndex):
+                    df1w.columns = df1w.columns.get_level_values(0)
+                df1w.index = pd.to_datetime(df1w.index).tz_localize(None)
+                w_closed = df1w[df1w.index < now]
+                if not w_closed.empty:
+                    data['W'][pair] = w_closed.iloc[-1]
+
+            # ── Monthly ──
+            df1mo = yf.download(ticker, start=start,
+                                end=end, interval='1mo',
+                                progress=False, auto_adjust=True)
+            if not df1mo.empty:
+                if isinstance(df1mo.columns, pd.MultiIndex):
+                    df1mo.columns = df1mo.columns.get_level_values(0)
+                df1mo.index = pd.to_datetime(df1mo.index).tz_localize(None)
+                mo_closed = df1mo[df1mo.index < now]
+                if not mo_closed.empty:
+                    data['MN'][pair] = mo_closed.iloc[-1]
+
+        except:
+            pass
+
     return data
 
 # ============================================================
-# 2. حساب قوة العملات (نفس المنطق بدون تغيير)
+# 2. حساب قوة العملات
 # ============================================================
 def calc_strength(tf_data):
-    """tf_data: dict {pair: row} حيث row فيها Open و Close"""
+    """
+    tf_data: dict {pair: row} حيث row فيها Open و Close
+    يرجع: dict {currency: score%}
+    """
     scores   = {c: 0 for c in CURRENCIES}
     pair_dir = {}
 
-    for pair in PAIRS_MT5:
+    for pair in PAIRS_YF:
         if pair in tf_data:
             row = tf_data[pair]
             try:
@@ -778,7 +746,7 @@ def calc_strength(tf_data):
     return {c: round((scores[c] / 7) * 100) for c in CURRENCIES}
 
 # ============================================================
-# 3. حساب إشارات زوج واحد (نفس المنطق)
+# 3. حساب إشارات زوج واحد
 # ============================================================
 def get_pair_signals(pair, strengths, data):
     base, quote = pair[:3], pair[3:]
@@ -812,6 +780,7 @@ def get_pair_signals(pair, strengths, data):
 
         acceleration = score_small - score_big
 
+        # شرط السعر (مساحة)
         bar_small = data.get(tf_small, {}).get(pair)
         bar_big   = data.get(tf_big,   {}).get(pair)
 
@@ -861,10 +830,11 @@ def get_pair_signals(pair, strengths, data):
 # 4. حساب كل الإشارات
 # ============================================================
 def get_all_signals(data):
+    # حساب الـ Strength لكل TF
     strengths = {tf: calc_strength(data[tf]) for tf in ['MN','W','D','H4','H1']}
 
     all_signals = []
-    for pair in PAIRS_MT5:
+    for pair in PAIRS_YF:
         all_signals.extend(get_pair_signals(pair, strengths, data))
 
     df = pd.DataFrame(all_signals)
@@ -873,15 +843,7 @@ def get_all_signals(data):
     return df, strengths
 
 # ============================================================
-# 5. ألوان الإشارات
-# ============================================================
-def signal_color(signal):
-    if signal == 'BUY':
-        return '#10b981', 'rgba(16,185,129,0.12)'
-    return '#ef4444', 'rgba(239,68,68,0.12)'
-
-# ============================================================
-# 6. عرض جدول
+# 5. عرض جدول
 # ============================================================
 def build_mtf_table(df_filtered, label):
     if df_filtered.empty:
@@ -927,31 +889,10 @@ def build_mtf_table(df_filtered, label):
     <tbody>{rows}</tbody></table></body></html>"""
 
 # ============================================================
-# 7. ملخص البطاقات
-# ============================================================
-def summary_cards(buy_count, sell_count):
-    st.markdown(f"""
-    <div style="display:flex;gap:1rem;margin-bottom:1rem;">
-        <div style="flex:1;background:linear-gradient(135deg,#0f172a,#1e293b);
-                    border:1px solid #10b98133;border-radius:12px;
-                    padding:16px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:#10b981;">▲ {buy_count}</div>
-            <div style="font-size:12px;color:#64748b;">BUY Signals</div>
-        </div>
-        <div style="flex:1;background:linear-gradient(135deg,#0f172a,#1e293b);
-                    border:1px solid #ef444433;border-radius:12px;
-                    padding:16px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:#ef4444;">▼ {sell_count}</div>
-            <div style="font-size:12px;color:#64748b;">SELL Signals</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ============================================================
-# 8. الـ Render الرئيسي
+# 6. الـ Render الرئيسي
 # ============================================================
 def render_mtf_signals():
-    now = datetime.now()
+    now = datetime.utcnow()
 
     # ── هيدر ──
     col_t, col_r = st.columns([3, 1])
@@ -963,14 +904,14 @@ def render_mtf_signals():
                 📊 Multi-Timeframe Acceleration Signals
             </span><br>
             <span style='color:#64748b;font-size:11px;'>
-                W vs M | D vs W | H4 vs D | H1 vs H4 — MT5 Data
+                W vs M | D vs W | H4 vs D | H1 vs H4
             </span>
         </div>""", unsafe_allow_html=True)
     with col_r:
         st.markdown(f"""
         <div style='background:#0f172a;border:1px solid #1e293b;
                     border-radius:12px;padding:12px;text-align:center;'>
-            <div style='color:#64748b;font-size:11px;'>Local Time</div>
+            <div style='color:#64748b;font-size:11px;'>UTC Now</div>
             <div style='color:#f1c40f;font-size:16px;font-weight:700;'>
                 {now.strftime('%H:%M')}
             </div>
@@ -980,7 +921,7 @@ def render_mtf_signals():
         </div>""", unsafe_allow_html=True)
 
     # ── جلب البيانات ──
-    with st.spinner("⏳ جاري جلب البيانات من MT5..."):
+    with st.spinner("⏳ جاري جلب البيانات..."):
         data = fetch_mtf_data()
 
     # ── حساب الإشارات ──
@@ -1068,26 +1009,9 @@ def render_mtf_signals():
 
     # ── زر تحديث ──
     st.markdown("---")
-    
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button("🔄 تحديث البيانات", key="refresh_mtf"):
-            st.cache_data.clear()
-            st.rerun()
-    with col_btn2:
-        if st.button("🔌 إعادة توصيل MT5", key="reconnect_mt5"):
-            mt5.shutdown()
-            st.cache_data.clear()
-            st.rerun()
-    
-    # ── معلومات الاتصال ──
-    terminal_info = mt5.terminal_info()
-    if terminal_info:
-        st.markdown(f"""
-        <div style='color:#475569;font-size:11px;text-align:center;margin-top:0.5rem;'>
-            متصل بـ: {terminal_info.name} | النسخة: {terminal_info.build}
-        </div>
-        """, unsafe_allow_html=True)
+    if st.button("🔄 تحديث يدوي", key="refresh_mtf"):
+        st.cache_data.clear()
+        st.rerun()
 
 # ══════════════════════════════════════════════════════════════
 # MAIN APP
