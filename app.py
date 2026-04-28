@@ -901,10 +901,21 @@ def build_mtf_table(df_filtered, label):
     <tbody>{rows}</tbody></table></body></html>"""
 
 # ============================================================
-# 7. ملخص البطاقات
+# 7. ملخص البطاقات (نسخة متوافقة مع كل الاستدعاءات)
 # ============================================================
-def summary_cards(buy_count, sell_count):
-    st.markdown(f"""
+def summary_cards(*args, **kwargs):
+    """
+    نسخة مرنة تقبل:
+    - summary_cards(buy, sell)
+    - summary_cards(buy, sell, extra_label, extra_count)
+    """
+    buy_count = args[0] if len(args) > 0 else 0
+    sell_count = args[1] if len(args) > 1 else 0
+    extra_label = kwargs.get('extra_label', args[2] if len(args) > 2 else None)
+    extra_count = kwargs.get('extra_count', args[3] if len(args) > 3 else None)
+    
+    # صف البطاقات الأساسية
+    cards_html = f"""
     <div style="display:flex;gap:1rem;margin-bottom:1rem;">
         <div style="flex:1;background:linear-gradient(135deg,#0f172a,#1e293b);
                     border:1px solid #10b98133;border-radius:12px;
@@ -918,8 +929,22 @@ def summary_cards(buy_count, sell_count):
             <div style="font-size:28px;font-weight:700;color:#ef4444;">▼ {sell_count}</div>
             <div style="font-size:12px;color:#64748b;">SELL Signals</div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+    """
+    
+    # إضافة بطاقة ثالثة إذا وجدت
+    if extra_label and extra_count is not None:
+        cards_html += f"""
+        <div style="flex:1;background:linear-gradient(135deg,#0f172a,#1e293b);
+                    border:1px solid #f1c40f33;border-radius:12px;
+                    padding:16px;text-align:center;">
+            <div style="font-size:28px;font-weight:700;color:#f1c40f;">📊 {extra_count}</div>
+            <div style="font-size:12px;color:#64748b;">{extra_label}</div>
+        </div>
+        """
+    
+    cards_html += "</div>"
+    
+    st.markdown(cards_html, unsafe_allow_html=True)
 
 # ============================================================
 # 8. الـ Render الرئيسي
