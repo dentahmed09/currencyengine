@@ -597,17 +597,12 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
     )
     
 # ══════════════════════════════════════════════════════════════
-# TAB — MTF Acceleration Cycle Engine (Stable Closed Candles)
+# TAB — Multi-Timeframe Acceleration Signals
 # ══════════════════════════════════════════════════════════════
 
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
-import streamlit as st
-
-# ============================================================
-# CONFIG
-# ============================================================
 
 PAIRS_YF = {
     "EURUSD": "EURUSD=X", "EURGBP": "EURGBP=X", "EURAUD": "EURAUD=X",
@@ -622,200 +617,401 @@ PAIRS_YF = {
     "CHFJPY": "CHFJPY=X"
 }
 
-CURRENCIES = ["USD","CAD","EUR","GBP","CHF","AUD","NZD","JPY"]
-
-TF_CYCLE_MINUTES = {
-    "H1": 60,
-    "H4": 240,
-    "D": 1440,
-    "W": 10080,
-    "MN": 43200
-}
+CURRENCIES = ["USD", "CAD", "EUR", "GBP", "CHF", "AUD", "NZD", "JPY"]
 
 # ============================================================
-# 1. CYCLE CLOCK (الأساس الحقيقي للاستقرار)
+# 1. جلب البيانات
 # ============================================================
-
-def get_cycle_time(now, tf_minutes):
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_mtf_data():
     """
-    بيرجع آخر بداية دورة مكتملة فقط
-    يعني: يمنع أي شمعة غير مقفولة
+    يجلب أحدث إغلاق مكتمل لكل TF
+    ttl=60 → كل دقيقة يتحقق هل في إغلاق جديد
     """
-    delta = timedelta(minutes=tf_minutes)
-    return now - (now % delta)
+    now   = datetime.utcnow()
+    end   = now + timedelta(days=1)
+    start = now - timedelta(days=60)  # شهرين للـ Monthly
 
-# ============================================================
-# 2. FETCH DATA (RAW ONLY - بدون أي تعديل زمني)
-# ============================================================
-
-@st.cache_data(ttl=300)
-def fetch_data():
-    now = datetime.utcnow()
-    start = now - timedelta(days=60)
-    end = now + timedelta(days=1)
-
-    data = {}
+    data = {tf: {} for tf in ['MN', 'W', 'D', 'H4', 'H1']}
 
     for pair, ticker in PAIRS_YF.items():
         try:
-            df1h = yf.download(
-                ticker,
-                start=start,
-                end=end,
-                interval="1h",
-                progress=False,
-                auto_adjust=True
-            )
+            # ── H1 و H4 ──
+            df1h = yf.download(ticker, start=now - timedelta(days=7),
+                               end=end, interval='1h',
+                               progress=False, auto_adjust=True)
+            if not df1h.empty:
+                if isinstance(df1h.columns, pd.MultiIndex):
+                    df1h.columns = df1h.columns.get_level_values(0)
+                df1h.index = pd.to_datetime(df1h.index).tz_localize(None)
 
-            if df1h.empty:
-                continue
+                # H1 — آخر شمعة مغلقة
+                h1_closed = df1h[df1h.index < now]
+                if not h1_closed.empty:
+                    data['H1'][pair] = h1_closed.iloc[-1]
 
-            df1h.index = pd.to_datetime(df1h.index).tz_localize(None)
+                # H4 — تجميع من H1
+                df4h = df1h.resample('4h').agg(
+                    Open=('Open','first'), High=('High','max'),
+                    Low=('Low','min'),   Close=('Close','last')
+                ).dropna()
+                h4_closed = df4h[df4h.index < now]
+                if not h4_closed.empty:
+                    data['H4'][pair] = h4_closed.iloc[-1]
 
-            data[pair] = df1h
+            # ── Daily ──
+            df1d = yf.download(ticker, start=now - timedelta(days=10),
+                               end=end, interval='1d',
+                               progress=False, auto_adjust=True)
+            if not df1d.empty:
+                if isinstance(df1d.columns, pd.MultiIndex):
+                    df1d.columns = df1d.columns.get_level_values(0)
+                df1d.index = pd.to_datetime(df1d.index).tz_localize(None)
+                d_closed = df1d[df1d.index < now]
+                if not d_closed.empty:
+                    data['D'][pair] = d_closed.iloc[-1]
+
+            # ── Weekly ──
+            df1w = yf.download(ticker, start=now - timedelta(days=30),
+                               end=end, interval='1wk',
+                               progress=False, auto_adjust=True)
+            if not df1w.empty:
+                if isinstance(df1w.columns, pd.MultiIndex):
+                    df1w.columns = df1w.columns.get_level_values(0)
+                df1w.index = pd.to_datetime(df1w.index).tz_localize(None)
+                w_closed = df1w[df1w.index < now]
+                if not w_closed.empty:
+                    data['W'][pair] = w_closed.iloc[-1]
+
+            # ── Monthly ──
+            df1mo = yf.download(ticker, start=start,
+                                end=end, interval='1mo',
+                                progress=False, auto_adjust=True)
+            if not df1mo.empty:
+                if isinstance(df1mo.columns, pd.MultiIndex):
+                    df1mo.columns = df1mo.columns.get_level_values(0)
+                df1mo.index = pd.to_datetime(df1mo.index).tz_localize(None)
+                mo_closed = df1mo[df1mo.index < now]
+                if not mo_closed.empty:
+                    data['MN'][pair] = mo_closed.iloc[-1]
 
         except:
-            continue
+            pass
 
     return data
 
 # ============================================================
-# 3. GET CLOSED CANDLE (CORE FIX)
+# 2. حساب قوة العملات
 # ============================================================
-
-def get_closed_candle(df, tf_minutes):
+def calc_strength(tf_data):
     """
-    أهم جزء في السيستم:
-    - نجيب آخر شمعة "مقفولة فعلاً"
-    - مش الحالية
+    tf_data: dict {pair: row} حيث row فيها Open و Close
+    يرجع: dict {currency: score%}
     """
-    if df is None or df.empty:
-        return None
-
-    now = datetime.utcnow()
-    cycle_start = get_cycle_time(now, tf_minutes)
-
-    closed = df[df.index < cycle_start]
-
-    if closed.empty:
-        return None
-
-    return closed.iloc[-1]
-
-# ============================================================
-# 4. STRENGTH ENGINE
-# ============================================================
-
-def calc_strength(snapshot):
-    scores = {c: 0 for c in CURRENCIES}
+    scores   = {c: 0 for c in CURRENCIES}
     pair_dir = {}
 
     for pair in PAIRS_YF:
-        if pair in snapshot:
-            row = snapshot[pair]
+        if pair in tf_data:
+            row = tf_data[pair]
             try:
-                pair_dir[pair] = 1 if row["Close"] > row["Open"] else -1
+                o = float(row['Open']); c = float(row['Close'])
+                pair_dir[pair] = 1 if c > o else -1
             except:
                 pair_dir[pair] = 0
         else:
             pair_dir[pair] = 0
 
-    def add(curr, pair, direction):
-        if pair_dir[pair] != 0:
-            scores[curr] += 1 if pair_dir[pair] == direction else 0
+    def add(curr, pair, d):
+        if pair in pair_dir and pair_dir[pair] != 0:
+            scores[curr] += 1 if pair_dir[pair] == d else 0
 
-    add('EUR','EURUSD',1); add('EUR','EURGBP',1); add('EUR','EURCAD',1)
-    add('EUR','EURAUD',1); add('EUR','EURNZD',1); add('EUR','EURCHF',1); add('EUR','EURJPY',1)
-
+    add('EUR','EURUSD', 1); add('EUR','EURGBP', 1); add('EUR','EURCAD', 1)
+    add('EUR','EURAUD', 1); add('EUR','EURNZD', 1); add('EUR','EURCHF', 1); add('EUR','EURJPY', 1)
+    add('GBP','EURGBP',-1); add('GBP','GBPUSD', 1); add('GBP','GBPCAD', 1)
+    add('GBP','GBPAUD', 1); add('GBP','GBPNZD', 1); add('GBP','GBPCHF', 1); add('GBP','GBPJPY', 1)
+    add('AUD','EURAUD',-1); add('AUD','GBPAUD',-1); add('AUD','AUDUSD', 1)
+    add('AUD','AUDNZD', 1); add('AUD','AUDCAD', 1); add('AUD','AUDCHF', 1); add('AUD','AUDJPY', 1)
+    add('NZD','EURNZD',-1); add('NZD','GBPNZD',-1); add('NZD','AUDNZD',-1)
+    add('NZD','NZDUSD', 1); add('NZD','NZDCAD', 1); add('NZD','NZDCHF', 1); add('NZD','NZDJPY', 1)
     add('USD','EURUSD',-1); add('USD','GBPUSD',-1); add('USD','AUDUSD',-1)
-    add('USD','NZDUSD',-1); add('USD','USDCAD',1); add('USD','USDCHF',1); add('USD','USDJPY',1)
+    add('USD','NZDUSD',-1); add('USD','USDCAD', 1); add('USD','USDCHF', 1); add('USD','USDJPY', 1)
+    add('CAD','EURCAD',-1); add('CAD','GBPCAD',-1); add('CAD','AUDCAD',-1)
+    add('CAD','NZDCAD',-1); add('CAD','USDCAD',-1); add('CAD','CADCHF', 1); add('CAD','CADJPY', 1)
+    add('CHF','EURCHF',-1); add('CHF','GBPCHF',-1); add('CHF','AUDCHF',-1)
+    add('CHF','NZDCHF',-1); add('CHF','USDCHF',-1); add('CHF','CADCHF',-1); add('CHF','CHFJPY', 1)
+    add('JPY','EURJPY',-1); add('JPY','GBPJPY',-1); add('JPY','AUDJPY',-1)
+    add('JPY','NZDJPY',-1); add('JPY','USDJPY',-1); add('JPY','CADJPY',-1); add('JPY','CHFJPY',-1)
 
     return {c: round((scores[c] / 7) * 100) for c in CURRENCIES}
 
 # ============================================================
-# 5. BUILD SNAPSHOT (IMPORTANT FIX)
+# 3. حساب إشارات زوج واحد
 # ============================================================
+def get_pair_signals(pair, strengths, data):
+    base, quote = pair[:3], pair[3:]
+    results = []
 
-def build_snapshot(data, tf_minutes):
-    snapshot = {}
+    comparisons = [
+        ('W',  'MN', 'W vs M'),
+        ('D',  'W',  'D vs W'),
+        ('H4', 'D',  'H4 vs D'),
+        ('H1', 'H4', 'H1 vs H4'),
+    ]
 
-    for pair, df in data.items():
-        candle = get_closed_candle(df, tf_minutes)
-        if candle is not None:
-            snapshot[pair] = candle
+    for tf_small, tf_big, label in comparisons:
+        s_small = strengths.get(tf_small, {})
+        s_big   = strengths.get(tf_big,   {})
 
-    return snapshot
-
-# ============================================================
-# 6. SIGNAL ENGINE
-# ============================================================
-
-def generate_signals(data):
-
-    now = datetime.utcnow()
-
-    h1_snapshot = build_snapshot(data, TF_CYCLE_MINUTES["H1"])
-    h4_snapshot = build_snapshot(data, TF_CYCLE_MINUTES["H4"])
-
-    h1_strength = calc_strength(h1_snapshot)
-    h4_strength = calc_strength(h4_snapshot)
-
-    signals = []
-
-    for pair in PAIRS_YF:
-        base, quote = pair[:3], pair[3:]
-
-        b1 = h1_strength.get(base); q1 = h1_strength.get(quote)
-        b4 = h4_strength.get(base); q4 = h4_strength.get(quote)
-
-        if None in (b1,q1,b4,q4):
+        if not s_small or not s_big:
             continue
 
-        h1_score = b1 - q1
-        h4_score = b4 - q4
+        b_small = s_small.get(base);  q_small = s_small.get(quote)
+        b_big   = s_big.get(base);    q_big   = s_big.get(quote)
 
-        acceleration = h1_score - h4_score
+        if any(x is None for x in [b_small, q_small, b_big, q_big]):
+            continue
+
+        score_small = b_small - q_small
+        score_big   = b_big   - q_big
+
+        if score_small == 0 or score_big == 0:
+            continue
+
+        acceleration = score_small - score_big
+
+        # شرط السعر (مساحة)
+        bar_small = data.get(tf_small, {}).get(pair)
+        bar_big   = data.get(tf_big,   {}).get(pair)
+
+        if bar_small is None or bar_big is None:
+            continue
+
+        try:
+            high_small = float(bar_small['High']); low_small = float(bar_small['Low'])
+            high_big   = float(bar_big['High']);   low_big   = float(bar_big['Low'])
+            close_small= float(bar_small['Close'])
+        except:
+            continue
 
         # BUY
-        if h4_score > 0 and h1_score > h4_score:
-            signals.append({
-                "pair": pair,
-                "signal": "BUY",
-                "h1": h1_score,
-                "h4": h4_score,
-                "acc": acceleration
+        if score_small > 0 and score_big > 0 and score_small > score_big:
+            if high_small >= high_big:
+                continue
+            results.append({
+                'pair':        pair,
+                'comparison':  label,
+                'signal':      'BUY',
+                'score_small': score_small,
+                'score_big':   score_big,
+                'acceleration':round(acceleration, 2),
+                'entry':       round(close_small, 5),
+                'target':      round(high_big, 5),
             })
 
         # SELL
-        elif h4_score < 0 and h1_score < h4_score:
-            signals.append({
-                "pair": pair,
-                "signal": "SELL",
-                "h1": h1_score,
-                "h4": h4_score,
-                "acc": abs(acceleration)
+        elif score_small < 0 and score_big < 0 and score_small < score_big:
+            if low_small <= low_big:
+                continue
+            results.append({
+                'pair':        pair,
+                'comparison':  label,
+                'signal':      'SELL',
+                'score_small': score_small,
+                'score_big':   score_big,
+                'acceleration':round(abs(acceleration), 2),
+                'entry':       round(close_small, 5),
+                'target':      round(low_big, 5),
             })
 
-    return pd.DataFrame(signals)
+    return results
 
 # ============================================================
-# 7. RENDER TAB
+# 4. حساب كل الإشارات
 # ============================================================
+def get_all_signals(data):
+    # حساب الـ Strength لكل TF
+    strengths = {tf: calc_strength(data[tf]) for tf in ['MN','W','D','H4','H1']}
 
+    all_signals = []
+    for pair in PAIRS_YF:
+        all_signals.extend(get_pair_signals(pair, strengths, data))
+
+    df = pd.DataFrame(all_signals)
+    if not df.empty:
+        df = df.sort_values('acceleration', ascending=False)
+    return df, strengths
+
+# ============================================================
+# 5. عرض جدول
+# ============================================================
+def build_mtf_table(df_filtered, label):
+    if df_filtered.empty:
+        return f"<p style='color:#475569;'>لا توجد إشارات — {label}</p>"
+
+    rows = ""
+    for _, row in df_filtered.iterrows():
+        sc, sbg   = signal_color(row['signal'])
+        acc_color = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
+        tgt_color = '#10b981' if row['signal'] == 'BUY' else '#ef4444'
+
+        rows += f"""
+        <tr style="border-bottom:1px solid #1e293b;">
+            <td style="font-weight:700;color:#e2e8f0;font-size:14px;">{row['pair']}</td>
+            <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
+                         padding:4px 12px;border-radius:20px;font-weight:700;font-size:13px;">
+                         {row['signal']}</span></td>
+            <td style="color:{acc_color};font-weight:700;">+{row['acceleration']}</td>
+            <td style="color:#94a3b8;">{row['score_small']:+.0f}</td>
+            <td style="color:#64748b;">{row['score_big']:+.0f}</td>
+            <td style="color:#e2e8f0;font-family:monospace;font-size:13px;">{row['entry']}</td>
+            <td style="color:{tgt_color};font-family:monospace;font-size:13px;">{row['target']}</td>
+        </tr>"""
+
+    headers = ["Pair","Signal","⚡ Acc","Score Small","Score Big","Entry","🎯 Target"]
+    h_html  = "".join([f"<th>{h}</th>" for h in headers])
+
+    return f"""
+    <!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+        body{{margin:0;padding:0;background:transparent;
+             font-family:-apple-system,BlinkMacSystemFont,sans-serif;}}
+        table{{width:100%;border-collapse:collapse;
+               background:linear-gradient(135deg,#0f172a,#1e293b);
+               border-radius:12px;overflow:hidden;}}
+        th{{background:#1e293b;color:#f1c40f;padding:10px 8px;
+           text-align:left;font-size:12px;font-weight:600;
+           border-bottom:2px solid #f1c40f;white-space:nowrap;}}
+        tr:hover{{background:rgba(241,196,15,0.04);}}
+        td{{padding:10px 8px;}}
+    </style></head><body>
+    <table><thead><tr>{h_html}</tr></thead>
+    <tbody>{rows}</tbody></table></body></html>"""
+
+# ============================================================
+# 6. الـ Render الرئيسي
+# ============================================================
 def render_mtf_signals():
+    now = datetime.utcnow()
 
-    st.title("📊 MTF Acceleration (Cycle Engine)")
+    # ── هيدر ──
+    col_t, col_r = st.columns([3, 1])
+    with col_t:
+        st.markdown("""
+        <div style='background:#0f172a;border:1px solid rgba(241,196,15,0.2);
+                    border-radius:12px;padding:14px 20px;margin-bottom:1rem;'>
+            <span style='color:#f1c40f;font-size:15px;font-weight:700;'>
+                📊 Multi-Timeframe Acceleration Signals
+            </span><br>
+            <span style='color:#64748b;font-size:11px;'>
+                W vs M | D vs W | H4 vs D | H1 vs H4
+            </span>
+        </div>""", unsafe_allow_html=True)
+    with col_r:
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid #1e293b;
+                    border-radius:12px;padding:12px;text-align:center;'>
+            <div style='color:#64748b;font-size:11px;'>UTC Now</div>
+            <div style='color:#f1c40f;font-size:16px;font-weight:700;'>
+                {now.strftime('%H:%M')}
+            </div>
+            <div style='color:#475569;font-size:10px;'>
+                {now.strftime('%Y-%m-%d')}
+            </div>
+        </div>""", unsafe_allow_html=True)
 
-    data = fetch_data()
-    df = generate_signals(data)
+    # ── جلب البيانات ──
+    with st.spinner("⏳ جاري جلب البيانات..."):
+        data = fetch_mtf_data()
 
-    if df.empty:
-        st.info("No signals")
+    # ── حساب الإشارات ──
+    df_all, strengths = get_all_signals(data)
+
+    if df_all.empty:
+        st.info("📭 لا توجد إشارات حالياً")
+        if st.button("🔄 تحديث", key="refresh_mtf"):
+            st.cache_data.clear()
+            st.rerun()
         return
 
-    st.dataframe(df.sort_values("acc", ascending=False))
+    # ── ملخص عام ──
+    buy_total  = len(df_all[df_all['signal'] == 'BUY'])
+    sell_total = len(df_all[df_all['signal'] == 'SELL'])
+    summary_cards(buy_total, sell_total)
+    st.markdown("---")
 
-    st.caption("✔ Signals update only on CLOSED candle cycles (no repaint)")
+    # ── عرض Strength Table ──
+    with st.expander("💪 Currency Strength by Timeframe", expanded=False):
+        tf_labels = {'MN':'Monthly','W':'Weekly','D':'Daily','H4':'H4','H1':'H1'}
+        strength_rows = ""
+        for curr in CURRENCIES:
+            flag = {"USD":"🇺🇸","EUR":"🇪🇺","GBP":"🇬🇧","JPY":"🇯🇵",
+                    "CHF":"🇨🇭","CAD":"🇨🇦","AUD":"🇦🇺","NZD":"🇳🇿"}.get(curr,"")
+            cells = f"<td style='font-weight:700;color:#e2e8f0;'>{flag} {curr}</td>"
+            for tf in ['MN','W','D','H4','H1']:
+                val = strengths.get(tf, {}).get(curr, 0)
+                color = '#10b981' if val >= 57 else '#ef4444' if val <= 43 else '#94a3b8'
+                cells += f"<td style='color:{color};font-weight:600;'>{val}%</td>"
+            strength_rows += f"<tr style='border-bottom:1px solid #1e293b;'>{cells}</tr>"
+
+        tf_heads = "".join([f"<th>{tf_labels[t]}</th>" for t in ['MN','W','D','H4','H1']])
+        st.components.v1.html(f"""
+        <!DOCTYPE html><html><head><meta charset="UTF-8">
+        <style>
+            body{{margin:0;padding:0;font-family:sans-serif;background:transparent;}}
+            table{{width:100%;border-collapse:collapse;
+                   background:#0f172a;border-radius:10px;overflow:hidden;}}
+            th{{background:#1e293b;color:#f1c40f;padding:8px;font-size:12px;
+               border-bottom:2px solid #f1c40f;}}
+            td{{padding:8px;text-align:center;}}
+        </style></head><body>
+        <table><thead><tr><th>Currency</th>{tf_heads}</tr></thead>
+        <tbody>{strength_rows}</tbody></table></body></html>
+        """, height=280)
+
+    st.markdown("---")
+
+    # ── 4 جداول الإشارات ──
+    comparisons = [
+        ('W vs M',  '📅 Weekly vs Monthly',  'أكبر إطار'),
+        ('D vs W',  '📆 Daily vs Weekly',    'إطار متوسط'),
+        ('H4 vs D', '⏰ H4 vs Daily',        'إطار قصير'),
+        ('H1 vs H4','⚡ H1 vs H4',           'أصغر إطار'),
+    ]
+
+    for comp_key, comp_label, comp_desc in comparisons:
+        df_comp = df_all[df_all['comparison'] == comp_key]
+        buy_c   = len(df_comp[df_comp['signal'] == 'BUY'])
+        sell_c  = len(df_comp[df_comp['signal'] == 'SELL'])
+
+        st.markdown(f"""
+        <div style='background:#0f172a;border:1px solid #1e293b;
+                    border-radius:10px;padding:10px 16px;margin:1rem 0 0.5rem;
+                    display:flex;justify-content:space-between;align-items:center;'>
+            <span style='color:#f1c40f;font-size:14px;font-weight:700;'>{comp_label}</span>
+            <span style='color:#64748b;font-size:11px;'>{comp_desc}</span>
+            <span>
+                <span style='color:#10b981;font-weight:700;margin-left:12px;'>
+                    ▲ {buy_c} BUY</span>
+                <span style='color:#ef4444;font-weight:700;margin-left:12px;'>
+                    ▼ {sell_c} SELL</span>
+            </span>
+        </div>""", unsafe_allow_html=True)
+
+        if df_comp.empty:
+            st.info(f"📭 لا توجد إشارات — {comp_label}")
+        else:
+            st.components.v1.html(
+                build_mtf_table(df_comp, comp_label),
+                height=max(150, len(df_comp) * 46 + 60),
+                scrolling=True
+            )
+
+    # ── زر تحديث ──
+    st.markdown("---")
+    if st.button("🔄 تحديث يدوي", key="refresh_mtf"):
+        st.cache_data.clear()
+        st.rerun()
 
 # ══════════════════════════════════════════════════════════════
 # MAIN APP
