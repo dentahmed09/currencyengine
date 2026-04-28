@@ -597,107 +597,111 @@ def render_scalping_signals(db_daily, db_weekly, db_monthly, selected_date):
     )
     
 # ══════════════════════════════════════════════════════════════
-# TAB — Multi-Timeframe Acceleration Signals
+# TAB — Multi-Timeframe Acceleration Signals (Twelve Data)
 # ══════════════════════════════════════════════════════════════
 
-import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
+import streamlit as st
+from twelvedata import TDClient
+import time
 
-PAIRS_YF = {
-    "EURUSD": "EURUSD=X", "EURGBP": "EURGBP=X", "EURAUD": "EURAUD=X",
-    "EURNZD": "EURNZD=X", "EURCAD": "EURCAD=X", "EURCHF": "EURCHF=X",
-    "EURJPY": "EURJPY=X", "GBPUSD": "GBPUSD=X", "GBPAUD": "GBPAUD=X",
-    "GBPNZD": "GBPNZD=X", "GBPCAD": "GBPCAD=X", "GBPCHF": "GBPCHF=X",
-    "GBPJPY": "GBPJPY=X", "AUDUSD": "AUDUSD=X", "AUDNZD": "AUDNZD=X",
-    "AUDCAD": "AUDCAD=X", "AUDCHF": "AUDCHF=X", "AUDJPY": "AUDJPY=X",
-    "NZDUSD": "NZDUSD=X", "NZDCAD": "NZDCAD=X", "NZDCHF": "NZDCHF=X",
-    "NZDJPY": "NZDJPY=X", "USDCAD": "USDCAD=X", "USDCHF": "USDCHF=X",
-    "USDJPY": "USDJPY=X", "CADCHF": "CADCHF=X", "CADJPY": "CADJPY=X",
-    "CHFJPY": "CHFJPY=X"
+# ============================================================
+# إعدادات Twelve Data
+# ============================================================
+TD_API_KEY = "6c46e747e6154bd78ecc0c7cfaaf5a39"
+td = TDClient(apikey=TD_API_KEY)
+
+# ============================================================
+# أسماء الأزواج
+# ============================================================
+PAIRS = {
+    "EURUSD": "EUR/USD", "EURGBP": "EUR/GBP", "EURAUD": "EUR/AUD",
+    "EURNZD": "EUR/NZD", "EURCAD": "EUR/CAD", "EURCHF": "EUR/CHF",
+    "EURJPY": "EUR/JPY", "GBPUSD": "GBP/USD", "GBPAUD": "GBP/AUD",
+    "GBPNZD": "GBP/NZD", "GBPCAD": "GBP/CAD", "GBPCHF": "GBP/CHF",
+    "GBPJPY": "GBP/JPY", "AUDUSD": "AUD/USD", "AUDNZD": "AUD/NZD",
+    "AUDCAD": "AUD/CAD", "AUDCHF": "AUD/CHF", "AUDJPY": "AUD/JPY",
+    "NZDUSD": "NZD/USD", "NZDCAD": "NZD/CAD", "NZDCHF": "NZD/CHF",
+    "NZDJPY": "NZD/JPY", "USDCAD": "USD/CAD", "USDCHF": "USD/CHF",
+    "USDJPY": "USD/JPY", "CADCHF": "CAD/CHF", "CADJPY": "CAD/JPY",
+    "CHFJPY": "CHF/JPY"
 }
 
 CURRENCIES = ["USD", "CAD", "EUR", "GBP", "CHF", "AUD", "NZD", "JPY"]
 
+# تحويل الفريمات لـ Twelve Data
+INTERVAL_MAP = {
+    'MN': '1month',
+    'W': '1week',
+    'D': '1day',
+    'H4': '4h',
+    'H1': '1h',
+}
+
 # ============================================================
-# 1. جلب البيانات
+# 1. جلب البيانات من Twelve Data
 # ============================================================
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)  # 5 دقائق كاش
 def fetch_mtf_data():
     """
-    يجلب أحدث إغلاق مكتمل لكل TF
-    ttl=60 → كل دقيقة يتحقق هل في إغلاق جديد
+    يجلب أحدث إغلاق مكتمل لكل TF من Twelve Data
     """
-    now   = datetime.utcnow()
-    end   = now + timedelta(days=1)
-    start = now - timedelta(days=60)  # شهرين للـ Monthly
-
     data = {tf: {} for tf in ['MN', 'W', 'D', 'H4', 'H1']}
-
-    for pair, ticker in PAIRS_YF.items():
+    
+    total_pairs = len(PAIRS)
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for idx, (pair_name, symbol) in enumerate(PAIRS.items()):
         try:
-            # ── H1 و H4 ──
-            df1h = yf.download(ticker, start=now - timedelta(days=7),
-                               end=end, interval='1h',
-                               progress=False, auto_adjust=True)
-            if not df1h.empty:
-                if isinstance(df1h.columns, pd.MultiIndex):
-                    df1h.columns = df1h.columns.get_level_values(0)
-                df1h.index = pd.to_datetime(df1h.index).tz_localize(None)
-
-                # H1 — آخر شمعة مغلقة
-                h1_closed = df1h[df1h.index < now]
-                if not h1_closed.empty:
-                    data['H1'][pair] = h1_closed.iloc[-1]
-
-                # H4 — تجميع من H1
-                df4h = df1h.resample('4h').agg(
-                    Open=('Open','first'), High=('High','max'),
-                    Low=('Low','min'),   Close=('Close','last')
-                ).dropna()
-                h4_closed = df4h[df4h.index < now]
-                if not h4_closed.empty:
-                    data['H4'][pair] = h4_closed.iloc[-1]
-
-            # ── Daily ──
-            df1d = yf.download(ticker, start=now - timedelta(days=10),
-                               end=end, interval='1d',
-                               progress=False, auto_adjust=True)
-            if not df1d.empty:
-                if isinstance(df1d.columns, pd.MultiIndex):
-                    df1d.columns = df1d.columns.get_level_values(0)
-                df1d.index = pd.to_datetime(df1d.index).tz_localize(None)
-                d_closed = df1d[df1d.index < now]
-                if not d_closed.empty:
-                    data['D'][pair] = d_closed.iloc[-1]
-
-            # ── Weekly ──
-            df1w = yf.download(ticker, start=now - timedelta(days=30),
-                               end=end, interval='1wk',
-                               progress=False, auto_adjust=True)
-            if not df1w.empty:
-                if isinstance(df1w.columns, pd.MultiIndex):
-                    df1w.columns = df1w.columns.get_level_values(0)
-                df1w.index = pd.to_datetime(df1w.index).tz_localize(None)
-                w_closed = df1w[df1w.index < now]
-                if not w_closed.empty:
-                    data['W'][pair] = w_closed.iloc[-1]
-
-            # ── Monthly ──
-            df1mo = yf.download(ticker, start=start,
-                                end=end, interval='1mo',
-                                progress=False, auto_adjust=True)
-            if not df1mo.empty:
-                if isinstance(df1mo.columns, pd.MultiIndex):
-                    df1mo.columns = df1mo.columns.get_level_values(0)
-                df1mo.index = pd.to_datetime(df1mo.index).tz_localize(None)
-                mo_closed = df1mo[df1mo.index < now]
-                if not mo_closed.empty:
-                    data['MN'][pair] = mo_closed.iloc[-1]
-
-        except:
-            pass
-
+            # تحديث شريط التقدم
+            progress = (idx + 1) / total_pairs
+            progress_bar.progress(progress)
+            status_text.text(f"جاري جلب {pair_name}... ({idx+1}/{total_pairs})")
+            
+            for tf_name, interval in INTERVAL_MAP.items():
+                try:
+                    # جلب آخر شمعتين للتأكد من الإغلاق
+                    ts = td.time_series(
+                        symbol=symbol,
+                        interval=interval,
+                        outputsize=2,
+                        timezone="UTC"
+                    ).as_pandas()
+                    
+                    if ts is None or ts.empty:
+                        continue
+                    
+                    # ترتيب تصاعدي
+                    ts = ts.sort_index()
+                    
+                    # آخر شمعة مغلقة (نأخذ الثانية إذا الأولى لم تغلق بعد)
+                    if len(ts) >= 2:
+                        last_candle = ts.iloc[-2]  # الشمعة قبل الأخيرة (مغلقة بالتأكيد)
+                    else:
+                        last_candle = ts.iloc[-1]
+                    
+                    # تخزين البيانات
+                    data[tf_name][pair_name] = {
+                        'Open': float(last_candle['open']),
+                        'High': float(last_candle['high']),
+                        'Low': float(last_candle['low']),
+                        'Close': float(last_candle['close'])
+                    }
+                    
+                except Exception as e:
+                    continue
+                    
+            # تأخير بسيط لتجنب حدود API
+            time.sleep(0.1)
+            
+        except Exception as e:
+            continue
+    
+    progress_bar.empty()
+    status_text.empty()
+    
     return data
 
 # ============================================================
@@ -711,7 +715,7 @@ def calc_strength(tf_data):
     scores   = {c: 0 for c in CURRENCIES}
     pair_dir = {}
 
-    for pair in PAIRS_YF:
+    for pair in PAIRS:
         if pair in tf_data:
             row = tf_data[pair]
             try:
@@ -834,7 +838,7 @@ def get_all_signals(data):
     strengths = {tf: calc_strength(data[tf]) for tf in ['MN','W','D','H4','H1']}
 
     all_signals = []
-    for pair in PAIRS_YF:
+    for pair in PAIRS:
         all_signals.extend(get_pair_signals(pair, strengths, data))
 
     df = pd.DataFrame(all_signals)
@@ -843,7 +847,15 @@ def get_all_signals(data):
     return df, strengths
 
 # ============================================================
-# 5. عرض جدول
+# 5. ألوان الإشارات
+# ============================================================
+def signal_color(signal):
+    if signal == 'BUY':
+        return '#10b981', 'rgba(16,185,129,0.12)'
+    return '#ef4444', 'rgba(239,68,68,0.12)'
+
+# ============================================================
+# 6. عرض جدول
 # ============================================================
 def build_mtf_table(df_filtered, label):
     if df_filtered.empty:
@@ -889,10 +901,31 @@ def build_mtf_table(df_filtered, label):
     <tbody>{rows}</tbody></table></body></html>"""
 
 # ============================================================
-# 6. الـ Render الرئيسي
+# 7. ملخص البطاقات
+# ============================================================
+def summary_cards(buy_count, sell_count):
+    st.markdown(f"""
+    <div style="display:flex;gap:1rem;margin-bottom:1rem;">
+        <div style="flex:1;background:linear-gradient(135deg,#0f172a,#1e293b);
+                    border:1px solid #10b98133;border-radius:12px;
+                    padding:16px;text-align:center;">
+            <div style="font-size:28px;font-weight:700;color:#10b981;">▲ {buy_count}</div>
+            <div style="font-size:12px;color:#64748b;">BUY Signals</div>
+        </div>
+        <div style="flex:1;background:linear-gradient(135deg,#0f172a,#1e293b);
+                    border:1px solid #ef444433;border-radius:12px;
+                    padding:16px;text-align:center;">
+            <div style="font-size:28px;font-weight:700;color:#ef4444;">▼ {sell_count}</div>
+            <div style="font-size:12px;color:#64748b;">SELL Signals</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================
+# 8. الـ Render الرئيسي
 # ============================================================
 def render_mtf_signals():
-    now = datetime.utcnow()
+    now = datetime.now()
 
     # ── هيدر ──
     col_t, col_r = st.columns([3, 1])
@@ -904,14 +937,14 @@ def render_mtf_signals():
                 📊 Multi-Timeframe Acceleration Signals
             </span><br>
             <span style='color:#64748b;font-size:11px;'>
-                W vs M | D vs W | H4 vs D | H1 vs H4
+                W vs M | D vs W | H4 vs D | H1 vs H4 — Twelve Data
             </span>
         </div>""", unsafe_allow_html=True)
     with col_r:
         st.markdown(f"""
         <div style='background:#0f172a;border:1px solid #1e293b;
                     border-radius:12px;padding:12px;text-align:center;'>
-            <div style='color:#64748b;font-size:11px;'>UTC Now</div>
+            <div style='color:#64748b;font-size:11px;'>Local Time</div>
             <div style='color:#f1c40f;font-size:16px;font-weight:700;'>
                 {now.strftime('%H:%M')}
             </div>
@@ -921,7 +954,7 @@ def render_mtf_signals():
         </div>""", unsafe_allow_html=True)
 
     # ── جلب البيانات ──
-    with st.spinner("⏳ جاري جلب البيانات..."):
+    with st.spinner("⏳ جاري جلب البيانات من Twelve Data..."):
         data = fetch_mtf_data()
 
     # ── حساب الإشارات ──
@@ -1007,11 +1040,20 @@ def render_mtf_signals():
                 scrolling=True
             )
 
-    # ── زر تحديث ──
+    # ── معلومات الاستخدام ──
     st.markdown("---")
-    if st.button("🔄 تحديث يدوي", key="refresh_mtf"):
-        st.cache_data.clear()
-        st.rerun()
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("🔄 تحديث البيانات", key="refresh_mtf"):
+            st.cache_data.clear()
+            st.rerun()
+    with col_btn2:
+        st.markdown(f"""
+        <div style='color:#475569;font-size:11px;text-align:center;padding:8px;'>
+            ⚡ Twelve Data API | تحديث كل 5 دقائق
+        </div>
+        """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 # MAIN APP
