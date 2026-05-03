@@ -275,7 +275,7 @@ def render_date_selector(db_daily):
     return selected_date
 
 # ══════════════════════════════════════════════════════════════
-# TAB 1 — Daily Signals
+# TAB 1 — Daily Signals  (ECONOMY ONLY — 4 categories)
 # ══════════════════════════════════════════════════════════════
 def render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, selected_date):
 
@@ -283,152 +283,194 @@ def render_daily_signals(db_daily, db_economy, db_yield, db_weekly, db_monthly, 
         st.info("📊 يرجى إدخال بيانات Daily و ECONOMY أولاً")
         return
 
-    daily_curr, daily_prev     = get_row_for_date(db_daily,   'Date', selected_date)
-    eco_curr,   eco_prev       = get_row_for_date(db_economy,  'Date', selected_date)
-    yield_curr, yield_prev     = get_row_for_date(db_yield,    'Date', selected_date) if not db_yield.empty else (None, None)
-    weekly_curr, weekly_prev   = get_weekly_row(db_weekly,   selected_date)
-    monthly_curr, monthly_prev = get_monthly_row(db_monthly, selected_date)
+    eco_curr, eco_prev = get_row_for_date(db_economy, 'Date', selected_date)
 
-    if daily_curr is None or eco_curr is None:
-        st.error(f"❌ لا توجد بيانات للتاريخ {selected_date}")
+    if eco_curr is None or eco_prev is None:
+        st.error(f"❌ لا توجد بيانات اقتصادية كافية للتاريخ {selected_date}")
         return
 
-    def get_pair_signal(base, quote):
-        eco_base  = get_direction(eco_curr,   eco_prev,   base)
-        eco_quote = get_direction(eco_curr,   eco_prev,   quote)
-        yld_base  = get_direction(yield_curr, yield_prev, base)  if yield_curr is not None else None
-        yld_quote = get_direction(yield_curr, yield_prev, quote) if yield_curr is not None else None
+    # ── بناء قائمة الأزواج مع تصنيفها ──
+    crossover   = []   # تقاطع  : base صاعد + quote هابط (أو عكس)
+    alignment   = []   # توافق  : الاثنين صاعدين أو الاثنين هابطين
+    single_move = []   # قوة وحده: واحدة تتحرك والثانية flat
+    stagnation  = []   # ثبات   : الاثنين flat / null
 
-        daily_val = None
-        b = daily_curr.get(base, 0)
-        q = daily_curr.get(quote, 0)
-        if pd.notna(b) and pd.notna(q):
-            diff      = b - q
-            daily_val = 'up' if diff > 0 else 'down' if diff < 0 else 'flat'
+    for pair in pairs:
+        base  = pair[:3]
+        quote = pair[3:]
 
-        if eco_base == 'up' and eco_quote == 'down':
-            signal     = 'BUY'
-            confidence = 80 if daily_val == 'up' else 75
-        elif eco_base == 'down' and eco_quote == 'up':
-            signal     = 'SELL'
-            confidence = 80 if daily_val == 'down' else 75
-        elif (eco_base == 'up' and eco_quote != 'down') or (eco_quote == 'down' and eco_base != 'up'):
-            signal     = 'BUY'
-            confidence = 70 if daily_val == 'up' else 65
-        elif (eco_base == 'down' and eco_quote != 'up') or (eco_quote == 'up' and eco_base != 'down'):
-            signal     = 'SELL'
-            confidence = 70 if daily_val == 'down' else 65
-        elif eco_base in ('flat', None) or eco_quote in ('flat', None):
-            yld_signal = None
-            if yld_base is not None and yld_quote is not None:
-                if (yld_base == 'up' and yld_quote != 'up') or (yld_quote == 'down' and yld_base != 'down'):
-                    yld_signal = 'BUY'
-                elif (yld_base == 'down' and yld_quote != 'down') or (yld_quote == 'up' and yld_base != 'up'):
-                    yld_signal = 'SELL'
-            if yld_signal == 'BUY' and daily_val == 'up':
-                signal, confidence = 'BUY', 60
-            elif yld_signal == 'SELL' and daily_val == 'down':
-                signal, confidence = 'SELL', 60
-            else:
-                signal, confidence = 'WAIT', 0
-        else:
-            signal, confidence = 'WAIT', 0
+        dir_base  = get_direction(eco_curr, eco_prev, base)
+        dir_quote = get_direction(eco_curr, eco_prev, quote)
 
-        # Scores
-        daily_score  = (daily_curr.get(base, 0)   - daily_curr.get(quote, 0))   if daily_curr  is not None else None
-        weekly_score = (weekly_curr.get(base, 0)   - weekly_curr.get(quote, 0))  if weekly_curr is not None else None
-        monthly_score= (monthly_curr.get(base, 0)  - monthly_curr.get(quote, 0)) if monthly_curr is not None else None
+        # فرق السكور الاقتصادي اليومي
+        try:
+            score_base  = float(eco_curr.get(base,  0) or 0)
+            score_quote = float(eco_curr.get(quote, 0) or 0)
+            eco_diff    = round(score_base - score_quote, 2)
+        except Exception:
+            eco_diff = None
 
-        return {
-            'signal': signal, 'confidence': confidence,
-            'daily_score': daily_score,
-            'weekly_score': weekly_score,
-            'monthly_score': monthly_score,
+        row = {
+            "pair":        pair,
+            "dir_base":    dir_base,
+            "dir_quote":   dir_quote,
+            "eco_diff":    eco_diff,
         }
 
-    results = []
-    for pair in pairs:
-        base, quote = pair[:3], pair[3:]
-        r = get_pair_signal(base, quote)
-        r['pair'] = pair
-        results.append(r)
+        # التصنيف
+        if dir_base == 'up'   and dir_quote == 'down':
+            row["signal"] = "BUY"
+            crossover.append(row)
+        elif dir_base == 'down' and dir_quote == 'up':
+            row["signal"] = "SELL"
+            crossover.append(row)
+        elif dir_base == 'up'   and dir_quote == 'up':
+            row["signal"] = "ALIGN↑"
+            alignment.append(row)
+        elif dir_base == 'down' and dir_quote == 'down':
+            row["signal"] = "ALIGN↓"
+            alignment.append(row)
+        elif (dir_base in ('up', 'down') and dir_quote == 'flat') or \
+             (dir_quote in ('up', 'down') and dir_base == 'flat'):
+            row["signal"] = "BUY" if (
+                (dir_base == 'up'   and dir_quote == 'flat') or
+                (dir_quote == 'down' and dir_base == 'flat')
+            ) else "SELL"
+            single_move.append(row)
+        else:
+            row["signal"] = "FLAT"
+            stagnation.append(row)
 
-    df = pd.DataFrame(results)
-    df = df[df['signal'] != 'WAIT'].sort_values('confidence', ascending=False)
+    # ═══════════════════════════════════
+    # دالة بناء جدول HTML موحد
+    # ═══════════════════════════════════
+    def fmt_dir(d):
+        if d == 'up':   return '<span style="color:#10b981;font-weight:700;">▲ UP</span>'
+        if d == 'down': return '<span style="color:#ef4444;font-weight:700;">▼ DOWN</span>'
+        if d == 'flat': return '<span style="color:#64748b;">— FLAT</span>'
+        return '<span style="color:#334155;">N/A</span>'
 
-    # ── ملخص ──
-    buy_count  = len(df[df['signal'] == 'BUY'])
-    sell_count = len(df[df['signal'] == 'SELL'])
+    def fmt_diff(val):
+        if val is None: return '<span style="color:#334155;">—</span>'
+        color = '#10b981' if val > 0 else '#ef4444' if val < 0 else '#64748b'
+        sign  = '+' if val > 0 else ''
+        return f'<span style="color:{color};font-weight:700;">{sign}{val}</span>'
 
-    count_80 = len(df[df['confidence'] == 80])
-    count_75 = len(df[df['confidence'] == 75])
-    count_70 = len(df[df['confidence'] == 70])
-    count_65 = len(df[df['confidence'] == 65])
-    count_60 = len(df[df['confidence'] == 60])
+    def build_rows(data_list):
+        rows = ""
+        for row in data_list:
+            sc, sbg = signal_color(row['signal'])
+            rows += f"""
+            <tr style="border-bottom:1px solid #1e293b;">
+                <td style="font-weight:700;color:#e2e8f0;font-size:14px;">{row['pair']}</td>
+                <td>{fmt_dir(row['dir_base'])}</td>
+                <td>{fmt_dir(row['dir_quote'])}</td>
+                <td>{fmt_diff(row['eco_diff'])}</td>
+                <td>
+                    <span style="background:{sbg};color:{sc};border:1px solid {sc};
+                                 padding:4px 14px;border-radius:20px;font-weight:700;font-size:12px;">
+                        {row['signal']}
+                    </span>
+                </td>
+            </tr>"""
+        return rows
 
-    summary_cards(buy_count, sell_count)
-    st.markdown("---")
+    HEADERS = ["Pair", "Base Dir", "Quote Dir", "Eco Diff (Base − Quote)", "Signal"]
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    for col, label, count, color, desc in [
-        (c1, "80%", count_80, '#059669', 'Cross + Daily'),
-        (c2, "75%", count_75, '#10b981', 'Cross Only'),
-        (c3, "70%", count_70, '#f1c40f', 'One-Side + Daily'),
-        (c4, "65%", count_65, '#f97316', 'One-Side Only'),
-        (c5, "60%", count_60, '#8b5cf6', 'Yield + Daily'),
+    # ═══════════════════════════════════
+    # ملخص أعلى الصفحة
+    # ═══════════════════════════════════
+    c1, c2, c3, c4 = st.columns(4)
+    for col, label, count, color, icon in [
+        (c1, "تقاطع",    len(crossover),   '#10b981', '🔀'),
+        (c2, "توافق",    len(alignment),   '#3b82f6', '🤝'),
+        (c3, "قوة وحده", len(single_move), '#f1c40f', '⚡'),
+        (c4, "ثبات",     len(stagnation),  '#64748b', '➖'),
     ]:
         with col:
             st.markdown(f"""
             <div style='background:rgba(0,0,0,0.2);border:1px solid {color};
-                        border-radius:12px;padding:14px;text-align:center;'>
-                <div style='font-size:20px;font-weight:bold;color:{color};'>{count}</div>
-                <div style='font-size:13px;font-weight:bold;color:{color};'>{label}</div>
-                <div style='font-size:10px;color:#64748b;'>{desc}</div>
+                        border-radius:12px;padding:16px;text-align:center;'>
+                <div style='font-size:20px;'>{icon}</div>
+                <div style='font-size:24px;font-weight:bold;color:{color};'>{count}</div>
+                <div style='font-size:13px;color:{color};font-weight:600;'>{label}</div>
             </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # ── جدول الإشارات ──
-    def build_rows(df):
-        rows = ""
-        for _, row in df.iterrows():
-            sc, sbg = signal_color(row['signal'])
-            conf    = row['confidence']
+    # ═══════════════════════════════════
+    # 1 — تقاطع
+    # ═══════════════════════════════════
+    st.markdown("""
+    <div style='background:#0f172a;border-right:3px solid #10b981;
+                border-radius:8px;padding:10px 16px;margin-bottom:0.75rem;'>
+        <span style='color:#10b981;font-size:14px;font-weight:700;'>🔀 تقاطع</span>
+        <span style='color:#64748b;font-size:12px;margin-right:12px;'>
+            اقتصاد Base صاعد + Quote هابط (أو العكس)
+        </span>
+    </div>""", unsafe_allow_html=True)
 
-            conf_colors = {80:'#059669', 75:'#10b981', 70:'#f1c40f', 65:'#f97316', 60:'#8b5cf6'}
-            cc = conf_colors.get(conf, '#64748b')
+    if crossover:
+        html_table(HEADERS, build_rows(crossover), height=max(150, len(crossover) * 50 + 56))
+    else:
+        st.info("لا توجد أزواج في هذا التصنيف")
 
-            def fmt_score(val):
-                if val is None or pd.isna(val): return '<span style="color:#64748b;">—</span>'
-                c = '#10b981' if val > 0 else '#ef4444'
-                t = 'Target High' if val > 0 else 'Target Low'
-                return f'<span style="color:{c};font-weight:600;">{abs(val):.1f}% ({t})</span>'
+    st.markdown("---")
 
-            rows += f"""
-            <tr style="border-bottom:1px solid #1e293b;">
-                <td style="font-weight:700;color:#e2e8f0;font-size:14px;">{row['pair']}</td>
-                <td><span style="background:{sbg};color:{sc};border:1px solid {sc};
-                             padding:5px 14px;border-radius:20px;font-weight:700;">{row['signal']}</span></td>
-                <td>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div style="background:#1e293b;border-radius:4px;height:6px;width:60px;overflow:hidden;">
-                            <div style="background:{cc};height:100%;width:{conf}%;border-radius:4px;"></div>
-                        </div>
-                        <span style="color:{cc};font-weight:700;">{conf}%</span>
-                    </div>
-                </td>
-                <td>{fmt_score(row['daily_score'])}</td>
-                <td>{fmt_score(row['weekly_score'])}</td>
-                <td>{fmt_score(row['monthly_score'])}</td>
-            </tr>"""
-        return rows
+    # ═══════════════════════════════════
+    # 2 — توافق
+    # ═══════════════════════════════════
+    st.markdown("""
+    <div style='background:#0f172a;border-right:3px solid #3b82f6;
+                border-radius:8px;padding:10px 16px;margin-bottom:0.75rem;'>
+        <span style='color:#3b82f6;font-size:14px;font-weight:700;'>🤝 توافق</span>
+        <span style='color:#64748b;font-size:12px;margin-right:12px;'>
+            الاقتصادين في نفس الاتجاه (كلاهما صاعد أو هابط)
+        </span>
+    </div>""", unsafe_allow_html=True)
 
-    html_table(
-        ["Pair", "Signal", "Confidence", "🎯 Daily", "📆 Weekly", "🗓️ Monthly"],
-        build_rows(df),
-        height=max(200, len(df) * 52 + 60)
-    )
+    if alignment:
+        html_table(HEADERS, build_rows(alignment), height=max(150, len(alignment) * 50 + 56))
+    else:
+        st.info("لا توجد أزواج في هذا التصنيف")
 
+    st.markdown("---")
+
+    # ═══════════════════════════════════
+    # 3 — قوة وحده
+    # ═══════════════════════════════════
+    st.markdown("""
+    <div style='background:#0f172a;border-right:3px solid #f1c40f;
+                border-radius:8px;padding:10px 16px;margin-bottom:0.75rem;'>
+        <span style='color:#f1c40f;font-size:14px;font-weight:700;'>⚡ قوة وحده</span>
+        <span style='color:#64748b;font-size:12px;margin-right:12px;'>
+            عملة واحدة متحركة والأخرى ثابتة
+        </span>
+    </div>""", unsafe_allow_html=True)
+
+    if single_move:
+        html_table(HEADERS, build_rows(single_move), height=max(150, len(single_move) * 50 + 56))
+    else:
+        st.info("لا توجد أزواج في هذا التصنيف")
+
+    st.markdown("---")
+
+    # ═══════════════════════════════════
+    # 4 — ثبات
+    # ═══════════════════════════════════
+    st.markdown("""
+    <div style='background:#0f172a;border-right:3px solid #475569;
+                border-radius:8px;padding:10px 16px;margin-bottom:0.75rem;'>
+        <span style='color:#94a3b8;font-size:14px;font-weight:700;'>➖ ثبات</span>
+        <span style='color:#64748b;font-size:12px;margin-right:12px;'>
+            لا حركة في كلا الاقتصادين
+        </span>
+    </div>""", unsafe_allow_html=True)
+
+    if stagnation:
+        html_table(HEADERS, build_rows(stagnation), height=max(150, len(stagnation) * 50 + 56))
+    else:
+        st.info("لا توجد أزواج في هذا التصنيف")
 # ══════════════════════════════════════════════════════════════
 # TAB 2 — Scalping Signals
 # ══════════════════════════════════════════════════════════════
