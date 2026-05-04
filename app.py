@@ -1,716 +1,449 @@
 import streamlit as st
-import time
-from datetime import datetime
-import random
 
-# ── Page Configuration ─────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="منصة الريحاني التعليمية",
+    page_title="منصة المَالِك التعليمية",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ── Initialize Session State ───────────────────────────────────────────────
-def init_session_state():
-    defaults = {
-        "page": "home",
-        "logged_in": False,
-        "username": "",
-        "user_email": "",
-        "q_idx": 0,
-        "score": 0,
-        "answered": False,
-        "chosen": None,
-        "quiz_done": False,
-        "q_type": "IELTS",
-        "enrolled_courses": [],
-        "watched_videos": [],
-        "quiz_scores": {"IELTS": 0, "STEP": 0},
-        "dark_mode": False,
-        "notifications": [],
-        "points": 0,
-        "badges": []
+# ── Global CSS ──────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap');
+
+* {
+    direction: rtl;
+    font-family: 'Tajawal', sans-serif !important;
+}
+
+/* Hide default Streamlit elements */
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding-top: 0 !important; max-width: 100% !important; padding-bottom: 0 !important; }
+[data-testid="stAppViewContainer"] { background: transparent; }
+[data-testid="stSidebar"] { display: none !important; }
+[data-testid="collapsedControl"] { display: none !important; }
+
+/* Page Background - Gradient similar to image */
+[data-testid="stAppViewContainer"]::before {
+    content: '';
+    position: fixed; inset: 0; z-index: -1;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+}
+
+/* Navbar */
+.navbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 3rem;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    position: sticky; top: 0; z-index: 999;
+}
+.nav-logo { font-size: 1.5rem; font-weight: 900; color: #fff; }
+.nav-logo span { color: #FFD700; }
+.nav-links { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.nav-btn {
+    border: none; border-radius: 50px; padding: 0.5rem 1.2rem;
+    font-size: 0.9rem; font-family: 'Tajawal', sans-serif;
+    cursor: pointer; transition: all 0.3s;
+    background: rgba(255,255,255,0.15); color: #fff;
+}
+.nav-btn:hover { background: rgba(255,215,0,0.3); }
+.nav-btn.active { background: #FFD700; color: #1a1a2e; font-weight: 700; }
+
+/* Hero Section */
+.hero {
+    text-align: center;
+    padding: 3rem 2rem 1rem 2rem;
+    color: #fff;
+}
+.hero h1 {
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-weight: 900;
+    margin-bottom: 0.5rem;
+}
+.hero h1 span { color: #FFD700; }
+.hero p {
+    font-size: 1rem;
+    opacity: 0.85;
+    max-width: 600px;
+    margin: 0 auto 1.5rem auto;
+}
+.hero-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.btn-primary {
+    background: #FFD700;
+    color: #1a1a2e;
+    border: none;
+    border-radius: 50px;
+    padding: 0.7rem 1.8rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(255,215,0,0.4);
+}
+.btn-outline {
+    background: transparent;
+    color: #fff;
+    border: 2px solid #FFD700;
+    border-radius: 50px;
+    padding: 0.65rem 1.8rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.btn-outline:hover {
+    background: rgba(255,215,0,0.2);
+    transform: translateY(-2px);
+}
+
+/* Section */
+.section {
+    padding: 2rem 3rem;
+}
+.section-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.2rem;
+}
+.section-subtitle {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 2rem;
+}
+
+/* Features Grid - 4 cards similar to image */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Yellow Background Cards */
+.feature-card {
+    background: #FFD700;
+    border-radius: 20px;
+    padding: 1.8rem 1.2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.feature-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+/* Icon circle */
+.feature-icon {
+    width: 65px;
+    height: 65px;
+    background: rgba(26, 26, 46, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin: 0 auto 1rem auto;
+    color: #1a1a2e;
+}
+
+.feature-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1a1a2e;
+    margin-bottom: 0.5rem;
+}
+.feature-desc {
+    font-size: 0.8rem;
+    color: #3a3a5e;
+    line-height: 1.5;
+}
+
+/* Study Plan Card */
+.study-plan {
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    text-align: center;
+}
+.study-plan-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #FFD700;
+    margin-bottom: 0.5rem;
+}
+.study-plan-text {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.8);
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    padding: 1.5rem;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.8rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 2rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
     }
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+    .section {
+        padding: 1.5rem;
+    }
+    .navbar {
+        padding: 0.8rem 1rem;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
 
-init_session_state()
+# ── Session State ─────────────────────────────────────────────────────────
+if "page" not in st.session_state:
+    st.session_state.page = "home"
 
-# ── Global CSS with Dark Mode Support ──────────────────────────────────────
-def load_css():
-    dark_mode = st.session_state.get("dark_mode", False)
-    
-    bg_gradient = "linear-gradient(160deg, #0a1172 0%, #1a2aad 40%, #2d3fc7 65%, #6C63FF 100%)" if not dark_mode else "linear-gradient(160deg, #0a0a1a 0%, #1a1a2e 40%, #16213e 65%, #0f3460 100%)"
-    card_bg = "rgba(255,255,255,0.95)" if not dark_mode else "rgba(30,30,45,0.95)"
-    text_color = "#2d2d2d" if not dark_mode else "#ffffff"
-    text_secondary = "#666666" if not dark_mode else "#aaaaaa"
-    
-    st.markdown(f"""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&family=Poppins:wght@400;600;700&display=swap');
-    
-    * {{
-        direction: rtl;
-        font-family: 'Tajawal', sans-serif !important;
-    }}
-    
-    /* Hide default Streamlit elements */
-    #MainMenu, footer, header {{ visibility: hidden; }}
-    .block-container {{ padding-top: 0 !important; max-width: 100% !important; }}
-    [data-testid="stAppViewContainer"] {{ background: transparent; }}
-    [data-testid="stSidebar"] {{ display: none !important; }}
-    [data-testid="collapsedControl"] {{ display: none !important; }}
-    
-    /* Background */
-    [data-testid="stAppViewContainer"]::before {{
-        content: '';
-        position: fixed; inset: 0; z-index: -1;
-        background: {bg_gradient};
-        transition: all 0.3s ease;
-    }}
-    
-    /* Cards and containers */
-    .wave-divider {{
-        width: 100%; overflow: hidden; line-height: 0;
-        margin-bottom: -2px;
-    }}
-    .wave-divider svg {{ display: block; width: 100%; }}
-    
-    .navbar {{
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 1rem 3rem;
-        background: rgba(255,255,255,0.12);
-        backdrop-filter: blur(14px);
-        border-bottom: 1px solid rgba(255,255,255,0.2);
-        position: sticky; top: 0; z-index: 999;
-    }}
-    
-    .nav-logo {{ font-size: 1.6rem; font-weight: 900; color: #fff; }}
-    .nav-logo span {{ color: #F5A623; }}
-    .nav-links {{ display: flex; gap: 0.5rem; flex-wrap: wrap; }}
-    
-    .section {{ padding: 2rem 3rem; }}
-    
-    .hero {{
-        min-height: 60vh; display: flex; flex-direction: column;
-        justify-content: center; padding: 3rem 3rem;
-        color: #fff;
-    }}
-    .hero h1 {{ font-size: clamp(2rem,5vw,3.5rem); font-weight: 900; line-height: 1.2; margin-bottom: 1rem; }}
-    .hero p {{ font-size: 1.1rem; opacity: .85; max-width: 520px; margin-bottom: 2rem; }}
-    
-    .hero-btn, .primary-btn {{
-        display: inline-block; background: #F5A623;
-        color: #fff; font-size: 1rem; font-weight: 700;
-        padding: 0.8rem 2rem; border-radius: 50px; border: none;
-        cursor: pointer; transition: all 0.3s ease;
-        text-decoration: none;
-    }}
-    .hero-btn:hover, .primary-btn:hover {{
-        transform: translateY(-3px);
-        box-shadow: 0 10px 30px rgba(245,166,35,0.4);
-    }}
-    
-    .stats-row {{ display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 2rem 0; }}
-    .stat-card {{
-        flex: 1; min-width: 180px;
-        background: {card_bg}; border-radius: 18px;
-        padding: 1.5rem; text-align: center;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
-    }}
-    .stat-card:hover {{ transform: translateY(-5px); }}
-    .stat-icon {{ font-size: 2rem; margin-bottom: 0.5rem; }}
-    .stat-num {{ font-size: 1.8rem; font-weight: 900; color: #6C63FF; }}
-    .stat-lbl {{ font-size: 0.9rem; color: {text_secondary}; }}
-    
-    .sec-title {{ font-size: 1.8rem; font-weight: 900; color: #fff; margin-bottom: 0.5rem; }}
-    .sec-sub {{ color: rgba(255,255,255,0.8); font-size: 1rem; margin-bottom: 2rem; }}
-    
-    .cards-grid {{ display: flex; gap: 1.5rem; flex-wrap: wrap; }}
-    .course-card {{
-        flex: 1; min-width: 250px; max-width: 320px;
-        background: {card_bg}; border-radius: 18px;
-        overflow: hidden; transition: all 0.3s ease;
-        cursor: pointer;
-    }}
-    .course-card:hover {{ transform: translateY(-8px); box-shadow: 0 15px 40px rgba(0,0,0,0.2); }}
-    
-    .card-thumb {{
-        height: 140px; display: flex; align-items: center; justify-content: center;
-        font-size: 3rem; position: relative;
-    }}
-    .card-body {{ padding: 1rem 1.2rem; }}
-    .card-badge {{
-        display: inline-block; font-size: 0.7rem; font-weight: 700;
-        padding: 0.2rem 0.7rem; border-radius: 50px; margin-bottom: 0.5rem;
-        background: rgba(108,99,255,0.15); color: #6C63FF;
-    }}
-    .card-title {{ font-size: 1rem; font-weight: 700; color: {text_color}; margin-bottom: 0.3rem; }}
-    .card-desc {{ font-size: 0.85rem; color: {text_secondary}; line-height: 1.5; }}
-    .card-footer {{
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 0.8rem 1.2rem; border-top: 1px solid rgba(0,0,0,0.05);
-    }}
-    .card-price {{ font-weight: 700; color: #F5A623; }}
-    
-    .quiz-card {{
-        background: {card_bg}; border-radius: 20px;
-        padding: 2rem; max-width: 700px; margin: 0 auto;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    }}
-    .quiz-q {{ font-size: 1.1rem; font-weight: 700; color: {text_color}; margin-bottom: 1.5rem; }}
-    
-    .progress-bar-bg {{
-        height: 8px; background: rgba(0,0,0,0.1); border-radius: 50px;
-        margin-bottom: 1.5rem; overflow: hidden;
-    }}
-    .progress-bar-fill {{
-        height: 100%; background: #F5A623; border-radius: 50px;
-        transition: width 0.3s ease;
-    }}
-    
-    .dl-card {{
-        display: flex; align-items: center; gap: 1rem;
-        background: {card_bg}; border-radius: 16px;
-        padding: 1rem 1.5rem; margin-bottom: 1rem;
-        transition: transform 0.2s ease;
-    }}
-    .dl-card:hover {{ transform: translateX(-5px); }}
-    .dl-icon {{ font-size: 2rem; }}
-    .dl-info {{ flex: 1; }}
-    .dl-name {{ font-weight: 700; color: {text_color}; }}
-    .dl-size {{ font-size: 0.8rem; color: {text_secondary}; }}
-    
-    .footer {{
-        text-align: center; padding: 1.5rem;
-        color: rgba(255,255,255,0.6); font-size: 0.85rem;
-        border-top: 1px solid rgba(255,255,255,0.1);
-        margin-top: 3rem;
-    }}
-    
-    .notification {{
-        position: fixed; top: 80px; right: 20px;
-        background: {card_bg}; padding: 1rem 1.5rem;
-        border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-        z-index: 1000; animation: slideIn 0.3s ease;
-    }}
-    
-    @keyframes slideIn {{
-        from {{ transform: translateX(100%); opacity: 0; }}
-        to {{ transform: translateX(0); opacity: 1; }}
-    }}
-    
-    .badge {{
-        display: inline-flex; align-items: center; gap: 0.5rem;
-        background: linear-gradient(135deg, #f5af19, #f12711);
-        padding: 0.3rem 0.8rem; border-radius: 50px;
-        color: white; font-size: 0.8rem; margin: 0.2rem;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-load_css()
-
-# ── Data ──────────────────────────────────────────────────────────────────
-COURSES = [
-    {"icon":"🎓","color":"linear-gradient(135deg,#667eea,#764ba2)","badge":"IELTS","title":"IELTS من الصفر للاحتراف","desc":"استعد لامتحان IELTS مع أفضل المدربين","price":"مجاني","lessons":24},
-    {"icon":"📝","color":"linear-gradient(135deg,#f093fb,#f5576c)","badge":"STEP","title":"اختبار STEP المتكامل","desc":"دورة شاملة لاختبار STEP","price":"مجاني","lessons":18},
-    {"icon":"🗣️","color":"linear-gradient(135deg,#4facfe,#00f2fe)","badge":"Speaking","title":"مهارات المحادثة","desc":"طوّر مهارة التحدث بالإنجليزية","price":"مجاني","lessons":12},
-    {"icon":"✍️","color":"linear-gradient(135deg,#43e97b,#38f9d7)","badge":"Writing","title":"الكتابة الأكاديمية","desc":"تعلم كتابة المقالات والتقارير","price":"مجاني","lessons":15},
+# ── Navigation Bar ─────────────────────────────────────────────────────────
+PAGES = [
+    ("home", "🏠 الرئيسية"),
+    ("courses", "📚 الدورات"),
+    ("videos", "🎬 الفيديوهات"),
+    ("contact", "📞 اتصل بنا")
 ]
-
-VIDEOS = [
-    {"thumb":"🎬","title":"مقدمة اختبار IELTS - الجزء الأول","dur":"18:32","views":"12,450","cat":"IELTS","url":"https://youtu.be/example1"},
-    {"thumb":"🎥","title":"أسرار قسم Writing Task 2","dur":"24:15","views":"9,820","cat":"Writing","url":"https://youtu.be/example2"},
-    {"thumb":"📹","title":"تقنيات Speaking Band 7+","dur":"21:40","views":"15,300","cat":"Speaking","url":"https://youtu.be/example3"},
-    {"thumb":"🎞️","title":"STEP اختبار - نصائح ذهبية","dur":"16:55","views":"7,650","cat":"STEP","url":"https://youtu.be/example4"},
-]
-
-QUIZ_IELTS = [
-    {"q":"ما هو الحد الأقصى لدرجة IELTS؟","opts":["9","10","8","7"],"ans":0,"explanation":"درجة IELTS تتراوح من 0 إلى 9"},
-    {"q":"أي قسم من IELTS يختبر مهارة الكتابة؟","opts":["Listening","Reading","Writing","Speaking"],"ans":2,"explanation":"قسم الكتابة هو Writing Task 1 & 2"},
-    {"q":"كم مدة قسم الاستماع في IELTS؟","opts":["40 دقيقة","30 دقيقة","60 دقيقة","20 دقيقة"],"ans":1,"explanation":"مدة الاستماع 30 دقيقة مع 10 د额外"},
-]
-
-QUIZ_STEP = [
-    {"q":"ما هي الدرجة النهائية لاختبار STEP؟","opts":["100","200","900","50"],"ans":1,"explanation":"درجة STEP من 200"},
-    {"q":"أي جملة صحيحة نحوياً؟","opts":["I am agree","I agrees","I agree","I agreeing"],"ans":2,"explanation":"I agree هي الصحيحة"},
-]
-
-DOWNLOADS = [
-    {"icon":"📄","name":"كتاب IELTS - Cambridge 18","size":"15.2 MB","type":"PDF","url":"#"},
-    {"icon":"📋","name":"قاموس مفردات IELTS","size":"3.8 MB","type":"PDF","url":"#"},
-    {"icon":"🗂️","name":"نماذج STEP مع الحلول","size":"8.5 MB","type":"PDF","url":"#"},
-]
-
-# ── Helper Functions ──────────────────────────────────────────────────────
-def add_notification(message, type="success"):
-    st.session_state.notifications.append({"message": message, "type": type, "time": datetime.now()})
-    if len(st.session_state.notifications) > 5:
-        st.session_state.notifications.pop(0)
-
-def add_points(points, reason=""):
-    st.session_state.points += points
-    add_notification(f"🎉 +{points} نقطة {reason}!")
-
-def check_badges():
-    if st.session_state.points >= 100 and "نقاطي" not in st.session_state.badges:
-        st.session_state.badges.append("نقاطي")
-        add_notification("🏅 حصلت على وسام 'نقاطي'!")
-    if len(st.session_state.enrolled_courses) >= 3 and "متعلم" not in st.session_state.badges:
-        st.session_state.badges.append("متعلم")
-        add_notification("🏅 حصلت على وسام 'متعلم'!")
 
 def render_navbar():
-    PAGES = [
-        ("home", "🏠 الرئيسية"),
-        ("courses", "📚 الكورسات"),
-        ("videos", "🎬 الفيديوهات"),
-        ("quiz", "📝 الاختبارات"),
-        ("downloads", "📥 التحميلات"),
-        ("profile", "👤 ملفي")
-    ]
-    
-    # Dark mode toggle in navbar
-    col1, col2, col3 = st.columns([2, 6, 1])
-    with col1:
-        st.markdown("<div class='nav-logo'>📚 <span>الريحاني</span></div>", unsafe_allow_html=True)
-    
-    with col2:
-        nav_cols = st.columns(len(PAGES))
-        for idx, (pid, plabel) in enumerate(PAGES):
-            with nav_cols[idx]:
-                is_active = st.session_state.page == pid
-                if st.button(plabel, key=f"nav_{pid}", 
-                           type="primary" if is_active else "secondary",
-                           use_container_width=True):
-                    st.session_state.page = pid
-                    st.query_params["page"] = pid
-                    st.rerun()
-    
-    with col3:
-        dark_icon = "🌙" if not st.session_state.dark_mode else "☀️"
-        if st.button(dark_icon, key="dark_mode_toggle"):
-            st.session_state.dark_mode = not st.session_state.dark_mode
-            st.rerun()
+    nav_html = '<div class="navbar"><div class="nav-logo">📚 <span>منصة المَالِك</span> التعليمية</div><div class="nav-links">'
+    for pid, plabel in PAGES:
+        cls = "nav-btn active" if st.session_state.page == pid else "nav-btn"
+        nav_html += f'<button class="{cls}" onclick="window.location.href=\'?page={pid}\'">{plabel}</button>'
+    nav_html += '</div></div>'
+    st.markdown(nav_html, unsafe_allow_html=True)
 
-def enroll_course(course_title):
-    if st.session_state.logged_in:
-        if course_title not in st.session_state.enrolled_courses:
-            st.session_state.enrolled_courses.append(course_title)
-            add_points(50, f"للتسجيل في كورس {course_title}")
-            check_badges()
-            add_notification(f"✅ تم تسجيلك في كورس {course_title} بنجاح!")
-            return True
-        else:
-            add_notification(f"ℹ️ أنت مسجل بالفعل في كورس {course_title}", "info")
-            return False
-    else:
-        add_notification("⚠️ يرجى تسجيل الدخول أولاً للتسجيل في الكورسات", "warning")
-        return False
+# Read URL param
+params = st.query_params
+if "page" in params:
+    st.session_state.page = params["page"]
 
-# ── Pages ─────────────────────────────────────────────────────────────────
-def home_page():
+render_navbar()
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HOME PAGE - Similar to the image
+# ═══════════════════════════════════════════════════════════════════════════
+if st.session_state.page == "home":
+    
+    # Hero Section
     st.markdown("""
     <div class="hero">
-        <h1>منصة الريحاني<br>التعليمية 🎓</h1>
-        <p>طوّر مهاراتك في اللغة الإنجليزية واستعد لامتحانات IELTS و STEP مع أفضل المدربين</p>
+        <h1>📚 <span>منصة المَالِك</span> التعليمية</h1>
+        <p>نقدم دورات في اللغة الإنجليزية مصممة خصيصاً لتتناسب مع جميع المستويات<br>ونوفر لك جميع خدمات تعليمية استثنائية</p>
+        <div class="hero-buttons">
+            <button class="btn-primary">📖 تصفح جميع دوراتنا</button>
+            <button class="btn-outline">🎯 تعلم طريقة الاستشراف</button>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Stats
-    st.markdown('<div class="stats-row">', unsafe_allow_html=True)
-    stats = [
-        ("👨‍🎓", "+5,000", "طالب مسجل"),
-        ("📚", "60+", "دورة تعليمية"),
-        ("🎬", "200+", "فيديو تعليمي"),
-        ("⭐", "4.9", "تقييم الطلاب")
-    ]
-    for icon, num, label in stats:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div class="stat-icon">{icon}</div>
-            <div class="stat-num">{num}</div>
-            <div class="stat-lbl">{label}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Featured Courses
-    st.markdown('<p class="sec-title">📘 أشهر كورساتنا</p>', unsafe_allow_html=True)
-    cols = st.columns(4)
-    for idx, course in enumerate(COURSES[:4]):
-        with cols[idx]:
-            with st.container():
-                st.markdown(f"""
-                <div class="course-card">
-                    <div class="card-thumb" style="background:{course['color']}">{course['icon']}</div>
-                    <div class="card-body">
-                        <span class="card-badge">{course['badge']}</span>
-                        <div class="card-title">{course['title']}</div>
-                        <div class="card-desc">{course['desc']}</div>
-                    </div>
-                    <div class="card-footer">
-                        <span class="card-price">🎁 {course['price']} | {course['lessons']} درس</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button(f"انضم الآن", key=f"enroll_home_{idx}", use_container_width=True):
-                    if enroll_course(course['title']):
-                        st.rerun()
-
-def courses_page():
+    # Features Section - 4 Yellow Cards
     st.markdown('<div class="section">', unsafe_allow_html=True)
-    st.markdown('<p class="sec-title">📚 جميع الكورسات التعليمية</p>', unsafe_allow_html=True)
     
-    # Filter by category
-    categories = ["الكل", "IELTS", "STEP", "Speaking", "Writing"]
-    selected_cat = st.selectbox("🔍 تصفية حسب:", categories, key="course_filter")
+    # The 4 cards as in the image
+    features = [
+        {
+            "icon": "📅",
+            "title": "جدول دراسية\nخطة وصول دراسية",
+            "desc": "مخصصة تناسب وقتك\nوأهدافك التعليمية"
+        },
+        {
+            "icon": "⚡",
+            "title": "تدريب فوري",
+            "desc": "تمارين واختبارات بعد كل درس\nلتطبيق ما تعلمته"
+        },
+        {
+            "icon": "👨‍🏫",
+            "title": "مدربون خبراء",
+            "desc": "شرح سلس من مدربين\nمختصين في شرح التقنيات\nاللازمة"
+        },
+        {
+            "icon": "🎯",
+            "title": "دورات مختلفة",
+            "desc": "دورات مختلفة لتحقيق نتائج\nسريعة في وقت قصير"
+        }
+    ]
     
-    filtered = COURSES if selected_cat == "الكل" else [c for c in COURSES if c['badge'] == selected_cat]
-    
-    for course in filtered:
-        col1, col2, col3 = st.columns([4, 2, 1])
-        with col1:
+    # Create 4 cards grid
+    cols = st.columns(4)
+    for idx, feature in enumerate(features):
+        with cols[idx]:
             st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.1); border-radius:12px; padding:1rem; margin-bottom:1rem">
-                <div style="font-size:1.2rem; font-weight:bold">{course['icon']} {course['title']}</div>
-                <div style="font-size:0.85rem; opacity:0.8">{course['desc']}</div>
-                <div style="margin-top:0.5rem">
-                    <span class="card-badge">{course['badge']}</span>
-                    <span style="margin-right:1rem">📊 {course['lessons']} درس</span>
-                </div>
+            <div class="feature-card">
+                <div class="feature-icon">{feature['icon']}</div>
+                <div class="feature-title">{feature['title']}</div>
+                <div class="feature-desc">{feature['desc']}</div>
             </div>
             """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"<div style='padding:1rem'><span class='card-price'>🎁 {course['price']}</span></div>", unsafe_allow_html=True)
-        with col3:
-            enrolled = course['title'] in st.session_state.enrolled_courses
-            btn_text = "✅ مسجل" if enrolled else "📝 انضم الآن"
-            if st.button(btn_text, key=f"enroll_{course['title']}", use_container_width=True, disabled=enrolled):
-                if enroll_course(course['title']):
-                    st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Optional: Study Plan Section (like in the image)
+    st.markdown("""
+    <div class="section">
+        <div class="study-plan">
+            <div class="study-plan-title">📋 جدول دراسي مخصص</div>
+            <div class="study-plan-text">خطط دراسية مرنة تناسب وقتك وتساعدك على تحقيق أهدافك التعليمية بفعالية</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Footer
+    st.markdown("""
+    <div class="footer">
+        © 2025 منصة المَالِك التعليمية — جميع الحقوق محفوظة
+    </div>
+    """, unsafe_allow_html=True)
 
-def videos_page():
+# ═══════════════════════════════════════════════════════════════════════════
+# COURSES PAGE
+# ═══════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "courses":
     st.markdown('<div class="section">', unsafe_allow_html=True)
-    st.markdown('<p class="sec-title">🎬 مكتبة الفيديوهات</p>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📚 جميع دوراتنا</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">اختر الدورة المناسبة لك وابدأ رحلة التعلم</div>', unsafe_allow_html=True)
     
-    # Search
-    search = st.text_input("🔍 ابحث عن فيديو...", placeholder="اكتب عنوان الفيديو", key="video_search")
+    courses = [
+        {"name": "IELTS Master", "level": "متقدم", "hours": 40, "icon": "🎓"},
+        {"name": "STEP Preparation", "level": "متوسط", "hours": 30, "icon": "📝"},
+        {"name": "English Speaking", "level": "مبتدئ", "hours": 25, "icon": "🗣️"},
+        {"name": "Writing Skills", "level": "متوسط", "hours": 20, "icon": "✍️"},
+    ]
     
-    filtered = [v for v in VIDEOS if search.lower() in v['title'].lower()] if search else VIDEOS
-    
-    for video in filtered:
+    for course in courses:
         with st.container():
-            col1, col2 = st.columns([3, 1])
+            col1, col2, col3 = st.columns([3, 1, 1])
             with col1:
                 st.markdown(f"""
                 <div style="background:rgba(255,255,255,0.1); border-radius:12px; padding:1rem; margin-bottom:1rem">
                     <div style="display:flex; gap:1rem; align-items:center">
-                        <div style="font-size:2.5rem">{video['thumb']}</div>
+                        <div style="font-size:2rem">{course['icon']}</div>
                         <div>
-                            <div style="font-weight:bold">{video['title']}</div>
-                            <div style="font-size:0.8rem; opacity:0.7">
-                                ⏱ {video['dur']} | 👁 {video['views']} مشاهدة | {video['cat']}
-                            </div>
+                            <div style="font-weight:bold; color:#FFD700">{course['name']}</div>
+                            <div style="font-size:0.8rem; opacity:0.7">المستوى: {course['level']} | {course['hours']} ساعة</div>
                         </div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
             with col2:
-                if st.button("▶ شاهد الآن", key=f"watch_{video['title']}", use_container_width=True):
-                    add_points(10, f"لمشاهدة فيديو {video['title'][:20]}")
-                    if video['title'] not in st.session_state.watched_videos:
-                        st.session_state.watched_videos.append(video['title'])
-                    add_notification(f"🎬 جارٍ تشغيل: {video['title']}")
-                    st.video(video['url'] if 'url' in video else "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+                st.markdown('<div style="padding:1rem">🎁 مجاني</div>', unsafe_allow_html=True)
+            with col3:
+                st.button("انضم الآن", key=f"join_{course['name']}")
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-def quiz_page():
+# ═══════════════════════════════════════════════════════════════════════════
+# VIDEOS PAGE
+# ═══════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "videos":
     st.markdown('<div class="section">', unsafe_allow_html=True)
-    st.markdown('<p class="sec-title">📝 اختبر معلوماتك</p>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">🎬 الفيديوهات التعليمية</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">أكثر من 100 فيديو تعليمي لمساعدتك في رحلة التعلم</div>', unsafe_allow_html=True)
     
-    # Quiz type selector
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🎓 اختبار IELTS", use_container_width=True, type="primary" if st.session_state.q_type == "IELTS" else "secondary"):
-            st.session_state.q_type = "IELTS"
-            st.session_state.q_idx = 0
-            st.session_state.score = 0
-            st.session_state.answered = False
-            st.session_state.quiz_done = False
-            st.rerun()
-    with col2:
-        if st.button("📋 اختبار STEP", use_container_width=True, type="primary" if st.session_state.q_type == "STEP" else "secondary"):
-            st.session_state.q_type = "STEP"
-            st.session_state.q_idx = 0
-            st.session_state.score = 0
-            st.session_state.answered = False
-            st.session_state.quiz_done = False
-            st.rerun()
+    videos = [
+        {"title": "مقدمة في اختبار IELTS", "duration": "25:30", "icon": "🎬"},
+        {"title": "أساسيات قواعد اللغة الإنجليزية", "duration": "18:45", "icon": "📹"},
+        {"title": "تقنيات التحدث للمبتدئين", "duration": "22:15", "icon": "🎥"},
+        {"title": "كيفية كتابة المقالات", "duration": "20:00", "icon": "📽️"},
+    ]
     
-    st.markdown("---")
-    
-    questions = QUIZ_IELTS if st.session_state.q_type == "IELTS" else QUIZ_STEP
-    total = len(questions)
-    
-    if st.session_state.quiz_done:
-        percentage = int((st.session_state.score / total) * 100)
-        emoji = "🏆" if percentage >= 80 else ("👍" if percentage >= 50 else "📚")
-        
-        st.markdown(f"""
-        <div class="quiz-card" style="text-align:center">
-            <div style="font-size:3rem">{emoji}</div>
-            <div style="font-size:1.5rem; font-weight:bold; margin:1rem 0">
-                نتيجتك: {st.session_state.score}/{total}
-            </div>
-            <div class="progress-bar-bg">
-                <div class="progress-bar-fill" style="width:{percentage}%"></div>
-            </div>
-            <div style="font-size:1rem; color:#666">{'ممتاز! 🎉' if percentage >= 80 else ('جيد، استمر 💪' if percentage >= 50 else 'راجع المادة وحاول مرة أخرى 📖')}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("🔄 إعادة الاختبار", use_container_width=False):
-            st.session_state.q_idx = 0
-            st.session_state.score = 0
-            st.session_state.quiz_done = False
-            st.rerun()
-        
-        # Save score
-        if st.session_state.score > st.session_state.quiz_scores.get(st.session_state.q_type, 0):
-            st.session_state.quiz_scores[st.session_state.q_type] = st.session_state.score
-            points_earned = st.session_state.score * 10
-            add_points(points_earned, f"في اختبار {st.session_state.q_type}")
-            check_badges()
-    else:
-        idx = st.session_state.q_idx
-        q = questions[idx]
-        progress = (idx / total) * 100
-        
-        st.markdown(f"""
-        <div class="quiz-card">
-            <div style="display:flex; justify-content:space-between; margin-bottom:1rem">
-                <span>📋 سؤال {idx+1} من {total}</span>
-                <span>🎯 {st.session_state.q_type}</span>
-            </div>
-            <div class="progress-bar-bg">
-                <div class="progress-bar-fill" style="width:{progress}%"></div>
-            </div>
-            <div class="quiz-q">{q['q']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        for i, opt in enumerate(q["opts"]):
-            btn_text = opt
-            if st.session_state.answered:
-                if i == q["ans"]:
-                    btn_text = f"✅ {opt}"
-                elif i == st.session_state.chosen:
-                    btn_text = f"❌ {opt}"
-            
-            if st.button(btn_text, key=f"quiz_opt_{idx}_{i}", use_container_width=True, disabled=st.session_state.answered):
-                st.session_state.chosen = i
-                st.session_state.answered = True
-                if i == q["ans"]:
-                    st.session_state.score += 1
-                    st.success("✅ إجابة صحيحة!")
-                else:
-                    st.error(f"❌ إجابة خاطئة! الصحيح: {q['opts'][q['ans']]}")
-                if 'explanation' in q:
-                    st.info(f"💡 {q['explanation']}")
-                st.rerun()
-        
-        if st.session_state.answered:
-            if idx + 1 < total:
-                if st.button("➡️ السؤال التالي", type="primary", use_container_width=True):
-                    st.session_state.q_idx += 1
-                    st.session_state.answered = False
-                    st.session_state.chosen = None
-                    st.rerun()
-            else:
-                if st.button("🏁 إنهاء الاختبار وعرض النتيجة", type="primary", use_container_width=True):
-                    st.session_state.quiz_done = True
-                    st.rerun()
-
-def downloads_page():
-    st.markdown('<div class="section">', unsafe_allow_html=True)
-    st.markdown('<p class="sec-title">📥 ملفات التحميل</p>', unsafe_allow_html=True)
-    
-    # Filters
-    col1, col2 = st.columns(2)
-    with col1:
-        file_type = st.selectbox("📄 نوع الملف", ["الكل", "PDF", "ZIP"])
-    with col2:
-        search = st.text_input("🔍 بحث", placeholder="اسم الملف...")
-    
-    filtered = DOWNLOADS
-    if search:
-        filtered = [d for d in filtered if search.lower() in d['name'].lower()]
-    if file_type != "الكل":
-        filtered = [d for d in filtered if d['type'] == file_type]
-    
-    for file in filtered:
-        col1, col2, col3 = st.columns([5, 2, 1])
+    for video in videos:
+        col1, col2 = st.columns([4, 1])
         with col1:
             st.markdown(f"""
-            <div class="dl-card">
-                <div class="dl-icon">{file['icon']}</div>
-                <div class="dl-info">
-                    <div class="dl-name">{file['name']}</div>
-                    <div class="dl-size">📦 {file['size']} | {file['type']}</div>
+            <div style="background:rgba(255,255,255,0.1); border-radius:12px; padding:0.8rem 1rem; margin-bottom:0.8rem">
+                <div style="display:flex; gap:1rem; align-items:center">
+                    <div style="font-size:1.8rem">{video['icon']}</div>
+                    <div>
+                        <div style="font-weight:bold">{video['title']}</div>
+                        <div style="font-size:0.75rem; opacity:0.6">⏱ {video['duration']}</div>
+                    </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
         with col2:
-            if st.session_state.logged_in:
-                st.download_button(
-                    label="⬇️ تحميل",
-                    data=f"محاكاة لملف {file['name']}",
-                    file_name=file['name'].replace(" ", "_") + ".pdf",
-                    mime="application/pdf",
-                    key=f"dl_{file['name']}"
-                )
-            else:
-                st.info("🔐 سجل دخولك للتحميل")
-        with col3:
-            if st.button("⭐", key=f"fav_{file['name']}"):
-                add_points(5, "لإضافة ملف للمفضلة")
-                add_notification(f"📌 تمت إضافة {file['name']} إلى المفضلة")
+            st.button("▶ مشاهدة", key=f"watch_{video['title']}")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-def profile_page():
+# ═══════════════════════════════════════════════════════════════════════════
+# CONTACT PAGE
+# ═══════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "contact":
     st.markdown('<div class="section">', unsafe_allow_html=True)
     
-    if not st.session_state.logged_in:
-        # Login Form
+    col1, col2 = st.columns(2)
+    with col1:
         st.markdown("""
-        <div style="max-width:400px; margin:2rem auto">
-            <div class="quiz-card">
-                <div style="text-align:center">
-                    <div style="font-size:3rem">🔐</div>
-                    <h2>تسجيل الدخول</h2>
+        <div style="background:rgba(255,255,255,0.1); border-radius:20px; padding:2rem">
+            <div style="text-align:center">
+                <div style="font-size:3rem">📞</div>
+                <div class="section-title">تواصل معنا</div>
+                <div style="margin-top:1rem">
+                    <p>📍 مصر - القاهرة</p>
+                    <p>📧 info@malek-platform.com</p>
+                    <p>📱 +20 123 456 789</p>
                 </div>
+            </div>
         </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div style="background:rgba(255,255,255,0.1); border-radius:20px; padding:2rem">
+            <div style="text-align:center">
+                <div style="font-size:3rem">💬</div>
+                <div class="section-title">راسلنا</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         
-        with st.form("login_form"):
-            username = st.text_input("👤 اسم المستخدم", placeholder="أدخل اسم المستخدم")
-            email = st.text_input("📧 البريد الإلكتروني", placeholder="example@email.com")
-            password = st.text_input("🔑 كلمة المرور", type="password", placeholder="أدخل كلمة المرور")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                login_btn = st.form_submit_button("✅ دخول", use_container_width=True, type="primary")
-            with col2:
-                register_btn = st.form_submit_button("📝 إنشاء حساب", use_container_width=True)
-            
-            if login_btn:
-                if username and password:
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-                    st.session_state.user_email = email
-                    add_points(100, "للتسجيل في المنصة")
-                    add_notification(f"✨ مرحباً {username}! أهلاً بك في منصة الريحاني")
-                    check_badges()
-                    st.rerun()
-                else:
-                    st.error("❌ الرجاء إدخال جميع البيانات")
-            
-            if register_btn:
-                st.info("📧 سيتم إرسال رابط التأكيد إلى بريدك الإلكتروني")
-    else:
-        # Profile Info
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.markdown(f"""
-            <div class="quiz-card" style="text-align:center">
-                <div style="font-size:4rem">👤</div>
-                <h3>{st.session_state.username}</h3>
-                <p>{st.session_state.user_email}</p>
-                <hr>
-                <div class="stat-num">{st.session_state.points}</div>
-                <div>🏆 النقاط</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("### 📊 إحصائياتي")
-            
-            # Stats
-            col_a, col_b, col_c = st.columns(3)
-            with col_a:
-                st.metric("📚 كورسات مسجل بها", len(st.session_state.enrolled_courses))
-            with col_b:
-                st.metric("🎬 فيديوهات شاهدتها", len(st.session_state.watched_videos))
-            with col_c:
-                best_score = max(st.session_state.quiz_scores.values()) if st.session_state.quiz_scores else 0
-                st.metric("🏆 أفضل درجة", f"{best_score}")
-            
-            # Badges
-            if st.session_state.badges:
-                st.markdown("### 🏅 الأوسمة")
-                badges_html = ""
-                for badge in st.session_state.badges:
-                    badges_html += f'<span class="badge">🏅 {badge}</span>'
-                st.markdown(badges_html, unsafe_allow_html=True)
-            
-            # Enrolled Courses
-            if st.session_state.enrolled_courses:
-                st.markdown("### ✅ الكورسات المسجل بها")
-                for course in st.session_state.enrolled_courses:
-                    st.markdown(f"- 📖 {course}")
-            
-            # Logout button
-            if st.button("🚪 تسجيل الخروج", use_container_width=True, type="secondary"):
-                st.session_state.logged_in = False
-                st.session_state.username = ""
-                st.session_state.user_email = ""
-                st.session_state.enrolled_courses = []
-                st.rerun()
+        with st.form("contact_form"):
+            name = st.text_input("الاسم")
+            email = st.text_input("البريد الإلكتروني")
+            message = st.text_area("الرسالة")
+            submitted = st.form_submit_button("إرسال", use_container_width=True)
+            if submitted:
+                st.success("تم إرسال رسالتك بنجاح! سنتواصل معك قريباً")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# ── Main App ──────────────────────────────────────────────────────────────
-def main():
-    # Handle query params
-    params = st.query_params
-    if "page" in params:
-        st.session_state.page = params["page"]
-    
-    # Render navbar
-    render_navbar()
-    
-    # Show notifications
-    if st.session_state.notifications:
-        latest = st.session_state.notifications[-1]
-        st.toast(latest['message'], icon="✅" if latest['type'] == "success" else "ℹ️")
-    
-    # Page routing
-    pages = {
-        "home": home_page,
-        "courses": courses_page,
-        "videos": videos_page,
-        "quiz": quiz_page,
-        "downloads": downloads_page,
-        "profile": profile_page
-    }
-    
-    current_page = pages.get(st.session_state.page, home_page)
-    current_page()
-    
-    # Footer
-    st.markdown(f"""
-    <div class="footer">
-        © 2025 منصة الريحاني التعليمية — جميع الحقوق محفوظة
-        <br>
-        <small>🌟 لديك {st.session_state.points} نقطة | {len(st.session_state.badges)} وسام</small>
-    </div>
-    """, unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
+# Handle sidebar for mobile fallback
+with st.sidebar:
+    st.markdown("## 📚 منصة المَالِك")
+    for pid, plabel in PAGES:
+        if st.button(plabel, key=f"side_{pid}", use_container_width=True):
+            st.session_state.page = pid
+            st.query_params["page"] = pid
+            st.rerun()
