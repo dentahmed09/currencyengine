@@ -34,12 +34,45 @@ html, body, [class*="css"] {
 .block-container { padding-top: 0 !important; max-width: 100% !important; }
 [data-testid="stAppViewContainer"] { background: transparent; }
 
+/* ── hide sidebar completely ── */
+[data-testid="stSidebar"] { display: none !important; }
+[data-testid="collapsedControl"] { display: none !important; }
+
 /* ── page background ── */
 [data-testid="stAppViewContainer"]::before {
   content: '';
   position: fixed; inset: 0; z-index: -1;
-  background: linear-gradient(135deg, var(--grad1) 0%, var(--grad2) 50%, var(--grad3) 100%);
+  background: linear-gradient(160deg, #0a1172 0%, #1a2aad 40%, #2d3fc7 65%, #6C63FF 100%);
 }
+
+/* ── wave divider ── */
+.wave-divider {
+  width: 100%; overflow: hidden; line-height: 0;
+  margin-bottom: -2px;
+}
+.wave-divider svg { display: block; width: 100%; }
+
+/* ── feature cards (Mulhim-style) ── */
+.features-section {
+  background: #fff; padding: 3rem 3rem 2rem; margin: 0;
+}
+.features-grid {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 1.5rem; max-width: 1100px; margin: auto;
+}
+.feature-card {
+  background: #fff; border-radius: 16px; padding: 2rem 1.5rem; text-align: center;
+  box-shadow: 0 4px 30px rgba(26,42,173,.1);
+  border: 1px solid rgba(26,42,173,.08);
+  transition: transform .25s, box-shadow .25s;
+}
+.feature-card:hover { transform: translateY(-8px); box-shadow: 0 16px 50px rgba(26,42,173,.18); }
+.feature-icon {
+  width: 64px; height: 64px; border-radius: 16px;
+  background: rgba(26,42,173,.08); display: flex; align-items: center; justify-content: center;
+  font-size: 1.9rem; margin: 0 auto 1.1rem;
+}
+.feature-title { font-size: 1.1rem; font-weight: 800; color: #0a1172; margin-bottom: .5rem; }
+.feature-desc  { font-size: .88rem; color: #666; line-height: 1.6; }
 
 /* ── nav bar ── */
 .navbar {
