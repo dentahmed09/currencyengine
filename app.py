@@ -5,7 +5,7 @@ import time
 
 # ── Page Configuration ─────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="منصة المَالِك التعليمية",
+    page_title="منصة الريحاني التعليمية",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -584,7 +584,7 @@ def render_navbar():
     
     col1, col2, col3 = st.columns([2, 6, 1.5])
     with col1:
-        st.markdown("<div class='nav-logo'>📚 <span>منصة المَالِك</span></div>", unsafe_allow_html=True)
+        st.markdown("<div class='nav-logo'>📚 <span>منصة الريحاني</span></div>", unsafe_allow_html=True)
     
     with col2:
         nav_cols = st.columns(len(pages))
@@ -609,7 +609,7 @@ def home_page():
     # Hero Section
     st.markdown("""
     <div class="hero">
-        <h1>📚 <span>منصة المَالِك</span> التعليمية</h1>
+        <h1>📚 <span>منصة الريحاني</span> التعليمية</h1>
         <p>نقدم دورات في اللغة الإنجليزية مصممة خصيصاً لتتناسب مع جميع المستويات<br>
         ونوفر لك جميع خدمات تعليمية استثنائية لتحقيق أهدافك</p>
         <div class="hero-buttons">
@@ -1149,7 +1149,7 @@ def main():
     # Footer
     st.markdown(f"""
     <div class="footer">
-        © 2025 منصة المَالِك التعليمية — جميع الحقوق محفوظة
+        © 2025 منصة الريحاني التعليمية — جميع الحقوق محفوظة
         <br>
         <small>🌟 {st.session_state.points} نقطة | {len(st.session_state.badges)} وسام | {len(st.session_state.enrolled_courses)} كورس</small>
     </div>
